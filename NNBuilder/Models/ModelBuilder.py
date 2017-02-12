@@ -38,6 +38,7 @@ def Model_Constructor(configuration, datastream):
     gparams = T.grad(cost, params)
     updates = [(param, param - configuration['learning_rate'] * gparam)
                for param, gparam in zip(params, gparams)]
+    print gparams
     print 'Compiling Training Model'
     train_model = theano.function(inputs=[iteration_train],
                                   outputs=NNB_model.cost(Y),
@@ -75,7 +76,10 @@ def Model_Constructor(configuration, datastream):
     print 'Compiling Sampling Model'
     sample_model = theano.function(inputs=[X,Y],
                                  outputs=[NNB_model.pred_Y,NNB_model.cost(Y),NNB_model.error(Y)])
-    print 'Compiling Model'
-    model = theano.function(inputs=[X],
+    print 'Compiling Debug Model'
+    debug_model = theano.function(inputs=[X],
                             outputs=NNB_model.pred_Y)
-    return [train_model, valid_model, test_model, sample_model, model, NNB_model, n_train_batches, n_valid_batches,n_test_batches]
+    print 'Compiling Model'
+    model = theano.function(inputs=[X,Y],
+                            outputs=updates[1])
+    return [train_model, valid_model, test_model, sample_model, debug_model,model, NNB_model, n_train_batches, n_valid_batches,n_test_batches]

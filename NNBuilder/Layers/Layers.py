@@ -121,7 +121,7 @@ class Layer_Tools:
         return cost_dict[cost_func](Y,outputs,wt_packs,l0,l1,l2)
     @staticmethod
     def square_cost(Y_reshaped,outputs_reshaped,wt_packs,l0,l1,l2):
-        return T.mean(T.square(Y_reshaped -outputs_reshaped))/2+Layer_Tools.regularization(wt_packs,l0,l1,l2)
+        return T.sum(T.square(Y_reshaped -outputs_reshaped))/2+Layer_Tools.regularization(wt_packs,l0,l1,l2)
     @staticmethod
     def neglog_cost(Y_reshaped,outputs_reshaped,wt_packs,l0,l1,l2):
         return -1*T.mean(T.log(outputs_reshaped))+Layer_Tools.regularization(wt_packs,l0,l1,l2)

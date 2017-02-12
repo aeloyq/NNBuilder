@@ -1,2 +1,2 @@
 import Visualization
-__all__=['Visualization.py']
+__all__=['Visualization']

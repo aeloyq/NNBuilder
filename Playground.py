@@ -9,7 +9,7 @@ import conf
 import NNBuilder as nnb
 
 if __name__ == '__main__':
-    global conf, data_stream, model_stream, total_epochs, errors, costs, x_axis, plt
+    global conf, data_stream, model_stream,result_stream,vision_return
     conf = conf.get_conf_xor()
     data_stream = conf['data_pre'](conf)
     model_stream = nnb.Models.ModelBuilder.Model_Constructor(conf, data_stream)

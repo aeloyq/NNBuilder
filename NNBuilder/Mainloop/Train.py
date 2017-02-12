@@ -9,7 +9,7 @@ import timeit
 import numpy as np
 
 def Train(configuration, model_stream, datastream):
-    train_model,valid_model,test_model,sample_model,model,classifier,n_train_batches,n_valid_batches,n_test_batches=model_stream
+    train_model,valid_model,test_model,sample_model,debug_model,model,classifier,n_train_batches,n_valid_batches,n_test_batches=model_stream
     start_time=timeit.default_timer()
     print "Trainning Model"
     sample_data=[datastream[0],datastream[3]]
