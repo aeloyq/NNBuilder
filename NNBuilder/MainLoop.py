@@ -4,12 +4,12 @@ Created on Mon Dec 19 19:37:12 2016
 
 @author: aeloyq
 """
-
+#TODO:类化，装饰器加入，处理extension
 import timeit
 import numpy as np
 
 def Train(configuration, model_stream, datastream):
-    train_model,valid_model,test_model,sample_model,debug_model,model,classifier,n_train_batches,n_valid_batches,n_test_batches=model_stream
+    train_model,valid_model,test_model,sample_model,debug_model,model,classifier,n_train_batches,n_valid_batches,n_test_batches,theta=model_stream
     start_time=timeit.default_timer()
     print "Trainning Model"
     sample_data=[datastream[0],datastream[3]]
@@ -89,7 +89,7 @@ def Train(configuration, model_stream, datastream):
             break
     print "Finall model:"
     test_error=np.mean([test_model(i) for i in range(1,n_test_batches+1)]);
-    for params in classifier.wt_packs:
+    for params in theta:
         for param in params:
             print param.get_value()
     print "Trainning finished after epoch:",epoches

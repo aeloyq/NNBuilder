@@ -1,2 +1,2 @@
-import ModelBuilder
-__all__=['ModelBuilder']
+import LogisticRegression
+__all__=['LogisticRegression']

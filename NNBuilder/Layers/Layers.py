@@ -39,6 +39,8 @@ class Layer:
     def set_inputs(self,Inputs_X):
         self.Inputs=Inputs_X
         self.output_func()
+    def set_name(self,name):
+        self.name=name
 
 ''' setup base hidden layer '''
 
@@ -50,24 +52,20 @@ class Hidden_Layer(Layer):
 
 class Output_Layer(Layer):
     Hidden_Layer_Struct=[];Cost_func='square'
-    def __init__(self,Rng,N_in,N_out,Raw_Input=None,l0=0.,l1=0.,l2=0.,Wt=None,Bi=None,Wt_init='uniform',Bi_init='zeros',Hidden_Layer_Struct=[],Cost_func='square',Activation=T.nnet.sigmoid):
-        Layer.__init__(self,Rng,N_in,N_out,Wt,Bi,Wt_init,Bi_init,Activation)        
-        self.Raw_Input=Raw_Input
+    def __init__(self,Rng,N_in,N_out,l0=0.,l1=0.,l2=0.,Wt=None,Bi=None,Wt_init='uniform',Bi_init='zeros',Hidden_Layer_Struct=[],Cost_func='square',Activation=T.nnet.sigmoid):
+        Layer.__init__(self,Rng,N_in,N_out,Wt,Bi,Wt_init,Bi_init,Activation)
         self.l0=l0
         self.l1=l1
         self.l2=l2
         self.Hidden_Layer_Struct=Hidden_Layer_Struct
         self.Cost_func=Cost_func
-        self.calc()
-        self.predict()
-    def calc(self):
-        self.outputs,self.wt_packs,self.model=Layer_Tools.builder(self.Raw_Input,self.Hidden_Layer_Struct,[self.params,self.Activation])
     def output_func(self):
-        pass
+        Layer.output_func(self)
+        self.predict()
     def predict(self):
         self.pred_Y=T.round(self.outputs)
-    def cost(self,Y):
-        return Layer_Tools.cost(T.reshape(Y,[Y.shape[0],1]),self.Cost_func,self.outputs,self.wt_packs,self.l0,self.l1,self.l2)
+    def cost(self,Y,wt_packs):
+        return Layer_Tools.cost(T.reshape(Y,[Y.shape[0],1]),self.Cost_func,self.outputs,wt_packs,self.l0,self.l1,self.l2)
     def error(self,Y):
         return Layer_Tools.errors(T.reshape(Y,[Y.shape[0],1]),self.pred_Y)
 
@@ -118,129 +116,17 @@ class Layer_Tools:
     @staticmethod
     def cost(Y,cost_func,outputs,wt_packs,l0,l1,l2):
         cost_dict={'square':Layer_Tools.square_cost,'neglog':Layer_Tools.neglog_cost,'cross_entropy':Layer_Tools.cross_entropy_cost}
-        return cost_dict[cost_func](Y,outputs,wt_packs,l0,l1,l2)
+        return cost_dict[cost_func](Y,outputs)+Layer_Tools.regularization(wt_packs,l0,l1,l2)
     @staticmethod
-    def square_cost(Y_reshaped,outputs_reshaped,wt_packs,l0,l1,l2):
-        return T.sum(T.square(Y_reshaped -outputs_reshaped))/2+Layer_Tools.regularization(wt_packs,l0,l1,l2)
+    def square_cost(Y_reshaped,outputs_reshaped):
+        return T.sum(T.square(Y_reshaped -outputs_reshaped))/2
     @staticmethod
-    def neglog_cost(Y_reshaped,outputs_reshaped,wt_packs,l0,l1,l2):
-        return -1*T.mean(T.log(outputs_reshaped))+Layer_Tools.regularization(wt_packs,l0,l1,l2)
+    def neglog_cost(Y_reshaped,outputs_reshaped):
+        return -T.mean(T.log(outputs_reshaped))
     @staticmethod
-    def cross_entropy_cost(Y_reshaped,outputs_reshaped,wt_packs,l0,l1,l2):
-        return -T.mean(Y_reshaped*T.log(outputs_reshaped)+(1-Y_reshaped)*T.log(1-outputs_reshaped))+Layer_Tools.regularization(wt_packs,l0,l1,l2)
+    def cross_entropy_cost(Y_reshaped,outputs_reshaped):
+        return -T.mean(Y_reshaped*T.log(outputs_reshaped)+(1-Y_reshaped)*T.log(1-outputs_reshaped))
     # calculate the error rates
     @staticmethod    
     def errors(Y_reshaped,pred_Y):
         return T.mean(T.neq(pred_Y, Y_reshaped))
-    # decode the hidden and output layer struct pack and trans them into a model
-    @staticmethod    
-    def builder(Raw_Input,Hidden_Layer_Struct,Output_Layer_param):
-        operation_count=index_count=0
-        input_dict={'raw':Raw_Input}
-        model=[]
-        last_outputs=None
-        wt_pack=[]
-        builder_dict=['+','*','&'] 
-        for unit in Hidden_Layer_Struct:
-            if (unit not in builder_dict):
-                model.append(unit[0][0](*unit[0][1]))
-                model[-1].set_inputs(input_dict[unit[2]])
-                wt_pack.append(model[-1].params)
-                input_dict[unit[1]]=model[-1].outputs
-                index_pointer=index_count
-                last_outputs=model[-1].outputs
-                unit_to_operate=unit
-                for i in range(operation_count):
-                    index_pointer+=1
-                    n=unit_to_operate[3]-1
-                    unit_to_operate=Hidden_Layer_Struct[index_pointer]
-                    operation_flag=Hidden_Layer_Struct[index_count-operation_count]
-                    for j in n:
-                        model.append(unit_to_operate[0][0](*unit_to_operate[0][1]))
-                        model[-1].set_inputs(input_dict[unit_to_operate[2]])
-                        wt_pack.append(model[-1].params)
-                    input_dict[unit_to_operate[1]]=model[-1].outputs
-                    if operation_flag[0]=='+':
-                        last_outputs=last_outputs+model[-1].outputs
-                    elif operation_flag[0]=='-':
-                        last_outputs=last_outputs-model[-1].outputs
-                    elif operation_flag[0]=='*':
-                        last_outputs=last_outputs*model[-1].outputs
-                    elif operation_flag[0]=='&':
-                        last_outputs=T.concatenate([last_outputs,model[-1].outputs,1])
-                    input_dict[operation_flag[1]]=last_outputs
-                    operation_count-=1
-            elif unit in builder_dict:
-                operation_count+=1
-            index_count+=1
-        last_outputs=T.dot(last_outputs,Output_Layer_param[0][0])+Output_Layer_param[0][1]
-        if Output_Layer_param[1] is not None:
-            last_outputs=Output_Layer_param[1](last_outputs)
-        wt_pack.append(Output_Layer_param[0])
-        return last_outputs,wt_pack,model
-                
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class MLP_Softmax(object):
-    def __init__(self,Rng,inputs,N_in,N_hl,N_out,l0=0.,l1=0.,l2=0.,Wt=None,Bi=None,Hidden_Activation=T.nnet.sigmoid):
-        self.inputs=inputs
-        self.l0=l0
-        self.l1=l1
-        self.l2=l2
-        #self.hidden=Hidden_Layer_FeedForward(Rng,inputs,N_in,N_hl,Activation=Hidden_Activation)
-        if Wt is None:
-            Wt_values=np.array(Rng.randn(N_hl,N_out),dtype=theano.config.floatX)
-            Wt=theano.shared(value=Wt_values,name='Wt',borrow=True)
-        if Bi is None:
-            Bi_values=np.zeros((N_out), dtype=theano.config.floatX)
-            Bi = theano.shared(value=Bi_values, name='Bi', borrow=True)
-        self.Wt,self.Bi=Wt,Bi
-        self.outputs=T.nnet.nnet.softmax(T.dot(self.hidden.outputs,self.Wt)+self.Bi)
-        self.pred_Y=T.argmax(self.outputs, axis=1)
-        self.params=self.hidden.params+[self.Wt,self.Bi]
-    
-    def square_cost(self,Y):
-        return T.mean(T.square(np.array(1,dtype='float32')-self.outputs[T.arange(Y.shape[0]),Y]))/2+self.regularization()
-    def neglog_cost(self,Y):
-        return T.mean(-T.log(T.max(self.outputs,1)))/2+self.regularization()
-    def cross_entropy_cost(self,Y):
-        return T.mean(T.square(T.reshape(Y,[Y.shape[0],1]) -T.max(self.outputs,1)))/2+self.regularization()
-    def errors(self,Y):
-        return T.mean(T.neq(self.pred_Y, Y))
-        
-def regularization(self):
-        reg0=reg1=reg2=0
-        if reg0!=0:reg0=np.count_nonzero(self.hidden.Wt)+np.count_nonzero(self.Wt)
-        if reg1!=0:reg1+=(abs(self.hidden.Wt)).sum()+(abs(self.Wt)).sum()
-        if reg2!=0:reg2+=(self.hidden.Wt**2).sum()+(self.Wt**2).sum()
-        reg=reg0*self.l0+T.mean(reg1)*self.l1+T.mean(reg2)*self.l2
-        return reg
-'''def Cost_Calculator(outputs,Y):
-    if square_cost(self,Y):
-        return T.mean(T.square(np.array(1,dtype='float32')-self.outputs[T.arange(Y.shape[0]),Y]))/2+self.regularization()
-    def neglog_cost(self,Y):
-        return T.mean(-T.log(T.max(self.outputs,1)))/2+self.regularization()
-    def cross_entropy_cost(self,Y):
-        return T.mean(T.square(T.reshape(Y,[Y.shape[0],1]) -T.max(self.outputs,1)))/2+self.regularization()
-    def errors(self,Y):
-        return T.mean(T.neq(self.pred_Y, Y))'''
-        

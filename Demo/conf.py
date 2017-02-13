@@ -5,11 +5,11 @@ Created on Sun Dec 18 00:48:18 2016
 @author: aeloyq
 """
 
+import sys
+sys.path.append('..')
 import theano.tensor as T
 import numpy as np
-import NNBuilder as nb
-from NNBuilder.Layers import *
-from NNBuilder.Extensions import *
+import NNBuilder as nnb
 
 ''' configurations '''
 
@@ -22,22 +22,20 @@ def get_conf_xor():
     configuration['rng'] = rng
     # Data Preparations
     configuration['n_data'] = 100
-    configuration['data_pre'] = NNBDataPrepares.Load_xor
+    configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_xor
     # Model Structs
-    configuration['n_inputs'] = 2
-    configuration['n_outputs'] = 1
-    configuration['model_struct'] = [[[HiddenLayersFF.Hidden_Layer_FeedForward, (rng, 2, 2)], 'hidden1', 'raw', 1]]
-    configuration['model_output'] = Logistic.MLP_Logistic
+    configuration['n_inputs']=2
+    configuration['load_model'] = nnb.Models.LogisticRegression.get_model(2,1,10,2)
     configuration['Wt_init'] = 'uniform'
     configuration['Bi_init'] = 'zeros'
-    configuration['cost_func'] = 'cross_entropy'
+    configuration['Bi_init'] = 'zeros'
     # Regularization Items
     configuration['L0_reg'] = 0.
     configuration['L1_reg'] = 0.
     configuration['L2_reg'] = 0.
     # MBGD Settings
     configuration['max_epoches'] = 1000
-    configuration['learning_rate'] = 0.5
+    configuration['learning_rate'] = 10
     configuration['batch_size'] = 5
     # Early Stop Settings
     configuration['is_early_stop'] = True
@@ -48,7 +46,7 @@ def get_conf_xor():
     # Sample Settings
     configuration['sample_frequence'] = 40
     configuration['n_sample'] = 1
-    configuration['sample_func'] = NNBSamples.xor_sample
+    configuration['sample_func'] =None #nnb.Extensions.Samples.xor_sample
     # Log Settings
     configuration['report_per_literation'] = False
     configuration['report_per_epoch'] = True
@@ -57,23 +55,27 @@ def get_conf_xor():
 
 def get_conf_xor_sm():
     configuration = {}
+    rng = np.random.RandomState(1234)
+    configuration['rng'] = rng
     # Data Preparations
     configuration['n_data'] = 100
-    configuration['data_pre'] = NNBDataPrepares.Load_xor
+    configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_xor
     # Model Structs
     configuration['n_inputs'] = 2
-    configuration['n_outputs'] = 1
-    configuration['n_hidden'] = 2
-    configuration['n_layers'] = 1
-    configuration['hidden_activation'] = T.nnet.sigmoid
-    configuration['model_struct'] = Layers.MLP_Softmax
+    configuration['n_outputs'] = 2
+    configuration['model_struct'] = [
+        [[nnb.Layers.HiddenLayerFF.layer, (rng, 2, 2)], 'hidden1', 'raw', 1]]
+    configuration['model_output'] = nnb.Layers.Softmax.layer
+    configuration['Wt_init'] = 'uniform'
+    configuration['Bi_init'] = 'zeros'
+    configuration['cost_func'] = 'neglog'
     # Regularization Items
     configuration['L0_reg'] = 0.
     configuration['L1_reg'] = 0.
     configuration['L2_reg'] = 0.
     # MBGD Settings
     configuration['max_epoches'] = 1000
-    configuration['learning_rate'] = 1
+    configuration['learning_rate'] = 12
     configuration['batch_size'] = 5
     configuration['sample_frequence'] = 40
     configuration['n_sample'] = 1
@@ -83,22 +85,24 @@ def get_conf_xor_sm():
     configuration['patience_increase'] = 2
     configuration['report_per_literation'] = False
     configuration['report_per_epoch'] = True
-    configuration['sample_func'] = NNBSamples.xor_sample
+    configuration['sample_func'] = nnb.Extensions.Samples.xor_sample
     return configuration
 
 
 def get_conf_mnist():
     configuration = {}
+    rng = np.random.RandomState(1234)
+    configuration['rng'] = rng
     # Data Preparations
     configuration['mnist_path'] = "./datasets/mnist.pkl.gz"
-    configuration['data_pre'] = NNBDataPrepares.Load_mnist
+    configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_mnist
     # Model Structs
     configuration['n_inputs'] = 28 * 28
     configuration['n_outputs'] = 10
     configuration['n_hidden'] = 500
     configuration['n_layers'] = 1
     configuration['hidden_activation'] = T.tanh
-    configuration['model_struct'] = Layers.MLP_Softmax
+    configuration['model_struct'] = nnb.Layers.MLP_Softmax
     # Regularization Items
     configuration['L0_reg'] = 0.
     configuration['L1_reg'] = 0.
@@ -115,5 +119,5 @@ def get_conf_mnist():
     configuration['patience_increase'] = 2
     configuration['report_per_literation'] = False
     configuration['report_per_epoch'] = True
-    configuration['sample_func'] = NNBSamples.mnist_sample
+    configuration['sample_func'] = nnb.Extensions.Samples.mnist_sample
     return configuration
