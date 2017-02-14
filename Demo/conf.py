@@ -25,7 +25,7 @@ def get_conf_xor():
     configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_xor
     # Model Structs
     configuration['n_inputs']=2
-    configuration['load_model'] = nnb.Models.LogisticRegression.get_model(2,1,10,2)
+    configuration['load_model'] = nnb.Models.LogisticRegression.get_model(2,1,1,2)
     configuration['Wt_init'] = 'uniform'
     configuration['Bi_init'] = 'zeros'
     configuration['Bi_init'] = 'zeros'
@@ -34,8 +34,10 @@ def get_conf_xor():
     configuration['L1_reg'] = 0.
     configuration['L2_reg'] = 0.
     # MBGD Settings
+    configuration['algrithm']=nnb.Algrithms.MSGD
+    configuration['momentum_factor'] = 0.9
     configuration['max_epoches'] = 1000
-    configuration['learning_rate'] = 10
+    configuration['learning_rate'] = 1
     configuration['batch_size'] = 5
     # Early Stop Settings
     configuration['is_early_stop'] = True
@@ -50,6 +52,9 @@ def get_conf_xor():
     # Log Settings
     configuration['report_per_literation'] = False
     configuration['report_per_epoch'] = True
+    print '\r\nConfigurations:\r\n'
+    for config in configuration:
+        print config,':',configuration[config]
     return configuration
 
 
@@ -120,4 +125,44 @@ def get_conf_mnist():
     configuration['report_per_literation'] = False
     configuration['report_per_epoch'] = True
     configuration['sample_func'] = nnb.Extensions.Samples.mnist_sample
+    return configuration
+
+def get_conf():
+    configuration = {}
+    rng = np.random.RandomState(1234)
+    configuration['rng'] = rng
+    # Data Preparations
+    configuration['n_data'] = 0
+    configuration['data_pre'] = None
+    # Model Structs
+    configuration['n_inputs']=0
+    configuration['load_model'] =None
+    configuration['Wt_init'] = 'uniform'
+    configuration['Bi_init'] = 'zeros'
+    configuration['Bi_init'] = 'zeros'
+    # Regularization Items
+    configuration['L0_reg'] = 0.
+    configuration['L1_reg'] = 0.
+    configuration['L2_reg'] = 0.
+    # MBGD Settings
+    configuration['algrithm']=nnb.Algrithms.MSGD
+    configuration['max_epoches'] = 1000
+    configuration['learning_rate'] = 1
+    configuration['batch_size'] = 5
+    # Early Stop Settings
+    configuration['is_early_stop'] = True
+    configuration['patience_increase'] = 2
+    configuration['train_patience'] = 10000
+    configuration['improvement_threshold'] = 0.995
+    configuration['valid_frequence'] = min(configuration['batch_size'], configuration['train_patience'] // 2)
+    # Sample Settings
+    configuration['sample_frequence'] = 40
+    configuration['n_sample'] = 1
+    configuration['sample_func'] =None #nnb.Extensions.Samples.xor_sample
+    # Log Settings
+    configuration['report_per_literation'] = False
+    configuration['report_per_epoch'] = True
+    print '\r\nConfigurations:\r\n'
+    for config in configuration:
+        print config,':',configuration[config]
     return configuration
