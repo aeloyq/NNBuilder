@@ -11,8 +11,8 @@ import numpy as np
 def Train(configuration, model_stream, datastream,algrithm,extension):
     train_model,valid_model,test_model,sample_model,debug_model,model,classifier,n_train_batches,n_valid_batches,n_test_batches,theta,cost=model_stream
     start_time=timeit.default_timer()
-    print "\r\nTrainning Model\r\n"
-    print 'Loading Algrithms'
+    print "\r\nTrainning Model:\r\n"
+    print '        ','Loading Algrithms'
     algrithm_class=algrithm.algrithm(configuration,theta)
     update_fn=algrithm_class.get_update_func()
     sample_data=[datastream[0],datastream[3]]
@@ -36,14 +36,15 @@ def Train(configuration, model_stream, datastream,algrithm,extension):
     errors=[]
     costs=[]
     # Main Loop
-    print 'Training Start'
+    print '        ','Training Start'
     while(True):
         # Train model iter by iter
         train_result=train_model(iteration_train_index)
         train_cost=train_result[0]
-        train_grad=tuple(train_result[1:])
-        algrithm_class.repeat(train_result[1:])
-        update_fn(*train_grad)
+        train_grad=train_result[1:]
+        fn_inputs=algrithm_class.get_input(train_grad)
+        update_fn(*fn_inputs)
+        algrithm_class.repeat(train_grad)
         if report_iter:
             print "Iteration Report at Epoch:%d   Iteration:%d     Cost:%.4f"%(epoches,iteration_total,train_cost)
         iteration_train_index+=1

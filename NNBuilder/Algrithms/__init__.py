@@ -1,4 +1,5 @@
 import Adadelta
+import Adagrad
 import Momentum
 import MSGD
-__all__=['Adadelta','Momentum','MSGD']
+__all__=['Adadelta','Adagrad','Momentum','MSGD']

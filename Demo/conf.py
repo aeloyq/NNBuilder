@@ -34,7 +34,7 @@ def get_conf_xor():
     configuration['L1_reg'] = 0.
     configuration['L2_reg'] = 0.
     # MBGD Settings
-    configuration['algrithm']=nnb.Algrithms.MSGD
+    configuration['algrithm']=nnb.Algrithms.Adadelta
     configuration['momentum_factor'] = 0.9
     configuration['max_epoches'] = 1000
     configuration['learning_rate'] = 1
@@ -54,7 +54,7 @@ def get_conf_xor():
     configuration['report_per_epoch'] = True
     print '\r\nConfigurations:\r\n'
     for config in configuration:
-        print config,':',configuration[config]
+        print '        ',config,':',configuration[config]
     return configuration
 
 

@@ -9,7 +9,7 @@ import theano
 import theano.tensor as T
 
 def Get_Model_Stream(configuration, datastream,dim_model=None):
-    print "\r\nBuilding Model\r\n"
+    print "\r\nBuilding Model:\r\n"
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
     try:
         n_train_batches = (train_X.get_value().shape[0] - 1) // configuration['batch_size'] + 1
@@ -37,7 +37,7 @@ def Get_Model_Stream(configuration, datastream,dim_model=None):
     outputs=[cost]
     for gparam in gparams:
         outputs.append(gparam)
-    print 'Compiling Training Model'
+    print '        ','Compiling Training Model'
     train_model = theano.function(inputs=[iteration_train],
                                   outputs=outputs,
                                   givens={X: train_X[
@@ -48,7 +48,7 @@ def Get_Model_Stream(configuration, datastream,dim_model=None):
                                              (iteration_train - 1) * configuration['batch_size']:iteration_train *
                                                                                                  configuration[
                                                                                                      'batch_size']]})
-    print 'Compiling Validing Model'
+    print '        ','Compiling Validing Model'
     valid_model = theano.function(inputs=[iteration_valid],
                                   outputs=NNB_model.error(Y),
                                   givens={X: valid_X[
@@ -59,7 +59,7 @@ def Get_Model_Stream(configuration, datastream,dim_model=None):
                                              (iteration_valid - 1) * configuration['batch_size']:iteration_valid *
                                                                                                  configuration[
                                                                                                      'batch_size']]})
-    print 'Compiling Test Model'
+    print '        ','Compiling Test Model'
     test_model = theano.function(inputs=[iteration_test],
                                  outputs=NNB_model.error(Y),
                                  givens={X: test_X[
@@ -70,10 +70,10 @@ def Get_Model_Stream(configuration, datastream,dim_model=None):
                                              (iteration_test - 1) * configuration['batch_size']:iteration_test *
                                                                                                  configuration[
                                                                                                      'batch_size']]})
-    print 'Compiling Sampling Model'
+    print '        ','Compiling Sampling Model'
     sample_model = theano.function(inputs=[X,Y],
                                  outputs=[NNB_model.pred_Y,cost,NNB_model.error(Y)])
-    print 'Compiling Debug Model'
+    print '        ','Compiling Debug Model'
     debug_model = theano.function(inputs=[iteration_train],
                                   outputs=[X,Y,NNB_model.outputs,NNB_model.pred_Y,cost,gparams[0]],
                                   givens={X: train_X[
@@ -84,7 +84,7 @@ def Get_Model_Stream(configuration, datastream,dim_model=None):
                                              (iteration_train - 1) * configuration['batch_size']:iteration_train *
                                                                                                  configuration[
                                                                                                      'batch_size']]})
-    print 'Compiling Model'
+    print '        ','Compiling Model'
     model = theano.function(inputs=[X],
                             outputs=NNB_model.pred_Y)
     return [train_model, valid_model, test_model, sample_model, debug_model,model, NNB_model, n_train_batches, n_valid_batches,n_test_batches,wt_bi,cost]

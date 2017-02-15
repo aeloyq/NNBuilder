@@ -13,11 +13,9 @@ class algrithm:
         self.params=[theta for param in wt_packs for theta in param]
         self.configuration=configuration
         self.gparams = []
+        tensor_var_dict = {'1': T.vector, '2': T.matrix, '3': T.ftensor3}
         for param in self.params:
-            if param.ndim==2:
-                self.gparams.append(T.matrix())
-            if param.ndim==1:
-                self.gparams.append(T.vector())
+            self.gparams.append(tensor_var_dict['%d' % param.ndim]())
     def set_params(self,wt_packs):
         self.params = [theta for param in wt_packs for theta in param]
     def get_updates(self):
@@ -31,3 +29,5 @@ class algrithm:
         pass
     def save_p_grad(self,p_grad):
         pass
+    def get_input(self,grads):
+        return tuple(grads)
