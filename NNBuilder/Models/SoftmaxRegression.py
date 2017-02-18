@@ -12,5 +12,5 @@ def get_model(n_in,n_out,n_hl,n_hl_units):
         struct.append([(['HiddenLayer',(last_in,n_hl_units)],last_hl,'HiddenLayer_%d'%(n+1)),'layer'])
         last_hl='HiddenLayer_%d'%(n+1)
         last_in=n_hl_units
-    struct.append([(['Logistic',(n_hl_units,n_out)],last_hl,'OutputLayer'),'layer'])
+    struct.append([(['Softmax',(n_hl_units,n_out)],last_hl,'OutputLayer'),'layer'])
     return struct

@@ -25,13 +25,16 @@ class algrithm(base):
             value = param.get_value()
             self.p_grads.append(np.zeros_like(value))
     def get_updates(self):
-        updates=[(param, param - (1/(T.sqrt(T.square((1-0.95)*p_grad)+T.square(0.95*gparam)+1.e-6)))*gparam)
-               for param, gparam,p_grad in zip(self.params, self.gparams,self.pgrads)]
-        return updates
+        self.updates2output = [
+            (1 / (T.sqrt(T.square((1 - 0.95) * p_grad) + T.square(0.95 * gparam) + 1.e-6))) * gparam for
+            gparam, p_grad in zip(self.gparams, self.pgrads)]
+        self.updates=[(param, param - updts2otpt)
+               for param, updts2otpt in zip(self.params, self.updates2output)]
+        return self.updates
     def get_update_func(self):
-        fn=theano.function(inputs=self.fn_inputs,updates=self.get_updates())
+        fn=theano.function(inputs=self.fn_inputs,outputs=self.updates2output,updates=self.updates)
         return fn
-    def repeat(self,argv):
+    def repeat(self,argv,argv2):
         self.save_p_grad(argv)
     def save_p_grad(self, p_grads):
         self.p_grads=[np.array(p_grad) for p_grad in p_grads]

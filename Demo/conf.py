@@ -21,11 +21,51 @@ def get_conf_xor():
     rng = np.random.RandomState(1234)
     configuration['rng'] = rng
     # Data Preparations
+    configuration['mnist_path'] = "C:/Users/aeloyq/Desktop/Machine Learning/NNBuilder-WorkSpace/datasets/mnist.pkl.gz"
+    configuration['n_data'] = 50000
+    configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_mnist
+    # Model Structs
+    configuration['n_inputs']=28*28
+    configuration['load_model'] = nnb.Models.SoftmaxRegression.get_model(28*28,10,1,500)
+    # Regularization Items
+    configuration['L0_reg'] = 0.
+    configuration['L1_reg'] = 0.
+    configuration['L2_reg'] = 0.0001
+    # MBGD Settings
+    configuration['algrithm']=[nnb.Algrithms.MSGD]
+    configuration['momentum_factor'] = 0.9
+    configuration['max_epoches'] = 10
+    configuration['learning_rate'] = 0.01
+    configuration['batch_size'] = 20
+    # Early Stop Settings
+    configuration['is_early_stop'] = True
+    configuration['patience_increase'] = 2
+    configuration['train_patience'] = 10000
+    configuration['improvement_threshold'] = 0.995
+    configuration['valid_frequence'] = min((configuration['n_data']-1)//configuration['batch_size']+1, configuration['train_patience'] // 2)
+    # Sample Settings
+    configuration['sample_frequence'] = 40
+    configuration['n_sample'] = 1
+    configuration['sample_func'] =None #nnb.Extensions.Samples.xor_sample
+    # Log Settings
+    configuration['report_per_literation'] = False
+    configuration['report_per_epoch'] = True
+    print '\r\nConfigurations:\r\n'
+    for config in configuration:
+        print '        ',config,':',configuration[config]
+    return configuration
+
+def get_conf_x():
+    configuration = {}
+    rng = np.random.RandomState(1234)
+    configuration['rng'] = rng
+    # Data Preparations
     configuration['n_data'] = 100
     configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_xor
     # Model Structs
     configuration['n_inputs']=2
-    configuration['load_model'] = nnb.Models.LogisticRegression.get_model(2,1,1,2)
+    configuration['load_model'] = nnb.Models.SoftmaxRegression.get_model(2,2,1,2)
+    #configuration['load_model'] = nnb.Models.LogisticRegression.get_model(2,2,1,2)
     configuration['Wt_init'] = 'uniform'
     configuration['Bi_init'] = 'zeros'
     configuration['Bi_init'] = 'zeros'
@@ -34,10 +74,10 @@ def get_conf_xor():
     configuration['L1_reg'] = 0.
     configuration['L2_reg'] = 0.
     # MBGD Settings
-    configuration['algrithm']=nnb.Algrithms.Adadelta
+    configuration['algrithm']=nnb.Algrithms.MSGD
     configuration['momentum_factor'] = 0.9
     configuration['max_epoches'] = 1000
-    configuration['learning_rate'] = 1
+    configuration['learning_rate'] = 0.1
     configuration['batch_size'] = 5
     # Early Stop Settings
     configuration['is_early_stop'] = True
@@ -57,7 +97,6 @@ def get_conf_xor():
         print '        ',config,':',configuration[config]
     return configuration
 
-
 def get_conf_xor_sm():
     configuration = {}
     rng = np.random.RandomState(1234)
@@ -69,7 +108,7 @@ def get_conf_xor_sm():
     configuration['n_inputs'] = 2
     configuration['n_outputs'] = 2
     configuration['model_struct'] = [
-        [[nnb.Layers.HiddenLayerFF.layer, (rng, 2, 2)], 'hidden1', 'raw', 1]]
+        [[nnb.Layers.HiddenLayer.layer, (rng, 2, 2)], 'hidden1', 'raw', 1]]
     configuration['model_output'] = nnb.Layers.Softmax.layer
     configuration['Wt_init'] = 'uniform'
     configuration['Bi_init'] = 'zeros'
@@ -132,11 +171,11 @@ def get_conf():
     rng = np.random.RandomState(1234)
     configuration['rng'] = rng
     # Data Preparations
-    configuration['n_data'] = 0
-    configuration['data_pre'] = None
+    configuration['n_data'] = 100
+    configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_xor
     # Model Structs
-    configuration['n_inputs']=0
-    configuration['load_model'] =None
+    configuration['n_inputs'] = 2
+    configuration['load_model'] = nnb.Models.LogisticRegression.get_model(2, 1, 2, 2)
     configuration['Wt_init'] = 'uniform'
     configuration['Bi_init'] = 'zeros'
     configuration['Bi_init'] = 'zeros'
@@ -145,24 +184,25 @@ def get_conf():
     configuration['L1_reg'] = 0.
     configuration['L2_reg'] = 0.
     # MBGD Settings
-    configuration['algrithm']=nnb.Algrithms.MSGD
-    configuration['max_epoches'] = 1000
-    configuration['learning_rate'] = 1
+    configuration['algrithm'] = nnb.Algrithms.MSGD
+    configuration['momentum_factor'] = 0.9
+    configuration['max_epoches'] = 10000
+    configuration['learning_rate'] = 8
     configuration['batch_size'] = 5
     # Early Stop Settings
     configuration['is_early_stop'] = True
     configuration['patience_increase'] = 2
-    configuration['train_patience'] = 10000
+    configuration['train_patience'] = 100000
     configuration['improvement_threshold'] = 0.995
     configuration['valid_frequence'] = min(configuration['batch_size'], configuration['train_patience'] // 2)
     # Sample Settings
     configuration['sample_frequence'] = 40
     configuration['n_sample'] = 1
-    configuration['sample_func'] =None #nnb.Extensions.Samples.xor_sample
+    configuration['sample_func'] = None  # nnb.Extensions.Samples.xor_sample
     # Log Settings
     configuration['report_per_literation'] = False
     configuration['report_per_epoch'] = True
     print '\r\nConfigurations:\r\n'
     for config in configuration:
-        print config,':',configuration[config]
+        print '        ', config, ':', configuration[config]
     return configuration

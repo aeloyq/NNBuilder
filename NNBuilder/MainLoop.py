@@ -6,15 +6,14 @@ Created on Mon Dec 19 19:37:12 2016
 """
 #TODO:类化，装饰器加入，处理extension
 import timeit
+import theano
 import numpy as np
 
-def Train(configuration, model_stream, datastream,algrithm,extension):
+def Train(configuration, model_stream, datastream,extension):
+
     train_model,valid_model,test_model,sample_model,debug_model,model,classifier,n_train_batches,n_valid_batches,n_test_batches,theta,cost=model_stream
     start_time=timeit.default_timer()
     print "\r\nTrainning Model:\r\n"
-    print '        ','Loading Algrithms'
-    algrithm_class=algrithm.algrithm(configuration,theta)
-    update_fn=algrithm_class.get_update_func()
     sample_data=[datastream[0],datastream[3]]
     batch_size=configuration['batch_size']
     max_epoches=configuration['max_epoches']
@@ -35,16 +34,24 @@ def Train(configuration, model_stream, datastream,algrithm,extension):
     epoches=0
     errors=[]
     costs=[]
+    first=True
     # Main Loop
     print '        ','Training Start'
-    while(True):
+    debug_s_time = [timeit.default_timer()]
+    while (True):
+        train_model(iteration_train_index)
+        iteration_train_index += 1
+        if iteration_train_index > n_train_batches:
+
+            iteration_train_index=1
+
+            time_debug(debug_s_time)
+            break
+    while(False):
         # Train model iter by iter
-        train_result=train_model(iteration_train_index)
-        train_cost=train_result[0]
-        train_grad=train_result[1:]
-        fn_inputs=algrithm_class.get_input(train_grad)
-        update_fn(*fn_inputs)
-        algrithm_class.repeat(train_grad)
+        train_model(iteration_train_index)
+        if first:
+            first=False;errors.append(train_error);costs.append(train_cost)
         if report_iter:
             print "Iteration Report at Epoch:%d   Iteration:%d     Cost:%.4f"%(epoches,iteration_total,train_cost)
         iteration_train_index+=1
@@ -55,10 +62,11 @@ def Train(configuration, model_stream, datastream,algrithm,extension):
             costs.append(train_cost)
             iteration_train_index=1
             epoches+=1
+            time_debug(debug_s_time)
             if report_epoch:
                 print '\r\n'
-                print "◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆\r\n\r\nSingle Epoch Done:               \r\n\r\nEpoches:%d  \r\nIterations:%d         \r\nCost:%.4f   \r\nError:%.4f%%\r\n\r\n◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆"%(epoches,iteration_total-1,costs[-1],(train_error*100))
-                print '\r\n'    
+                print "◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆\r\n\r\nSingle Epoch Done:               \r\n\r\nEpoches:%d  \r\nIterations:%d         \r\nCost:%.4f   \r\nError:%.4f%%\r\n\r\n◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆"%(epoches,iteration_total-1,costs[-1],(train_error*100))
+                print '\r\n'
         # Sample
         if iteration_total%sample_freq==0 and sample_freq!=-1:
             if sample_func != None:
@@ -71,17 +79,17 @@ def Train(configuration, model_stream, datastream,algrithm,extension):
                 print "Sample Cost:%.4f  Sample Error:%.4f%%  "%(sp_cost,(sp_error*100))
                 print "☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆"
                 print '\r\n'
+        # Stop When Timeout
+        if epoches > max_epoches - 1 and max_epoches != -1:
+            best_iter = best_iter
+            print "⊙Trainning Time out⊙"
+            break
         # Stop When Sucess
         if train_error==0:
             if np.mean([test_model(i) for i in range(1,n_test_batches+1)])==0:
                 best_iter = iteration_total
                 print "\r\n●Trainning Sucess●\r\n"
                 break
-        # Stop When Timeout
-        if epoches>max_epoches and max_epoches!=-1:
-            best_iter = iteration_total
-            print "⊙Trainning Time out⊙"
-            break
         #Early Stop
         if (iteration_total-1)%valid_freq==0:
             valid_error=np.mean([valid_model(i) for i in range(1,n_valid_batches+1)])
@@ -112,3 +120,7 @@ def Train(configuration, model_stream, datastream,algrithm,extension):
     time_used=end_time-start_time
     print "Time used:%.2fs"%time_used
     return epoches,errors,costs
+def time_debug(st):
+    usd=timeit.default_timer()-st[0]
+    st[0]=timeit.default_timer()
+    print "time used: %.2fs"%usd

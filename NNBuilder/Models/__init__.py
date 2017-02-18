@@ -1,2 +1,3 @@
 import LogisticRegression
-__all__=['LogisticRegression']
+import SoftmaxRegression
+__all__=['LogisticRegression','SoftmaxRegression']

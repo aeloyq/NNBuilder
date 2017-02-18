@@ -25,13 +25,14 @@ class algrithm(base):
             value=param.get_value()
             self.p_regularizers.append(np.ones_like(value)/1.e6)
     def get_updates(self):
-        updates=[(param, param - (self.configuration['learning_rate'] / T.sqrt(pregularizer)) * gparam)
-               for param, gparam, pregularizer in zip(self.params, self.gparams,self.pregularizers)]
-        return updates
+        self.updates2output=[(self.configuration['learning_rate'] / T.sqrt(pregularizer)) * gparam for gparam, pregularizer in zip(self.gparams,self.pregularizers)]
+        self.updates=[(param, param - updts2otpt)
+               for param,updts2otpt in zip(self.params, self.updates2output)]
+        return self.updates
     def get_update_func(self):
-        fn=theano.function(inputs=self.fn_inputs,updates=self.get_updates())
+        fn=theano.function(inputs=self.fn_inputs,outputs=self.updates2output,updates=self.updates)
         return fn
-    def repeat(self,argv):
+    def repeat(self,argv,argv2):
         self.save_p_regularizer(argv)
     def save_p_regularizer(self, regs):
         for p_regularizer,reg in zip(self.p_regularizers,regs):

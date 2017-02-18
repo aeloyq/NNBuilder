@@ -25,16 +25,18 @@ class algrithm(base):
             value = param.get_value()
             self.p_grads.append(np.zeros_like(value))
     def get_updates(self):
-        updates=[(param, param - (self.configuration['momentum_factor']*p_grad+self.configuration['learning_rate'] * gparam))
-               for param, gparam,p_grad in zip(self.params, self.gparams,self.pgrads)]
-        return updates
+        self.updates2output = [self.configuration['momentum_factor']*p_grad+self.configuration['learning_rate'] * gparam for
+                            gparam, p_grad in zip(self.gparams, self.pgrads)]
+        self.updates=[(param, param - updts2otpt)
+               for param, updts2otpt in zip(self.params, self.updates2output)]
+        return self.updates
     def get_update_func(self):
-        fn=theano.function(inputs=self.fn_inputs,updates=self.get_updates())
+        fn=theano.function(inputs=self.fn_inputs,outputs=self.updates2output,updates=self.updates)
         return fn
-    def repeat(self,argv):
-        self.save_p_grad(argv)
+    def repeat(self,argv,argv2):
+        self.save_p_grad(argv2)
     def save_p_grad(self, p_grads):
-        self.p_grads=[ self.configuration['learning_rate']*np.array(p_grad) for p_grad in p_grads]
+        self.p_grads=[np.array(p_grad) for p_grad in p_grads]
     def get_input(self,grads):
         argv=[]
         for grad in grads:
