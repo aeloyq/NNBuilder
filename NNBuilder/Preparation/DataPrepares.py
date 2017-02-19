@@ -8,6 +8,7 @@ Created on Sat Dec 17 17:02:46 2016
 import pickle
 import gzip
 import theano
+import theano.tensor as T
 import numpy as np
 
 ''' define a function of xor '''
@@ -46,10 +47,10 @@ def Load_xor(configuration):
 ''' load theano variable '''
             
 def convert_to_theano_variable(configuration,trainsets,validsets,testsets):
-    train_X=theano.shared(np.array(trainsets[0],dtype="float32"))
-    train_Y=theano.shared(np.array(trainsets[1],dtype="int32"))
-    valid_X=theano.shared(np.array(validsets[0],dtype="float32"))
-    valid_Y=theano.shared(np.array(validsets[1],dtype="int32"))
-    test_X=theano.shared(np.array(testsets[0],dtype="float32"))
-    test_Y=theano.shared(np.array(testsets[1],dtype="int32"))
-    return [train_X, valid_X, test_X, train_Y, valid_Y, test_Y]
+    train_X=theano.shared(np.asarray(trainsets[0],dtype=theano.config.floatX),borrow=True)
+    train_Y=theano.shared(np.asarray(trainsets[1],dtype=theano.config.floatX),borrow=True)
+    valid_X=theano.shared(np.asarray(validsets[0],dtype=theano.config.floatX),borrow=True)
+    valid_Y=theano.shared(np.asarray(validsets[1],dtype=theano.config.floatX),borrow=True)
+    test_X=theano.shared(np.asarray(testsets[0],dtype=theano.config.floatX),borrow=True)
+    test_Y=theano.shared(np.asarray(testsets[1],dtype=theano.config.floatX),borrow=True)
+    return [train_X, valid_X, test_X, T.cast(train_Y, 'int32'), T.cast(valid_Y, 'int32'),T.cast(test_Y, 'int32') ]

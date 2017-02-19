@@ -27,7 +27,7 @@ class layer(Output_Layer):
         self.pred_Y = T.argmax(self.outputs, axis=1)
 
     def cost(self, Y):
-        return -T.mean(T.log(self.outputs)[T.arange(Y.shape[0]),Y])#Layer_Tools.cost(np.array(1, dtype='float32'), self.Cost_func, self.outputs[T.arange(Y.shape[0]), Y])
+        return -T.mean(T.log(self.outputs)[T.arange(Y.shape[0]),Y])
 
     def error(self, Y):
         return T.mean(T.neq(self.pred_Y, Y))

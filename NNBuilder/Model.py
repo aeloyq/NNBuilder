@@ -20,9 +20,7 @@ def Get_Model_Stream(configuration, datastream,algrithm,dim_model=None):
         n_train_batches = (train_X.shape[0] - 1) // configuration['batch_size'] + 1
         n_valid_batches = (valid_X.shape[0] -1)// configuration['batch_size']+1
         n_test_batches = (test_X.shape[0]-1) // configuration['batch_size']+1
-    iteration_train = T.lscalar('iteration_train')
-    iteration_valid = T.lscalar('iteration_valid')
-    iteration_test = T.lscalar('iteration_test')
+    index = T.lscalar('index')
     if dim_model is not None:
         NNB_model=dim_model
     else:
@@ -37,63 +35,56 @@ def Get_Model_Stream(configuration, datastream,algrithm,dim_model=None):
     pred_Y=NNB_model.pred_Y
     main_algrithm=algrithm[0]
     algrithm_instance = main_algrithm.algrithm(configuration, wt_bi,cost)
-    updates=algrithm_instance.get_updates()
+    updates=algrithm_instance.get_updates(algrithm_instance)
     for other_algrithm in algrithm[1:]:
         pass
-    params=[theta for param in wt_bi for theta in param]
-    gparams = T.grad(cost, params)
-    outputs=[cost]
-    for gparam in gparams:
-        outputs.append(gparam)
-    print '        ','Compiling Training Model'
-    debug_output=[X,Y,pred_Y,cost]
-    for i in outputs:
-        debug_output.append(i)
-    train_model = theano.function(inputs=[iteration_train],
-                                  outputs=outputs,
+    debug_output = [X, Y, pred_Y, cost]
+    print '        ', 'Compiling Training Model'
+    train_model = theano.function(inputs=[index],
+                                  outputs=cost,
                                   updates=updates,
                                   givens={X: train_X[
-                                             (iteration_train - 1) * configuration['batch_size']:iteration_train *
-                                                                                                 configuration[
-                                                                                                     'batch_size']],
+                                             index * configuration['batch_size']:(index + 1) *
+                                                                                 configuration[
+                                                                                     'batch_size']],
                                           Y: train_Y[
-                                             (iteration_train - 1) * configuration['batch_size']:iteration_train *
-                                                                                                 configuration[
-                                                                                                     'batch_size']]})
+                                             index * configuration['batch_size']:(index + 1) *
+                                                                                 configuration[
+                                                                                     'batch_size']]})
     print '        ','Compiling Validing Model'
-    valid_model = theano.function(inputs=[iteration_valid],
+    valid_model = theano.function(inputs=[index],
                                   outputs=error,
                                   givens={X: valid_X[
-                                             (iteration_valid - 1) * configuration['batch_size']:iteration_valid *
-                                                                                                 configuration[
-                                                                                                     'batch_size']],
+                                             index * configuration['batch_size']:(index + 1) *
+                                                                                           configuration[
+                                                                                               'batch_size']],
                                           Y: valid_Y[
-                                             (iteration_valid - 1) * configuration['batch_size']:iteration_valid *
-                                                                                                 configuration[
-                                                                                                     'batch_size']]})
+                                             index * configuration['batch_size']:(index + 1) *
+                                                                                           configuration[
+                                                                                               'batch_size']]})
     print '        ','Compiling Test Model'
-    test_model = theano.function(inputs=[iteration_test],
+    test_model = theano.function(inputs=[index],
                                  outputs=error,
                                  givens={X: test_X[
-                                             (iteration_test - 1) * configuration['batch_size']:iteration_test *
-                                                                                                 configuration[
-                                                                                                     'batch_size']],
-                                         Y: test_Y[
-                                             (iteration_test - 1) * configuration['batch_size']:iteration_test *
-                                                                                                 configuration[
-                                                                                                     'batch_size']]})
+                                            index * configuration['batch_size']:(index + 1) *
+                                                                                           configuration[
+                                                                                               'batch_size']],
+                                          Y: test_Y[
+                                             index * configuration['batch_size']:(index + 1) *
+                                                                                           configuration[
+                                                                                               'batch_size']]})
     print '        ','Compiling Sampling Model'
     sample_model = theano.function(inputs=[X,Y],
                                  outputs=[pred_Y,cost,error])
     print '        ','Compiling Debug Model'
-    debug_model = theano.function(inputs=[iteration_train],
+    debug_model = theano.function(inputs=[index],
                                   outputs=debug_output,
                                   givens={X: train_X[
-                                             (iteration_train - 1) * configuration['batch_size']:iteration_train *
+                                             index* configuration['batch_size']:(index+1) *
                                                                                                  configuration[
                                                                                                      'batch_size']],
                                           Y: train_Y[
-                                             (iteration_train - 1) * configuration['batch_size']:iteration_train *
+                                             index * configuration['batch_size']:(index+1) *
                                                                                                  configuration[
                                                                                                      'batch_size']]})
     print '        ','Compiling Model'
@@ -162,8 +153,6 @@ class model():
         self.pred_Y=self.final_output.pred_Y
         self.cost=self.final_output.cost(self.Y)+self.regularization(self.wt_packs,self.l0,self.l1,self.l2)
         self.error=self.final_output.error(self.Y)
-        theano.pprint(self.cost)
-        theano.printing.pydotprint(self.cost, outfile='e:/5665.png')
     def regularization(self,wt_packs,l0,l1,l2):
         reg0=reg1=reg2=0
         for wt_bi in wt_packs:
@@ -178,13 +167,12 @@ class model():
                         reg1=reg1+abs(wt).sum()
                     else:
                         reg1 = abs(wt).sum()
-                reg1 = abs(wt).sum()
                 if l2 != 0:
                     if reg2 != 0:
                         reg2=reg2+(wt**2).sum()
                     else:
                         reg2 = (wt ** 2).sum()
-        reg=l2*reg2#reg0*l0+reg1*l1+reg2*l2
+        reg=l0*reg0+l1*reg1+l2*reg2
         return reg
 
 

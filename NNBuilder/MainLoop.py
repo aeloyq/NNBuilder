@@ -39,14 +39,13 @@ def Train(configuration, model_stream, datastream,extension):
     print '        ','Training Start'
     debug_s_time = [timeit.default_timer()]
     while (True):
-        train_model(iteration_train_index)
+        train_model(iteration_train_index-1)
         iteration_train_index += 1
         if iteration_train_index > n_train_batches:
 
             iteration_train_index=1
 
             time_debug(debug_s_time)
-            break
     while(False):
         # Train model iter by iter
         train_model(iteration_train_index)

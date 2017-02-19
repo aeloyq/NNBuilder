@@ -45,11 +45,24 @@ class Layer:
     def set_name(self,name):
         self.Name=name
     def init_save_grad(self):
-        self.Wt_grad_info=theano.shared(value=np.zeros((self.N_in,self.N_units),dtype='float32'),name='Wt_grad_info'+'_'+self.Name,borrow=True)
-        self.Bi_grad_info = theano.shared(value=np.zeros((self.N_units,),dtype='float32'),name='Bi_grad_info' + '_' + self.Name, borrow=True)
+        self.Wt_grad_info=theano.shared(value=np.zeros((self.N_in,self.N_units),dtype=theano.config.floatX),name='Wt_pro_grad_info'+'_'+self.Name,borrow=True)
+        self.Bi_grad_info = theano.shared(value=np.zeros((self.N_units,),dtype=theano.config.floatX),name='Bi_pro_grad_info' + '_' + self.Name, borrow=True)
+    def init_save_multi_grad(self,n):
+        self.Wt_grad_n_info = theano.shared(value=np.zeros((self.N_in, self.N_units,n), dtype=theano.config.floatX),
+                                          name='Wt_pro_n_grad_info' + '_' + self.Name, borrow=True)
+        self.Bi_grad_n_info = theano.shared(value=np.zeros((self.N_units,n), dtype=theano.config.floatX),
+                                          name='Bi_pro_n_grad_info' + '_' + self.Name, borrow=True)
+    def init_save_update(self):
+        self.Wt_update_info=theano.shared(value=np.zeros((self.N_in,self.N_units),dtype=theano.config.floatX),name='Wt_pro_update_info'+'_'+self.Name,borrow=True)
+        self.Bi_update_info = theano.shared(value=np.zeros((self.N_units,),dtype=theano.config.floatX),name='Bi_pro_update_info' + '_' + self.Name, borrow=True)
+    def init_save_multi_update(self,n):
+        self.Wt_update_n_info = theano.shared(value=np.zeros((self.N_in, self.N_units,n), dtype=theano.config.floatX),
+                                          name='Wt_pro_n_update_info' + '_' + self.Name, borrow=True)
+        self.Bi_update_n_info = theano.shared(value=np.zeros((self.N_units,n), dtype=theano.config.floatX),
+                                          name='Bi_pro_n_update_info' + '_' + self.Name, borrow=True)
     def init_dropout(self):
         self.dropout=True
-        output_mask_vector=np.zeros((self.N_units,),dtype='float32')
+        output_mask_vector=np.zeros((self.N_units,),theano.config.floatX)
         self.output_dropout_mask=theano.shared(value=output_mask_vector,name='Output_dropout_mask_'+ self.Name,borrow=True)
 
 ''' setup base hidden layer '''
