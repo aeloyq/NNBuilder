@@ -9,102 +9,77 @@ import theano
 import theano.tensor as T
 import numpy as np
 
-def Get_Model_Stream(configuration, datastream,algrithm,dim_model=None):
+def Get_Model_Stream(configuration, datastream,algrithm,dim_model=None,grad_monitor=False):
     print "\r\nBuilding Model:\r\n"
-    train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
-    try:
-        n_train_batches = (train_X.get_value().shape[0] - 1) // configuration['batch_size'] + 1
-        n_valid_batches = (valid_X.get_value().shape[0]-1) // configuration['batch_size']+1
-        n_test_batches = (test_X.get_value().shape[0]-1) // configuration['batch_size']+1
-    except:
-        n_train_batches = (train_X.shape[0] - 1) // configuration['batch_size'] + 1
-        n_valid_batches = (valid_X.shape[0] -1)// configuration['batch_size']+1
-        n_test_batches = (test_X.shape[0]-1) // configuration['batch_size']+1
     index = T.lscalar('index')
     if dim_model is not None:
-        NNB_model=dim_model
+        configuration['load_model']=dim_model
+        NNB_model=load_model(configuration)
     else:
         dim_model=load_model(configuration)
         NNB_model=dim_model
     X=NNB_model.X
     Y=NNB_model.Y
+    train_inputs=NNB_model.train_inputs
+    other_inputs=NNB_model.other_inputs
     NNB_model.get_cost_pred_error()
-    wt_bi = dim_model.wt_packs
+    wt_bi = NNB_model.wt_packs
     cost = NNB_model.cost
     error=NNB_model.error
     pred_Y=NNB_model.pred_Y
-    main_algrithm=algrithm[0]
-    algrithm_instance = main_algrithm.algrithm(configuration, wt_bi,cost)
-    updates=algrithm_instance.get_updates(algrithm_instance)
-    for other_algrithm in algrithm[1:]:
-        pass
-    debug_output = [X, Y, pred_Y, cost]
+    optimizer = algrithm.config
+    optimizer.init(wt_bi,cost)
+    train_updates=optimizer.get_updates()
+    debug_output=[]
+    for layer in NNB_model.layer_stream:
+        for sublayer in NNB_model.layer_stream[layer]:
+            debug_output.extend(sublayer.debug_stream)
+    train_output=[cost]
+    if grad_monitor:
+        train_output.extend(optimizer.gparams)
     print '        ', 'Compiling Training Model'
-    train_model = theano.function(inputs=[index],
-                                  outputs=cost,
-                                  updates=updates,
-                                  givens={X: train_X[
-                                             index * configuration['batch_size']:(index + 1) *
-                                                                                 configuration[
-                                                                                     'batch_size']],
-                                          Y: train_Y[
-                                             index * configuration['batch_size']:(index + 1) *
-                                                                                 configuration[
-                                                                                     'batch_size']]})
+    train_model = theano.function(inputs=train_inputs,
+                                  outputs=train_output,
+                                  updates=train_updates)
     print '        ','Compiling Validing Model'
-    valid_model = theano.function(inputs=[index],
-                                  outputs=error,
-                                  givens={X: valid_X[
-                                             index * configuration['batch_size']:(index + 1) *
-                                                                                           configuration[
-                                                                                               'batch_size']],
-                                          Y: valid_Y[
-                                             index * configuration['batch_size']:(index + 1) *
-                                                                                           configuration[
-                                                                                               'batch_size']]})
+    valid_model = theano.function(inputs=other_inputs,
+                                  outputs=error)
     print '        ','Compiling Test Model'
-    test_model = theano.function(inputs=[index],
-                                 outputs=error,
-                                 givens={X: test_X[
-                                            index * configuration['batch_size']:(index + 1) *
-                                                                                           configuration[
-                                                                                               'batch_size']],
-                                          Y: test_Y[
-                                             index * configuration['batch_size']:(index + 1) *
-                                                                                           configuration[
-                                                                                               'batch_size']]})
+    test_model = theano.function(inputs=other_inputs,
+                                 outputs=error)
     print '        ','Compiling Sampling Model'
-    sample_model = theano.function(inputs=[X,Y],
+    sample_model = theano.function(inputs=other_inputs,
                                  outputs=[pred_Y,cost,error])
     print '        ','Compiling Debug Model'
-    debug_model = theano.function(inputs=[index],
+    debug_model = theano.function(inputs=train_inputs,
                                   outputs=debug_output,
-                                  givens={X: train_X[
-                                             index* configuration['batch_size']:(index+1) *
-                                                                                                 configuration[
-                                                                                                     'batch_size']],
-                                          Y: train_Y[
-                                             index * configuration['batch_size']:(index+1) *
-                                                                                                 configuration[
-                                                                                                     'batch_size']]})
+                                  on_unused_input='ignore')
     print '        ','Compiling Model'
     model = theano.function(inputs=[X],
                             outputs=pred_Y)
-    return [train_model, valid_model, test_model, sample_model, debug_model,model, NNB_model, n_train_batches, n_valid_batches,n_test_batches,wt_bi,cost]
+    return [datastream,train_model, valid_model, test_model, sample_model, debug_model,model, NNB_model,optimizer]
+
+
+
+
+
 
 class model():
-    def __init__(self,configurations):
-        self.X = T.matrix('X')
+    def __init__(self,configurations,in_dims=2):
+        if in_dims==2:
+            self.X = T.matrix('X')
+        elif in_dims==3:
+            self.X = T.tensor3('X')
         self.Y = T.ivector('Y')
+        self.train_inputs=[self.X,self.Y]
+        self.other_inputs=[self.X,self.Y]
         self.rng=configurations['rng']
-        self.l0 = configurations['L0_reg']
-        self.l1 = configurations['L1_reg']
-        self.l2 = configurations['L2_reg']
         self.layer_stream={}
         self.outputs={'raw':self.X}
         self.final_output=None
         self.layer_dict = {}
         self.wt_packs=[]
+        self.scan_updates=None
         layers = Layers.__all__
         for ly in layers:
             if ly!='Layers':
@@ -130,6 +105,7 @@ class model():
             input_stream.append(layer2add[-1].outputs)
             self.wt_packs.append(layer2add[-1].params)
         self.layer_stream[name] = layer2add
+        #if layer2add[-1].outputs
         self.outputs[name] = layer2add[-1].outputs
         self.final_output=layer2add[-1]
 
@@ -145,13 +121,60 @@ class model():
             opt_output = T.concatenate([layer1.output, layer2.output, 1])
         self.outputs[name] = opt_output
 
+    def adddropout(self,operation,layer1,layer2):
+        opt_output=None
+        if operation == '+':
+            opt_output = layer1.output + layer2.output
+        elif operation == '-':
+            opt_output = layer1.output - layer2.output
+        elif operation == '*':
+            opt_output = layer1.output * layer2.output
+        elif operation == '&':
+            opt_output = T.concatenate([layer1.output, layer2.output, 1])
+
+    def adddropout2all(self,operation,layer1,layer2):
+        opt_output=None
+        if operation == '+':
+            opt_output = layer1.output + layer2.output
+        elif operation == '-':
+            opt_output = layer1.output - layer2.output
+        elif operation == '*':
+            opt_output = layer1.output * layer2.output
+        elif operation == '&':
+            opt_output = T.concatenate([layer1.output, layer2.output, 1])
+
+    def adddropout2ff(self,operation,layer1,layer2):
+        opt_output=None
+        if operation == '+':
+            opt_output = layer1.output + layer2.output
+        elif operation == '-':
+            opt_output = layer1.output - layer2.output
+        elif operation == '*':
+            opt_output = layer1.output * layer2.output
+        elif operation == '&':
+            opt_output = T.concatenate([layer1.output, layer2.output, 1])
+
+    def adddropout2recurrent(self,operation,layer1,layer2):
+        opt_output=None
+        if operation == '+':
+            opt_output = layer1.output + layer2.output
+        elif operation == '-':
+            opt_output = layer1.output - layer2.output
+        elif operation == '*':
+            opt_output = layer1.output * layer2.output
+        elif operation == '&':
+            opt_output = T.concatenate([layer1.output, layer2.output, 1])
+
+    def add_theano_input(self,variable):
+        self.train_inputs.append(variable)
+
     def set_final_output(self,name):
         self.final_output=self.layer_stream[name]
         self.fn_output=self.final_output.outputs
 
     def get_cost_pred_error(self):
         self.pred_Y=self.final_output.pred_Y
-        self.cost=self.final_output.cost(self.Y)+self.regularization(self.wt_packs,self.l0,self.l1,self.l2)
+        self.cost=self.final_output.cost(self.Y)#+self.regularization(self.wt_packs,0,0,0.0001)
         self.error=self.final_output.error(self.Y)
     def regularization(self,wt_packs,l0,l1,l2):
         reg0=reg1=reg2=0

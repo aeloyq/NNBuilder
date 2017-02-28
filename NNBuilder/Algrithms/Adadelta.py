@@ -8,39 +8,31 @@ Created on  Feb 14 2:02 AM 2017
 import theano
 import theano.tensor as T
 import numpy as np
-import MSGD
+import SGD
 
-base=MSGD.algrithm
+base=SGD.algrithm
 class algrithm(base):
-    def __init__(self,configuration,wt_packs):
-        base.__init__(self,configuration,wt_packs)
-        self.p_grads=[]
-        self.pgrads=[]
-        self.fn_inputs=self.gparams
-        tensor_var_dict = {'1': T.vector, '2': T.matrix, '3': T.ftensor3}
-        for param in self.params:
-            i = tensor_var_dict['%d' % param.ndim]()
-            self.fn_inputs.append(i)
-            self.pgrads.append(i)
-            value = param.get_value()
-            self.p_grads.append(np.zeros_like(value))
+    def __init__(self,configuration,wt_packs,cost):
+        base.__init__(self,configuration,wt_packs,cost)
+        self.pro_rms_g2 = [theano.shared(param.get_value() * self.numpy_floatX(0.),
+                                         name='rmsprop_pro_rms_g2_%s'%param.name,borrow=True)
+                           for param in self.params]
+        self.pro_rms_delta_x = [theano.shared(param.get_value() * self.numpy_floatX(0.),
+                                              name='rmsprop_pro_rms_delta_x_%s' % param.name,borrow=True)
+                                for param in self.params]
     def get_updates(self):
-        self.updates2output = [
-            (1 / (T.sqrt(T.square((1 - 0.95) * p_grad) + T.square(0.95 * gparam) + 1.e-6))) * gparam for
-            gparam, p_grad in zip(self.gparams, self.pgrads)]
-        self.updates=[(param, param - updts2otpt)
-               for param, updts2otpt in zip(self.params, self.updates2output)]
-        return self.updates
-    def get_update_func(self):
-        fn=theano.function(inputs=self.fn_inputs,outputs=self.updates2output,updates=self.updates)
-        return fn
-    def repeat(self,argv,argv2):
-        self.save_p_grad(argv)
-    def save_p_grad(self, p_grads):
-        self.p_grads=[np.array(p_grad) for p_grad in p_grads]
-    def get_input(self,grads):
-        argv=[]
-        for grad in grads:
-            argv.append(grad)
-        argv.extend(self.p_grads)
-        return tuple(argv)
+        self.gparams = T.grad(self.cost, self.params)
+        self.rou=0.95
+        self.epsilon = 1e-6
+        self.current_g2 = [(self.rou*p_g2+(1-self.rou)* (gparam**2))
+                           for gparam, p_g2 in zip(self.gparams, self.pro_rms_g2)]
+        self.current_delta_x = [((T.sqrt(prp_dlt_x + self.epsilon) / (T.sqrt(curnt_g2 + self.epsilon))) * gparam)
+                                for gparam, curnt_g2,prp_dlt_x in zip(self.gparams, self.current_g2, self.pro_rms_delta_x)]
+        self.train_updates=[(param, param - curnt_updt)
+                            for param, curnt_updt in zip(self.params, self.current_delta_x)]
+        self.updates_1=[(p_g2, curnt_g2)
+                      for p_g2, curnt_g2 in zip(self.pro_rms_g2, self.current_g2)]
+        self.updates_2 = [(p_g2, self.rou*p_g2+(1-self.rou)*(curnt_dlt_x**2))
+                          for p_g2, curnt_dlt_x in zip(self.pro_rms_delta_x, self.current_delta_x)]
+        self.updates=self.updates_1+self.updates_2
+        return self.train_updates+self.updates

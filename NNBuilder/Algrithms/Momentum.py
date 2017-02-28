@@ -8,38 +8,26 @@ Created on  Feb 14 2:02 AM 2017
 import theano
 import theano.tensor as T
 import numpy as np
-import MSGD
+import SGD
 
-base=MSGD.algrithm
+base=SGD.algrithm
 class algrithm(base):
-    def __init__(self,configuration,wt_packs):
-        base.__init__(self,configuration,wt_packs)
-        self.p_grads=[]
-        self.pgrads=[]
-        self.fn_inputs=self.gparams
-        tensor_var_dict = {'1': T.vector, '2': T.matrix, '3': T.ftensor3}
-        for param in self.params:
-            i = tensor_var_dict['%d' % param.ndim]()
-            self.fn_inputs.append(i)
-            self.pgrads.append(i)
-            value = param.get_value()
-            self.p_grads.append(np.zeros_like(value))
+    def __init__(self,configuration,wt_packs,cost):
+        base.__init__(self,configuration,wt_packs,cost)
+        self.pro_update = [theano.shared(param.get_value() * self.numpy_floatX(0.),
+                              name='momentum_pro_update_%s'%param.name,borrow=True)
+                                            for param in self.params]
     def get_updates(self):
-        self.updates2output = [self.configuration['momentum_factor']*p_grad+self.configuration['learning_rate'] * gparam for
-                            gparam, p_grad in zip(self.gparams, self.pgrads)]
-        self.updates=[(param, param - updts2otpt)
-               for param, updts2otpt in zip(self.params, self.updates2output)]
-        return self.updates
-    def get_update_func(self):
-        fn=theano.function(inputs=self.fn_inputs,outputs=self.updates2output,updates=self.updates)
-        return fn
-    def repeat(self,argv,argv2):
-        self.save_p_grad(argv2)
-    def save_p_grad(self, p_grads):
-        self.p_grads=[np.array(p_grad) for p_grad in p_grads]
-    def get_input(self,grads):
-        argv=[]
-        for grad in grads:
-            argv.append(grad)
-        argv.extend(self.p_grads)
-        return tuple(argv)
+        self.gparams = T.grad(self.cost, self.params)
+        self.momentum_factor=theano.shared(self.numpy_floatX(self.configuration['momentum_factor'])
+                                           ,name='momentum_factor')
+        learning_rate = theano.shared(self.numpy_floatX(self.configuration['learning_rate']), name='Learning_Rate')
+        self.learning_rate = learning_rate
+        self.train_updates_current_delta_x = [self.momentum_factor*p_grad+learning_rate * gparam for
+                            gparam, p_grad in zip(self.gparams, self.pro_update)]
+        self.train_updates=[(param, param - updt_curnt)
+               for param, updt_curnt in zip(self.params, self.train_updates_current_delta_x)]
+        self.updates=[(pro_updt, updt_curnt)
+               for pro_updt, updt_curnt in zip(self.pro_update, self.train_updates_current_delta_x)]
+        return self.train_updates+self.updates
+    #TODO: the grad updated to two differen shared variable is that cost more time?need to be tested

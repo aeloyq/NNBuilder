@@ -11,9 +11,17 @@ import theano.tensor as T
 
 ''' base class '''
 
-class Layer:
+class baselayer:
+    def __init__(self):
+        self.debug_stream=[]
+        pass
+    def add_debug(self,additem):
+        self.debug_stream.append(additem)
+
+class Layer(baselayer):
     Rng=None;N_in=0;N_units=0;name='';Wt=None;Bi=None;Wt_init='randn';Bi_init='zeros';Activation=None;Inputs=[]
     def __init__(self,Rng,N_in,N_units,Name='undefined',Wt=None,Bi=None,Wt_init='zeros',Bi_init='zeros',Activation=None):
+        baselayer.__init__(self)
         self.Rng=Rng
         self.N_in=N_in
         self.N_units=N_units
@@ -44,26 +52,6 @@ class Layer:
         self.output_func()
     def set_name(self,name):
         self.Name=name
-    def init_save_grad(self):
-        self.Wt_grad_info=theano.shared(value=np.zeros((self.N_in,self.N_units),dtype=theano.config.floatX),name='Wt_pro_grad_info'+'_'+self.Name,borrow=True)
-        self.Bi_grad_info = theano.shared(value=np.zeros((self.N_units,),dtype=theano.config.floatX),name='Bi_pro_grad_info' + '_' + self.Name, borrow=True)
-    def init_save_multi_grad(self,n):
-        self.Wt_grad_n_info = theano.shared(value=np.zeros((self.N_in, self.N_units,n), dtype=theano.config.floatX),
-                                          name='Wt_pro_n_grad_info' + '_' + self.Name, borrow=True)
-        self.Bi_grad_n_info = theano.shared(value=np.zeros((self.N_units,n), dtype=theano.config.floatX),
-                                          name='Bi_pro_n_grad_info' + '_' + self.Name, borrow=True)
-    def init_save_update(self):
-        self.Wt_update_info=theano.shared(value=np.zeros((self.N_in,self.N_units),dtype=theano.config.floatX),name='Wt_pro_update_info'+'_'+self.Name,borrow=True)
-        self.Bi_update_info = theano.shared(value=np.zeros((self.N_units,),dtype=theano.config.floatX),name='Bi_pro_update_info' + '_' + self.Name, borrow=True)
-    def init_save_multi_update(self,n):
-        self.Wt_update_n_info = theano.shared(value=np.zeros((self.N_in, self.N_units,n), dtype=theano.config.floatX),
-                                          name='Wt_pro_n_update_info' + '_' + self.Name, borrow=True)
-        self.Bi_update_n_info = theano.shared(value=np.zeros((self.N_units,n), dtype=theano.config.floatX),
-                                          name='Bi_pro_n_update_info' + '_' + self.Name, borrow=True)
-    def init_dropout(self):
-        self.dropout=True
-        output_mask_vector=np.zeros((self.N_units,),theano.config.floatX)
-        self.output_dropout_mask=theano.shared(value=output_mask_vector,name='Output_dropout_mask_'+ self.Name,borrow=True)
 
 ''' setup base hidden layer '''
 
@@ -119,6 +107,38 @@ class Layer_Tools:
         wt = np.asarray(wt,dtype=theano.config.floatX)
         bi = np.asarray(bi,dtype=theano.config.floatX)
         return wt,bi
+
+    @staticmethod
+    def Fully_connected_U_init(Rng,N_units,U,U_init):
+        u=None
+        init_func={'uniform':Rng.uniform,'zeros':np.zeros,'randn':Rng.randn}
+        if U is None:
+            if U_init == 'zeros':
+                u=init_func[U_init]([N_units,N_units])
+            elif U_init == 'uniform':
+                u=init_func[U_init](low=-np.sqrt(6. / (N_units + N_units)),high=np.sqrt(6. / (N_units + N_units)),size=(N_units,N_units))
+            elif U_init == 'randn':
+                u=init_func[U_init](N_units,N_units)
+        else:
+            u=U
+        u = np.asarray(u,dtype=theano.config.floatX)
+        return u
+
+    @staticmethod
+    def Fully_connected_emb_init(Rng,N_in,N_units,Wemb,Wemb_init):
+        emb=None
+        init_func={'uniform':Rng.uniform,'zeros':np.zeros,'randn':Rng.randn}
+        if Wemb is None:
+            if Wemb_init == 'zeros':
+                emb=init_func[Wemb_init]([N_in,N_units])
+            elif Wemb_init == 'uniform':
+                emb=init_func[Wemb_init](low=-np.sqrt(6. / (N_in + N_units)),high=np.sqrt(6. / (N_in + N_units)),size=(N_in,N_units))
+            elif Wemb_init == 'randn':
+                emb=init_func[Wemb_init](N_in,N_units)
+        else:
+            emb=Wemb
+        emb = np.asarray(emb,dtype=theano.config.floatX)
+        return emb
     # cost function
     @staticmethod
     def cost(Y,cost_func,outputs):

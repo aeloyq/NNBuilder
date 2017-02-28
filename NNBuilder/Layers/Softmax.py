@@ -32,3 +32,4 @@ class layer(Output_Layer):
     def error(self, Y):
         return T.mean(T.neq(self.pred_Y, Y))
 
+

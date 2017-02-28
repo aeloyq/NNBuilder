@@ -2,6 +2,7 @@ import Adadelta
 import Adagrad
 import Dropout
 import Momentum
-import MSGD
+import SGD
 import Newtonsmethod
-__all__=['Adadelta','Adagrad','Dropout','Momentum','MSGD','Newtonsmethod']
+import Rmsprop
+__all__=['Adadelta','Adagrad','Dropout','Momentum', 'SGD.py', 'Newtonsmethod', 'Rmsprop']

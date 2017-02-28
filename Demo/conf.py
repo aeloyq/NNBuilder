@@ -26,15 +26,15 @@ def get_conf_xor():
     configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_mnist
     # Model Structs
     configuration['n_inputs']=28*28
-    configuration['load_model'] = nnb.Models.SoftmaxRegression.get_model(28*28,10,1,500)
+    configuration['load_model'] = nnb.Models.SoftmaxRegression.get_model(28*28,[500,1],10)
     # Regularization Items
     configuration['L0_reg'] = 0.
     configuration['L1_reg'] = 0.
     configuration['L2_reg'] = 0.0001
     # MBGD Settings
-    configuration['algrithm']=[nnb.Algrithms.MSGD]
+    configuration['algrithm']=nnb.Algrithms.SGD
     configuration['momentum_factor'] = 0.9
-    configuration['max_epoches'] = 10
+    configuration['max_epoches'] = 1000
     configuration['learning_rate'] = 0.01
     configuration['batch_size'] = 20
     # Early Stop Settings
@@ -64,7 +64,7 @@ def get_conf_x():
     configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_xor
     # Model Structs
     configuration['n_inputs']=2
-    configuration['load_model'] = nnb.Models.SoftmaxRegression.get_model(2,2,1,2)
+    configuration['load_model'] = nnb.Models.SoftmaxRegression.get_model(2,[1,1],1)
     #configuration['load_model'] = nnb.Models.LogisticRegression.get_model(2,2,1,2)
     configuration['Wt_init'] = 'uniform'
     configuration['Bi_init'] = 'zeros'
@@ -74,7 +74,7 @@ def get_conf_x():
     configuration['L1_reg'] = 0.
     configuration['L2_reg'] = 0.
     # MBGD Settings
-    configuration['algrithm']=nnb.Algrithms.MSGD
+    configuration['algrithm']=nnb.Algrithms.SGD
     configuration['momentum_factor'] = 0.9
     configuration['max_epoches'] = 1000
     configuration['learning_rate'] = 0.1
@@ -175,7 +175,7 @@ def get_conf():
     configuration['data_pre'] = nnb.Preparation.DataPrepares.Load_xor
     # Model Structs
     configuration['n_inputs'] = 2
-    configuration['load_model'] = nnb.Models.LogisticRegression.get_model(2, 1, 2, 2)
+    configuration['load_model'] = nnb.Models.LogisticRegression.get_model(2,[2, 1],1)
     configuration['Wt_init'] = 'uniform'
     configuration['Bi_init'] = 'zeros'
     configuration['Bi_init'] = 'zeros'
@@ -184,7 +184,7 @@ def get_conf():
     configuration['L1_reg'] = 0.
     configuration['L2_reg'] = 0.
     # MBGD Settings
-    configuration['algrithm'] = nnb.Algrithms.MSGD
+    configuration['algrithm'] = nnb.Algrithms.SGD
     configuration['momentum_factor'] = 0.9
     configuration['max_epoches'] = 10000
     configuration['learning_rate'] = 8
