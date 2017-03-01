@@ -7,6 +7,8 @@ Created on  Feb 25 1:45 PM 2017
 class extension:
     def __init__(self,kwargs):
         self.kwargs=kwargs
+    def init(self):
+        pass
     def before_train(self):
         pass
     def before_iteration(self):

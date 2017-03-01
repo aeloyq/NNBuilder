@@ -12,8 +12,8 @@ import SGD
 
 base=SGD.algrithm
 class algrithm(base):
-    def __init__(self,configuration,wt_packs,cost):
-        base.__init__(self,configuration,wt_packs,cost)
+    def __init__(self):
+        base.__init__(self)
         self.pro_rms_g2 = [theano.shared(param.get_value() * self.numpy_floatX(0.),
                                          name='rmsprop_pro_rms_g2_%s'%param.name,borrow=True)
                            for param in self.params]
@@ -36,3 +36,5 @@ class algrithm(base):
                           for p_g2, curnt_dlt_x in zip(self.pro_rms_delta_x, self.current_delta_x)]
         self.updates=self.updates_1+self.updates_2
         return self.train_updates+self.updates
+
+config=algrithm()

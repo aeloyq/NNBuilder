@@ -72,9 +72,17 @@ class Output_Layer(Layer):
     def predict(self):
         self.pred_Y=T.round(self.outputs)
     def cost(self,Y):
-        return Layer_Tools.cost(T.reshape(Y,[Y.shape[0],1]),self.Cost_func,self.outputs)
+        self.add_debug(Y)
+        self.add_debug(self.outputs)
+        if Y.ndim==2:
+            return Layer_Tools.cost(Y,self.Cost_func,self.outputs)
+        if Y.ndim==1:
+            return Layer_Tools.cost(T.reshape(Y,[Y.shape[0],1]),self.Cost_func,self.outputs)
     def error(self,Y):
-        return Layer_Tools.errors(T.reshape(Y,[Y.shape[0],1]),self.pred_Y)
+        if Y.ndim == 1:
+            return Layer_Tools.errors(T.reshape(Y,[Y.shape[0],1]),self.pred_Y)
+        if Y.ndim==2:
+            return Layer_Tools.errors(Y, self.pred_Y)
 
 ''' tools for building layers '''
 
@@ -122,6 +130,23 @@ class Layer_Tools:
         else:
             u=U
         u = np.asarray(u,dtype=theano.config.floatX)
+        return u
+
+    @staticmethod
+    def Fully_connected_lstm_U_init(Rng, N_units, U, U_init):
+        u = None
+        init_func = {'uniform': Rng.uniform, 'zeros': np.zeros, 'randn': Rng.randn}
+        if U is None:
+            if U_init == 'zeros':
+                u = init_func[U_init]([N_units, N_units])
+            elif U_init == 'uniform':
+                u = init_func[U_init](low=-np.sqrt(6. / (N_units + N_units)), high=np.sqrt(6. / (N_units + N_units)),
+                                      size=(N_units, N_units*4))
+            elif U_init == 'randn':
+                u = init_func[U_init](N_units, N_units)
+        else:
+            u = U
+        u = np.asarray(u, dtype=theano.config.floatX)
         return u
 
     @staticmethod

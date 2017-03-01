@@ -51,9 +51,8 @@ class ex(base):
         datastream, train_model, valid_model, test_model, sample_model, debug_model, model, NNB_model, optimizer = kwargs['model_stream']
         testdatas = []
         for _, index in test_minibatches:
-            x = [test_X[t] for t in index]
-            y = [test_Y[t] for t in index]
-            testdatas.append([x, y])
+            data = kwargs['prepare_data'](test_X, test_Y, index)
+            testdatas.append(data)
         test_error = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
         print "Trainning finished after epoch:", kwargs['epoches'][0]
         print "Trainning finished at iteration:", kwargs['iteration_total'][0]

@@ -35,7 +35,7 @@ class layer(baselayer):
         self.outputs=self.Wemb[T.cast(self.Inputs.flatten(),'int64')].reshape([n_timesteps,
                                                     n_samples,self.N_dims])
     def set_inputs(self,Inputs_X):
-        self.Inputs=Inputs_X.T
+        self.Inputs=Inputs_X
         self.output_func()
     def set_name(self,name):
         self.Name=name

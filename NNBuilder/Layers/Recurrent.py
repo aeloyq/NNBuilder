@@ -37,19 +37,22 @@ class layer(Hidden_Layer):
         self.wt_bi_inited = True
     def wt_bi_pack(self):
         self.params=[self.Wt,self.Bi,self.U]
+    def add_inputs(self,tvar):
+        self.mask=tvar
     def output_func(self):
-        def _step(x_,h_):
+        def _step(x_,m_,h_):
             out_=T.dot(h_,self.U)+T.dot(x_,self.Wt)+self.Bi
             if self.Activation is not None:
                 out_ = self.Activation(out_)
             else:
                 out_ = out_
+            out_=m_[:, None] * out_+ (1. - m_)[:, None] * out_
             return out_
         if self.Inputs.ndim == 3:
             n_samples = self.Inputs.shape[1]
         else:
             n_samples = 1
-        lin_out,scan_update=theano.scan(_step,sequences=[self.Inputs],
+        lin_out,scan_update=theano.scan(_step,sequences=[self.Inputs,self.mask],
                                         outputs_info=[
                             T.alloc(np.asarray(0.).astype(theano.config.floatX),
                                     n_samples,self.N_units)],name=self.Name+'_Scan',n_steps=self.Inputs.shape[0])
