@@ -14,11 +14,13 @@ base=SGD.algrithm
 class algrithm(base):
     def __init__(self):
         base.__init__(self)
+        self.learning_rate=0.01
+        self.momentum_factor=0.9
+    def init(self,wt_packs,cost):
+        base.init(self, wt_packs, cost)
         self.pro_update = [theano.shared(param.get_value() * self.numpy_floatX(0.),
                               name='momentum_pro_update_%s'%param.name,borrow=True)
                                             for param in self.params]
-        self.learning_rate=0.01
-        self.momentum_factor=0.9
     def get_updates(self):
         self.gparams = T.grad(self.cost, self.params)
         self.momentum_factor_shared=theano.shared(self.numpy_floatX(self.momentum_factor)

@@ -72,8 +72,6 @@ class Output_Layer(Layer):
     def predict(self):
         self.pred_Y=T.round(self.outputs)
     def cost(self,Y):
-        self.add_debug(Y)
-        self.add_debug(self.outputs)
         if Y.ndim==2:
             return Layer_Tools.cost(Y,self.Cost_func,self.outputs)
         if Y.ndim==1:
@@ -107,7 +105,7 @@ class Layer_Tools:
             if Bi_init is 'zeros':
                 bi=init_func[Bi_init]((N_units,))
             elif Bi_init is 'uniform':
-                bi=init_func[Bi_init](low=-np.sqrt(6. / (N_in + N_units)),high=np.sqrt(6. / (N_in + N_units)),size=(N_in,))
+                bi=init_func[Bi_init](low=-np.sqrt(6. / (N_in + N_units)),high=np.sqrt(6. / (N_in + N_units)),size=(N_units,))
             elif Bi_init is 'randn':
                 bi=init_func[Bi_init](N_units,)
         else:
@@ -116,6 +114,34 @@ class Layer_Tools:
         bi = np.asarray(bi,dtype=theano.config.floatX)
         return wt,bi
 
+    @staticmethod
+    def Fully_connected_lstm_weights_init(Rng, N_in, N_units, Wt, Bi, Wt_init, Bi_init):
+        wt = None;
+        bi = None
+        init_func = {'uniform': Rng.uniform, 'zeros': np.zeros, 'randn': Rng.randn}
+        if Wt is None:
+            if Wt_init == 'zeros':
+                wt = init_func[Wt_init]([N_in, N_units*4])
+            elif Wt_init == 'uniform':
+                wt = init_func[Wt_init](low=-np.sqrt(6. / (N_in + N_units*4)), high=np.sqrt(6. / (N_in + N_units*4)),
+                                        size=(N_in, N_units*4))
+            elif Wt_init == 'randn':
+                wt = init_func[Wt_init](N_in, N_units*4)
+        else:
+            wt = Wt
+        if Bi is None:
+            if Bi_init is 'zeros':
+                bi = init_func[Bi_init]((N_units*4,))
+            elif Bi_init is 'uniform':
+                bi = init_func[Bi_init](low=-np.sqrt(6. / (N_in + N_units*4)), high=np.sqrt(6. / (N_in + N_units*4)),
+                                        size=(N_units*4,))
+            elif Bi_init is 'randn':
+                bi = init_func[Bi_init](N_units*4, )
+        else:
+            bi = Bi
+        wt = np.asarray(wt, dtype=theano.config.floatX)
+        bi = np.asarray(bi, dtype=theano.config.floatX)
+        return wt, bi
     @staticmethod
     def Fully_connected_U_init(Rng,N_units,U,U_init):
         u=None

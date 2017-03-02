@@ -26,5 +26,5 @@ if __name__ == '__main__':
     model = RNN.get_model(n_in_word_dim=10, hl_rnn=[10, 1], n_out_word_dim=10)
     model_stream = Get_Model_Stream(datastream=data_stream, algrithm=Adadelta, packed_model=model)  # ,grad_monitor=True)
     Sample.config.sample_func=Samples.add_sample
-    result_stream = Train(model_stream=model_stream, datastream=data_stream,extension=[Monitor,Earlystop,Sample])
+    result_stream = Train(model_stream=model_stream, datastream=data_stream,extension=[Monitor,Sample])
     vision_return = get_result(result_stream, model_stream)

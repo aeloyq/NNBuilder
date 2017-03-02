@@ -25,6 +25,14 @@ class ex(base):
                 n_train = len(data)
             self.patience = n_train
             self.valid_freq=min((n_train-1)//kwargs['conf'].batch_size+1,self.patience)
+        else:
+            kwargs = self.kwargs
+            data = kwargs['data_stream'][0]
+            try:
+                n_train = data.get_value().shape[0]
+            except:
+                n_train = len(data)
+            self.patience = n_train
     def after_iteration(self):
         kwargs=self.kwargs
         if (kwargs['iteration_total'][0]) % self.valid_freq == 0:

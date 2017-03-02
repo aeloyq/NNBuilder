@@ -13,7 +13,7 @@ import numpy as np
 def Get_Model_Stream(datastream,algrithm,dim_model=None,packed_model=None,grad_monitor=False):
     print "\r\nBuilding Model:\r\n"
     if packed_model!=None:NNB_model=load_model(packed_model)
-    if dim_model != None: NNB_model = dim_model
+    elif dim_model != None: NNB_model = dim_model
     train_inputs=NNB_model.train_inputs
     NNB_model.get_cost_pred_error()
     wt_bi = NNB_model.wt_packs
@@ -73,6 +73,7 @@ class model():
         self.layer_dict = {}
         self.wt_packs=[]
         self.scan_updates=None
+        self.cost=0
         layers = Layers.__all__
         for ly in layers:
             if ly!='Layers':
@@ -141,7 +142,7 @@ class model():
 
     def get_cost_pred_error(self):
         self.pred_Y=self.final_output.pred_Y
-        self.cost=self.final_output.cost(self.Y)
+        self.cost+=self.final_output.cost(self.Y)
         self.error=self.final_output.error(self.Y)
 
     def add_regularization(self,l0=0,l1=0,l2=0.0001,wt_packs=None):
@@ -183,5 +184,7 @@ def load_model(dim_model):
             model2return.add_dropout(*i[0])
         elif i[1]=='addtheanoinput':
             model2return.add_theano_input(*i[0])
+        elif i[1]=='addreg':
+            model2return.add_regularization(*i[0])
     return model2return
 

@@ -14,12 +14,16 @@ base=SGD.algrithm
 class algrithm(base):
     def __init__(self):
         base.__init__(self)
+
+    def init(self,wt_packs,cost):
+        base.init(self,wt_packs, cost)
         self.pro_rms_g2 = [theano.shared(param.get_value() * self.numpy_floatX(0.),
-                                         name='rmsprop_pro_rms_g2_%s'%param.name,borrow=True)
+                                         name='adadelta_pro_rms_g2_%s' % param.name, borrow=True)
                            for param in self.params]
         self.pro_rms_delta_x = [theano.shared(param.get_value() * self.numpy_floatX(0.),
-                                              name='rmsprop_pro_rms_delta_x_%s' % param.name,borrow=True)
+                                              name='adadelta_pro_rms_delta_x_%s' % param.name, borrow=True)
                                 for param in self.params]
+
     def get_updates(self):
         self.gparams = T.grad(self.cost, self.params)
         self.rou=0.95

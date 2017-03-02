@@ -7,6 +7,7 @@ Created on Mon Dec 19 19:37:12 2016
 #TODO:类化，装饰器加入，处理extension
 import timeit
 import theano
+import theano.tensor as T
 import numpy as np
 import copy
 import config
@@ -69,6 +70,7 @@ def Train(model_stream, datastream,extension):
             iteration_total[0] += 1
             for ex in extension_instance:   ex.after_iteration()
             if dict['stop']:
+                for ex in extension_instance:   ex.after_train()
                 return epoches[0],errors,costs,debug_result
             # Stop When Sucess
             if train_error == 0:
@@ -109,17 +111,17 @@ def prepare_data(data_x,data_y,index):
         y = [data_y[t] for t in index]
         maxlen=max([len(d) for d in x])
         x=np.array(x)
-        mask=np.ones([len(index),maxlen])
+        mask=np.ones([len(index),maxlen]).astype(theano.config.floatX)
         for idx,i in enumerate(x):
             for j in range(len(i), maxlen):
                 i.append(np.zeros_like(i[0]).tolist())
-                mask[idx,j]=0.
+                mask[idx,j]=mask[idx,j]-1
         x_new=[]
         for idx in range(len(x[0])):
             x_new.append([x[i][idx] for i in range(len(x))])
-        x=np.array(x_new).astype(theano.config.floatX)
-        y=np.array(y).astype(theano.config.floatX)
-        mask=mask.transpose().astype(theano.config.floatX)
+        x=x_new
+        y=y
+        mask=mask.transpose()
         data=[x,y,mask]
         data = tuple(data)
         return data
