@@ -14,9 +14,11 @@ import config
 from logger import logger
 
 def train(datastream, model, algrithm, extension):
+    model.build()
+    print_config(model, algrithm, extension)
     train_model,valid_model,test_model,sample_model,debug_model,model,NNB_model,optimizer=get_modelstream(model,algrithm)
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
-    logger("\r\nTrainning Model:\r\n",0)
+    logger("Trainning Model:",0,1)
     train_minibatches, valid_minibatches, test_minibatches=get_minibatches_idx(datastream)
     sample_data=[datastream[0],datastream[3]]
     batch_size=config.batch_size
@@ -34,6 +36,7 @@ def train(datastream, model, algrithm, extension):
     costs=[]
     first=True
     dict={}
+    dict['model']=model
     dict['logger'] = logger
     dict['prepare_data']=prepare_data
     dict['get_sample_data']=get_sample_data
@@ -191,11 +194,36 @@ def get_sample_data(datastream):
         data=prepare_data(train_X,train_Y,[idx])
         return data
 
+def print_config(model, algrithm, extension):
+    logger('Configurations:',0,1)
+    logger('config:', 1)
+    for key in config.__dict__ :
+        if not key.startswith('__'):
+            logger( key+' : %s'%config.__dict__[key],2)
+    logger('model:', 1)
+    for key in model.__dict__:
+        if not key.startswith('__'):
+            logger(key + ' : %s'%model.__dict__[key], 2)
+    logger('layer:', 1)
+    for lykey in model.layers:
+        logger(lykey+":", 2)
+        for key in model.layers[lykey].__dict__:
+            if not key.startswith('__'):
+                logger(key + ' : %s'% model.layers[lykey].__dict__[key], 3)
+    logger('algrithm:', 1)
+    for key in algrithm.config.__dict__:
+        if not key.startswith('__'):
+            logger(key + ' : %s'% algrithm.config.__dict__[key], 2)
+    logger('extension:', 1)
+    for ex in extension:
+        for key in ex.config.__dict__:
+            if not key.startswith('__'):
+                logger(key + ' : %s'% ex.config.__dict__[key], 2)
+
 def get_modelstream(model,algrithm):
-    logger("\r\nBuilding Model:\r\n",0)
+    logger("Building Model:",0,1)
     NNB_model = model
     train_inputs=NNB_model.train_inputs
-    NNB_model.build()
     NNB_model.get_cost_pred_error()
     params = NNB_model.params
     cost = NNB_model.cost

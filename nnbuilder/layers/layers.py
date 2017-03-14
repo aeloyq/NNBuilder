@@ -18,7 +18,8 @@ class baselayer:
         self.rng=config.rng
         self.name='unnamed'
         self.input=None
-        self.ops=None
+        self.output=None
+        self.ops_on_output = []
         self.debug_stream=[]
         self.param_init_functions=paraminitfunctions()
     def add_debug(self,additem):
@@ -27,6 +28,9 @@ class baselayer:
         self.input=X
     def get_output(self):
         self.output=self.input
+    def build(self):
+        for op in self.ops_on_output:
+            self.output = op(self.output)
     def set_name(self,name):
         self.name=name
 
@@ -74,8 +78,6 @@ class layer(baselayer):
             self.output=self.activation(T.dot(self.input,self.wt)+self.bi)
         else:
             self.output=T.dot(self.input,self.wt)+self.bi
-        if self.ops is not None:
-            self.output = self.ops(self.output)
     def set_activation(self,method):
         self.activation=method
 

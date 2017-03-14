@@ -9,6 +9,7 @@ import layers
 import theano
 import theano.tensor as T
 import numpy as np
+from collections import OrderedDict
 
 
 class model():
@@ -19,8 +20,8 @@ class model():
         self.train_inputs=[self.X,self.Y]
         self.model_inputs=[self.X,self.Y]
         self.rng=config.rng
-        self.layers={}
-        self.nodes={}
+        self.layers=OrderedDict()
+        self.nodes=[]
         self.output=None
         self.cost=None
         self.error=None
@@ -76,17 +77,17 @@ class model():
             self.layer.get_output()
             self.output=self.layer.output
 
-    def addpointwise(self,operation,layer1,layer2,name):
-        pw=self.pointwise(operation,layer1,layer2,name)
-        self.nodes[name]=pw
-        self.graph.append(pw)
+    def addpointwise(self,operation,layer1,layer2):
+        pointwise_instance=self.pointwise(operation,layer1,layer2)
+        self.nodes.append(pointwise_instance)
+        self.graph.append(pointwise_instance)
+        return pointwise_instance
 
     class pointwise:
-        def __init__(self,operation,id1=None,id2=None,name=None):
+        def __init__(self,operation,id1=None,id2=None):
             self.operation=operation
             self.id1=id1
             self.id2=id2
-            self.name=name
             self.output=None
         def evaulate(self):
             if self.operation == '+':
@@ -100,11 +101,6 @@ class model():
 
 
     def add_dropout(self,layer,use_noise=0.5):
-        if use_noise == 0.5:
-            try:
-                use_noise=config.use_noise
-            except:
-                pass
         drop_out_instance=self.dropout(layer,self.trng,'dropout_%s'%layer.name,use_noise)
         self.graph.append(drop_out_instance)
 
@@ -129,7 +125,6 @@ class model():
         dropout_instance=self.weight_decay(layers,l2)
         self.ops_on_cost.append(dropout_instance)
 
-
     class weight_decay():
         def __init__(self,layers,l2=0.0001):
             self.layers=layers
@@ -142,6 +137,19 @@ class model():
             for param in self.params:
                 reg+=T.sum(param**2)
             return cost+self.l2*reg
+
+    def add_residual(self, layer,pre_layer):
+        residual_instance = self.weight_decay(layer, pre_layer)
+        self.ops_on_cost.append(residual_instance)
+
+    class residual:
+        def __init__(self, layer, pre_layer):
+            self.layer = layer
+            self.pre_layer = pre_layer
+            self.output = None
+
+        def evaulate(self):
+            self.output = self.layer.output+self.pre_layer.output
 
 
 
