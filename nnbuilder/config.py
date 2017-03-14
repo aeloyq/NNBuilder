@@ -15,3 +15,4 @@ valid_batch_size=64
 max_epoches=1000
 transpose_inputs=False
 transpose_y=False
+savelog=True

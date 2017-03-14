@@ -47,5 +47,6 @@ def logger(log,level,enter=0):
         log2save=time.asctime()+"\r\n"+log+time.asctime()+"\r\n"
     print log
     if is_save_log:
-        with open(path+name,'wb') as f:
-            f.writelines(log2save)
+        f=open(path+name,'wb')
+        f.writelines(log2save)
+        f.close()

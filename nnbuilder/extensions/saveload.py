@@ -29,7 +29,9 @@ class ex(base):
             savelist = [name for name in os.listdir(path) if name.endswith('.npz')]
             savelist.sort()
             self.load_file_name=savelist[-1]
-        params=np.load(path+'/'+self.load_file_name)
+        file=open(path+'/'+self.load_file_name,'wb')
+        params=np.load(file)
+        file.close()
         for key,skey in zip(layers,params):
             for param,sparam in zip(layers[key].layer.params,params[skey]):
                 param.set_value(sparam)
@@ -46,7 +48,9 @@ class ex(base):
             for key in params:
                 for idx, param in enumerate(params[key]):
                     params[key][idx] = param.get_value()
-            np.savez(path + '/%s.npz' % (time.asctime()), params)
+            file=open(path + '/%s.npz' % (time.asctime()),'wb')
+            np.savez(file, params)
+            file.close()
             savelist = [name for name in os.listdir(path) if name.endswith('.npz')]
             savelist.sort()
             for i in range(len(savelist) - self.save_len):
@@ -62,6 +66,8 @@ class ex(base):
         for key in params:
             for idx, param in enumerate(params[key]):
                 params[key][idx] = param.get_value()
-        np.savez(path+'finall_model.npz',params)
+        file=open(path+'finall_model.npz','wb')
+        np.savez(file,params)
+        file.close()
 config=ex({})
 
