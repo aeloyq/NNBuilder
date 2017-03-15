@@ -10,7 +10,7 @@ import nnbuilder
 from nnbuilder.dataprepares import Load_mnist
 from nnbuilder.layers import hiddenlayer,softmax
 from nnbuilder.algrithms import sgd
-from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode
+from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode,saveload
 from nnbuilder.model import model
 from nnbuilder.mainloop import train
 from nnbuilder.visions.Visualization import get_result
@@ -31,6 +31,7 @@ if __name__ == '__main__':
     earlystop.config.valid_freq=2500
     sgd.config.learning_rate=0.01
     sample.config.sample_func=samples.mnist_sample
+    saveload.config.save_freq=10
 
     datastream  = Load_mnist()
 
@@ -42,5 +43,5 @@ if __name__ == '__main__':
     model.addlayer(layer=outputlayer,input=hidden_1,name='output')
     model.add_weight_decay()
 
-    result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[debugmode, monitor, earlystop])
+    result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[monitor, saveload])
     vision_return = get_result(result_stream=result_stream,model_stream=model)
