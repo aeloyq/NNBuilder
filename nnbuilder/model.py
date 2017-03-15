@@ -10,7 +10,7 @@ import theano
 import theano.tensor as T
 import numpy as np
 from collections import OrderedDict
-
+import logger
 
 class model():
     def __init__(self):
@@ -28,6 +28,7 @@ class model():
         self.graph=[]
         self.params=[]
         self.ops_on_cost=[]
+        self.user_debug_stream=[]
         self.trng=config.trng
 
     def set_inputs(self,train_inputs,model_inputs):
@@ -46,6 +47,8 @@ class model():
         for node in self.graph:
             node.evaulate()
         self.output=self.graph[-1].layer
+        for key in self.layers:
+            self.user_debug_stream.extend(self.layers[key].debug_stream)
 
     def get_cost_pred_error(self):
         self.pred_Y=self.output.pred_Y
@@ -54,8 +57,8 @@ class model():
             self.cost=ops.evaulate(self.cost)
         self.error=self.output.error(self.Y)
 
-    def addlayer(self,layer,input,name=None,mask=None):
-        layer_instance=self.layer(layer,input,name,mask)
+    def addlayer(self,layer,input,name=None):
+        layer_instance=self.layer(layer,input,name)
         self.layers[name]=(layer)
         self.graph.append(layer_instance)
         self.params.append(layer.params)
@@ -69,7 +72,6 @@ class model():
             if name is not None: layer.set_name(name)
             self.layer.init_layer_params()
         def evaulate(self):
-            if self.mask is not None: self.layer.set_mask = self.mask
             try:
                 self.layer.set_input(self.input.output)
             except:
@@ -78,6 +80,7 @@ class model():
             self.output=self.layer.output
 
     def addpointwise(self,operation,layer1,layer2):
+        logger("Warning!:this is deprecated in this version please try to use multi-input instead", 0)
         pointwise_instance=self.pointwise(operation,layer1,layer2)
         self.nodes.append(pointwise_instance)
         self.graph.append(pointwise_instance)

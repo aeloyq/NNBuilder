@@ -12,11 +12,19 @@ import numpy as np
 import copy
 import config
 from logger import logger
+import os
 
 def train(datastream, model, algrithm, extension):
+    if not os.path.exists('./%s' % config.name):
+        os.mkdir('./%s' % config.name)
+    if not os.path.exists('./%s/log' % config.name):
+        os.mkdir('./%s/log' % config.name)
+    if not os.path.exists('./%s/save' % config.name):
+        os.mkdir('./%s/save' % config.name)
     model.build()
+    dim_model=model
     print_config(model, algrithm, extension)
-    train_model,valid_model,test_model,sample_model,debug_model,model,NNB_model,optimizer=get_modelstream(model,algrithm)
+    train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer=get_modelstream(model,algrithm)
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
     logger("Trainning Model:",0,1)
     train_minibatches, valid_minibatches, test_minibatches=get_minibatches_idx(datastream)
@@ -34,9 +42,8 @@ def train(datastream, model, algrithm, extension):
     epoches=[0]
     errors=[]
     costs=[]
-    first=True
     dict={}
-    dict['model']=model
+    dict['dim_model']=dim_model
     dict['logger'] = logger
     dict['prepare_data']=prepare_data
     dict['get_sample_data']=get_sample_data
@@ -46,7 +53,6 @@ def train(datastream, model, algrithm, extension):
     dict['valid_model'] = valid_model
     dict['test_model'] = test_model
     dict['sample_model'] = sample_model
-    dict['debug_model'] = debug_model
     dict['model']=model
     dict['iteration_total']=iteration_total
     dict['minibatches']=[train_minibatches,valid_minibatches,test_minibatches]
@@ -249,14 +255,10 @@ def get_modelstream(model,algrithm):
     logger('Compiling Sampling Model',1)
     sample_model = theano.function(inputs=train_inputs,
                                  outputs=[pred_Y,cost,error])
-    logger('Compiling Debug Model',1)
-    debug_model = theano.function(inputs=train_inputs,
-                                  outputs=debug_output,
-                                  on_unused_input='ignore')
     logger('Compiling Model',1)
     model = theano.function(inputs=train_inputs,
                             outputs=pred_Y,on_unused_input='ignore')
-    return [train_model, valid_model, test_model, sample_model, debug_model,model, NNB_model,optimizer]
+    return [train_model, valid_model, test_model, sample_model,model, NNB_model,optimizer]
 
 
 

@@ -48,7 +48,7 @@ class ex(base):
             for key in params:
                 for idx, param in enumerate(params[key]):
                     params[key][idx] = param.get_value()
-            file=open(path + '/%s.npz' % (time.asctime()),'wb')
+            file=open(path + '/%s.npz' % (time.asctime().replace(' ','-').replace(':','_')),'wb')
             np.savez(file, params)
             file.close()
             savelist = [name for name in os.listdir(path) if name.endswith('.npz')]

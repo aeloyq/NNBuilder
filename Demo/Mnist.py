@@ -10,7 +10,7 @@ import nnbuilder
 from nnbuilder.dataprepares import Load_mnist
 from nnbuilder.layers import hiddenlayer,softmax
 from nnbuilder.algrithms import sgd
-from nnbuilder.extensions import earlystop, monitor ,sample,samples
+from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode
 from nnbuilder.model import model
 from nnbuilder.mainloop import train
 from nnbuilder.visions.Visualization import get_result
@@ -20,11 +20,13 @@ if __name__ == '__main__':
 
     global data_stream, model_stream, result_stream, vision_return
 
+    nnbuilder.config.name='mnist'
     nnbuilder.config.data_path= "./datasets/mnist.pkl.gz"
     nnbuilder.config.name= 'MNIST_DEMO'
     nnbuilder.config.max_epoches=5
     nnbuilder.config.valid_batch_size=20
     nnbuilder.config.batch_size=20
+
     earlystop.config.patience=10000
     earlystop.config.valid_freq=2500
     sgd.config.learning_rate=0.01
@@ -40,5 +42,5 @@ if __name__ == '__main__':
     model.addlayer(layer=outputlayer,input=hidden_1,name='output')
     model.add_weight_decay()
 
-    result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[ monitor, earlystop])
+    result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[debugmode, monitor, earlystop])
     vision_return = get_result(result_stream=result_stream,model_stream=model)

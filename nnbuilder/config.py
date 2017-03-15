@@ -5,6 +5,7 @@ Created on  Feb 28 9:47 PM 2017
 @author: aeloyq
 """
 import numpy as np
+import os
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 name='unamed'
