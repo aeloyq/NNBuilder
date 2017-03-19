@@ -4,41 +4,53 @@ Created on Thu Dec 15 18:44:11 2016
 
 @author: aeloyq
 """
-import sys
-sys.path.append('..')
+
 import nnbuilder
-import nnbuilder.config as config
 from nnbuilder.dataprepares import Load_add
-from nnbuilder.algrithms import sgd,momentum,adadelta,rmsprop
-from nnbuilder.extensions import earlystop, monitor,sample,samples,debugmode
-from nnbuilder.models import rnn
-from nnbuilder.model import Get_Model_Stream,model
+from nnbuilder.layers import recurrent,direct
+from nnbuilder.algrithms import adadelta
+from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode,saveload
+from nnbuilder.model import model
 from nnbuilder.mainloop import train
 from nnbuilder.visions.Visualization import get_result
-from nnbuilder.layers import recurrent,direct
-import theano
+
 import theano.tensor as T
 
-
 if __name__ == '__main__':
+
     global data_stream, model_stream, result_stream, vision_return
-    config.trans_input=True
-    config.max_epoches=10
-    config.batch_size=128
-    config.valid_batch_size=256
-    sgd.config.learning_rate=0.5
-    data_stream  = Load_add()
+
+    nnbuilder.config.name='rnn_additive'
+    nnbuilder.config.max_epoches=10
+    nnbuilder.config.valid_batch_size=64
+    nnbuilder.config.batch_size=64
+    nnbuilder.config.transpose_inputs=True
+
+    earlystop.config.patience=10000
+    earlystop.config.valid_freq=2500
+    sample.config.sample_func=samples.add_sample
+    saveload.config.save_freq=2500
+    saveload.config.load=False
+
+    adadelta.config.if_clip=True
+
+    datastream  = Load_add()
+
     X=T.tensor3('X')
     Y=T.imatrix('Y')
-    dim_model=model()
-    dim_model.set_X(X)
-    dim_model.set_Y(Y)
-    mask=T.matrix('mask')
-    rn=recurrent.layer(config.rng, 10, 10)
-    dt=direct.layer()
-    dim_model.addlayer(rn,'raw','rnn',od_in=mask)
-    dim_model.addlayer(dt,'rnn','direct')
-    model_stream = Get_Model_Stream(datastream=data_stream, algrithm=sgd, dim_model=dim_model)  # ,grad_monitor=True)
-    sample.config.sample_func=samples.add_sample
-    result_stream = train(model_stream=model_stream, datastream=data_stream, extension=[monitor])
-    vision_return = get_result(result_stream, model_stream)
+    X_mask=T.matrix('X_mask')
+
+    rnn_hiddenlayer=recurrent.get_new(in_dim=10,unit_dim=10)
+    rnn_hiddenlayer.set_mask(X_mask)
+    outputlayer=direct.get_new()
+
+    model = model()
+    model.X=X
+    model.X_mask=X_mask
+    model.Y=Y
+    model.set_inputs([X,Y,X_mask],[X,Y,X_mask])
+    model.addlayer(layer=rnn_hiddenlayer,input=model.X,name='hidden')
+    model.addlayer(layer=outputlayer,input=rnn_hiddenlayer,name='output')
+
+    result_stream = train( datastream=datastream,model=model,algrithm=adadelta, extension=[monitor,saveload])
+    vision_return = get_result(result_stream=result_stream,model_stream=model)

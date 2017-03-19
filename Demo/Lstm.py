@@ -4,40 +4,51 @@ Created on Thu Dec 15 18:44:11 2016
 
 @author: aeloyq
 """
-import sys
-sys.path.append('..')
 import nnbuilder
-import nnbuilder.config as config
 from nnbuilder.dataprepares import Load_imdb
-from nnbuilder.algrithms import sgd,adadelta
-from nnbuilder.extensions import earlystop, monitor,sample,debugmode
-from nnbuilder.layers import *
+from nnbuilder.layers import embedding,lstm,direct,logistic
+from nnbuilder.algrithms import adadelta
+from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode,saveload
 from nnbuilder.model import model
 from nnbuilder.mainloop import train
 from nnbuilder.visions.Visualization import get_result
-from nnbuilder.model import Get_Model_Stream
+
 import theano.tensor as T
 
-
 if __name__ == '__main__':
+
     global data_stream, model_stream, result_stream, vision_return
-    vocab_size=100000
-    label_dim=2
-    word_dim=hidden_dim=128
-    maxlen=100
-    config.batch_size=16
-    config.max_epoches=5000
-    config.data_path='./Datasets/imdb.pkl'
-    config.trans_input=True
-    earlystop.config.valid_freq=370
-    sgd.config.learning_rate=0.0001
-    data_stream  = Load_imdb(n_words=vocab_size,maxlen=maxlen)
-    dim_model=model()
-    mask=T.matrix('Mask')
-    dim_model.addlayer(embedding.layer(config.rng, N_in=vocab_size, N_dims=word_dim), 'raw', 'Embedding')
-    dim_model.addlayer(lstm.layer(config.rng, in_dim=word_dim, N_hl=hidden_dim, out_state='mean_pooling'), 'Embedding', 'LSTM', od_in=mask)
-    dim_model.addlayer(softmax.layer(config.rng, in_dim=hidden_dim, N_out=label_dim), 'LSTM', 'Softmax')
-    model_stream = Get_Model_Stream(datastream=data_stream, algrithm=adadelta, dim_model=dim_model)  # ,grad_monitor=True)
-    sample.config.sample_func = None
-    result_stream = train(model_stream=model_stream, datastream=data_stream, extension=[monitor, earlystop, sample])
-    vision_return = get_result(result_stream=result_stream, model_stream=model_stream)
+
+    nnbuilder.config.name='rnn_additive'
+    nnbuilder.config.max_epoches=10
+    nnbuilder.config.valid_batch_size=64
+    nnbuilder.config.batch_size=64
+    nnbuilder.config.transpose_inputs=True
+    nnbuilder.config.data_path='./Datasets/imdb.pkl'
+
+    earlystop.config.patience=10000
+    earlystop.config.valid_freq=2500
+    sample.config.sample_func=samples.add_sample
+    saveload.config.save_freq=2500
+    saveload.config.load=False
+
+    adadelta.config.if_clip=True
+
+    datastream  = Load_imdb(n_words=100000,maxlen=100)
+    X_mask=T.matrix('X_mask')
+
+    emblayer=embedding.get_new(in_dim=100000,emb_dim=10)
+    lstm_hiddenlayer=lstm.get_new(in_dim=10,unit_dim=10)
+    lstm_hiddenlayer.set_mask(X_mask)
+    lstm_hiddenlayer.output_way=lstm_hiddenlayer.output_ways.final
+    outputlayer=logistic.get_new(in_dim=10,unit_dim=1)
+
+    model = model()
+    model.X_mask=X_mask
+    model.set_inputs([model.X,model.Y,X_mask],[model.X,model.Y,X_mask])
+    model.addlayer(layer=emblayer,input=model.X,name='emb')
+    model.addlayer(layer=lstm_hiddenlayer,input=emblayer,name='hidden')
+    model.addlayer(layer=outputlayer,input=lstm_hiddenlayer,name='output')
+
+    result_stream = train( datastream=datastream,model=model,algrithm=adadelta, extension=[debugmode,monitor])
+    vision_return = get_result(result_stream=result_stream,model_stream=model)

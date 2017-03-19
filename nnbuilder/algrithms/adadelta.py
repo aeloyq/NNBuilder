@@ -32,6 +32,8 @@ class algrithm(base):
                            for gparam, p_g2 in zip(self.gparams, self.pro_rms_g2)]
         self.current_delta_x = [((T.sqrt(prp_dlt_x + self.epsilon) / (T.sqrt(curnt_g2 + self.epsilon))) * gparam)
                                 for gparam, curnt_g2,prp_dlt_x in zip(self.gparams, self.current_g2, self.pro_rms_delta_x)]
+        if self.if_clip: self.current_delta_x = [self.grad_clip(update2output) for update2output in
+                                                               self.current_delta_x]
         self.train_updates=[(param, param - curnt_updt)
                             for param, curnt_updt in zip(self.params, self.current_delta_x)]
         self.updates_1=[(p_g2, curnt_g2)
@@ -42,3 +44,5 @@ class algrithm(base):
         return self.train_updates+self.updates
 
 config=algrithm()
+
+#TODO:change variable names to a unified form

@@ -20,7 +20,7 @@ class get_new(output_layer):
         self.masked_y=False
 
     def predict(self):
-        self.pred_Y = T.argmax(self.output, axis=1)
+        self.pred_Y = T.argmax(self.output, axis=self.output.ndim-1)
 
     def cost(self, Y):
         if Y.ndim==1:

@@ -29,6 +29,7 @@ class algrithm(base):
                            for gparam, p_g2 in zip(self.gparams, self.pro_rms_g2)]
         self.current_update = [((learning_rate/(T.sqrt(curnt_g2+self.epsilon)))*gparam)
                            for gparam, curnt_g2 in zip(self.gparams, self.current_g2)]
+        if self.if_clip: self.current_update = [self.grad_clip(update2output) for update2output in self.current_update]
         self.train_updates=[(param, param - curnt_updt)
                for param, curnt_updt in zip(self.params, self.current_update)]
         self.updates=[(p_g2, curnt_g2)

@@ -20,9 +20,8 @@ if __name__ == '__main__':
 
     global data_stream, model_stream, result_stream, vision_return
 
-    nnbuilder.config.name='mnist'
-    nnbuilder.config.data_path= "./datasets/mnist.pkl.gz"
     nnbuilder.config.name= 'MNIST_DEMO'
+    nnbuilder.config.data_path= "./datasets/mnist.pkl.gz"
     nnbuilder.config.max_epoches=5
     nnbuilder.config.valid_batch_size=20
     nnbuilder.config.batch_size=20
@@ -31,7 +30,7 @@ if __name__ == '__main__':
     earlystop.config.valid_freq=2500
     sgd.config.learning_rate=0.01
     sample.config.sample_func=samples.mnist_sample
-    saveload.config.save_freq=10
+    saveload.config.save_freq=2500
 
     datastream  = Load_mnist()
 

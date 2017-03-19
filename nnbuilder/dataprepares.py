@@ -43,7 +43,7 @@ def Load_xor():
         trainsets[1].append(each_output)
     validsets=[[[0,0],[1,0],[0,1],[1,1]],[0,1,1,0]]
     testsets=[[[0,0],[1,0],[0,1],[1,1]],[0,1,1,0]]
-    return convert_to_theano_variable(trainsets, validsets, testsets)
+    return trainsets[0], validsets[0], testsets[0],trainsets[1], validsets[1], testsets[1]
 
 
 ''' load add fun data '''

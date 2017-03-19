@@ -30,6 +30,8 @@ class model():
         self.ops_on_cost=[]
         self.user_debug_stream=[]
         self.trng=config.trng
+        self.X_mask=None
+        self.Y_mask=None
 
     def set_inputs(self,train_inputs,model_inputs):
         self.inputs=train_inputs
@@ -80,7 +82,7 @@ class model():
             self.output=self.layer.output
 
     def addpointwise(self,operation,layer1,layer2):
-        logger("Warning!:this is deprecated in this version please try to use multi-input instead", 0)
+        logger("Warning!:this is deprecated in this version please try to use softplus instead", 0)
         pointwise_instance=self.pointwise(operation,layer1,layer2)
         self.nodes.append(pointwise_instance)
         self.graph.append(pointwise_instance)

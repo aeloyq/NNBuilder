@@ -22,6 +22,8 @@ class baselayer:
         self.ops_on_output = []
         self.debug_stream=[]
         self.param_init_functions=paraminitfunctions()
+        self.params=[]
+        self.ops=None
     def add_debug(self,additem):
         self.debug_stream.append(additem)
     def set_input(self,X):
@@ -34,11 +36,15 @@ class baselayer:
     def set_name(self,name):
         self.name=name
 
+    def init_layer_params(self):
+        pass
+
 class paraminitfunctions:
     def __init__(self):
         self.uniform=layer_tools.uniform
         self.zeros=layer_tools.zeros
         self.randn=layer_tools.randn
+        self.orthogonal=layer_tools.orthogonal
 
 class costfunctions:
     def __init__(self):
@@ -48,10 +54,10 @@ class costfunctions:
 
 
 class layer(baselayer):
-    def __init__(self, in_dim, n_units,activation=None,**kwargs):
+    def __init__(self, in_dim, unit_dim, activation=None, **kwargs):
         baselayer.__init__(self)
         self.in_dim=in_dim
-        self.unit_dim=n_units
+        self.unit_dim=unit_dim
         self.param_init_function={'wt':self.param_init_functions.uniform,'bi':self.param_init_functions.zeros}
         if 'name' in kwargs:
             self.name = kwargs['name']
@@ -96,10 +102,17 @@ class output_layer(layer):
         self.cost_functions=costfunctions()
         self.cost_function=self.cost_functions.square
     def get_output(self):
+
         if self.activation is not None:
-            self.output=self.activation(T.dot(self.input,self.wt)+self.bi)
+            if self.input.ndim == 2:
+                self.output=self.activation(T.dot(self.input,self.wt)+self.bi)
+            elif self.input.ndim == 3:
+                out, up = theano.scan(lambda i: self.activation(T.dot(i, self.wt) + self.bi),
+                                      sequences=[self.input], n_steps=self.input.shape[0])
+                self.output = out
         else:
             self.output=T.dot(self.input,self.wt)+self.bi
+
         self.predict()
     def predict(self):
         self.pred_Y=T.round(self.output)
@@ -145,6 +158,12 @@ class layer_tools:
         for dim in args:
             shape.append(dim)
         param = np.zeros(shape)
+        return layer_tools.numpy_asarray_floatx(param)
+
+    @staticmethod
+    def orthogonal(*args):
+        param = layer_tools.uniform(*args)
+        param=np.linalg.svd(param)[0]
         return layer_tools.numpy_asarray_floatx(param)
 
     # recurrent output

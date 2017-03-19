@@ -27,8 +27,11 @@ class algrithm(base):
         self.train_updates_current_delta_x = [
             (self.learning_rate_shared / (T.sqrt(p_grad+gparam**2)+self.epsilon))*gparam for
             gparam, p_grad in zip(self.gparams, self.pro_update)]
+        if self.if_clip: self.train_updates_current_delta_x = [self.grad_clip(update2output) for update2output in
+                                                               self.train_updates_current_delta_x]
         self.train_updates = [(param, param - updt_curnt)
                               for param, updt_curnt in zip(self.params, self.train_updates_current_delta_x)]
+
         self.updates = [(pro_updt, pro_updt+g**2)
                         for pro_updt, g in zip(self.pro_update, self.gparams)]
         return self.train_updates + self.updates
