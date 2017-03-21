@@ -94,9 +94,9 @@ class get_bi(get):
         input_forward=self.input
         input_backward=self.input[:,::-1,:]
         self.input=input_forward
-        get_new.get_output()
+        get.get_output()
         output_forward=self.output
         self.input = input_backward
-        get_new.get_output()
+        get.get_output()
         output_backward = self.output
         self.output=output_forward+output_backward

@@ -84,8 +84,8 @@ class ex(base):
             savelist = [name for name in os.listdir(path) if name.endswith('.npz')]
             savelist.sort()
             for i in range(len(savelist) - self.save_len):
-                os.remove(path + '/' + savelist[0])
-                self.logger("Deleted old file:{}".format(path + '/' + savelist[0]), 3)
+                os.remove(path + '/' + savelist[i])
+                self.logger("Deleted old file:{}".format(path + '/' + savelist[i]), 3)
     def after_train(self):
         kwargs = self.kwargs
         model = kwargs['dim_model']
