@@ -10,11 +10,11 @@ import theano
 import theano.tensor as T
 from layers import layer_tools
 import recurrent
-base=recurrent.get_new
+base=recurrent.get
 
 ''' setup hidden layer of feedforward network inherited from Hidden_Layer '''
 
-class get_new(base):
+class get(base):
 
     def __init__(self,in_dim, unit_dim,h_0_init=False,c_0_init=False,activation=None,**kwargs):
         base.__init__(self, in_dim, unit_dim,h_0_init, activation,**kwargs)
@@ -24,8 +24,8 @@ class get_new(base):
         self.c_0_init=c_0_init
 
     def init_layer_params(self):
-        wt_values = self.param_init_function['wt'](self.in_dim,self.unit_dim)
-        bi_values = self.param_init_function['bi'](self.unit_dim)
+        wt_values = self.param_init_function['wt'](self.in_dim,self.unit_dim*4)
+        bi_values = self.param_init_function['bi'](self.unit_dim*4)
         u_values=self.param_init_function['u'](self.unit_dim,self.unit_dim*4)
         self.wt = theano.shared(value=wt_values, name='Wt'+'_'+self.name, borrow=True)
         self.bi = theano.shared(value=bi_values, name='Bi'+'_'+self.name, borrow=True)
@@ -89,7 +89,7 @@ class get_new(base):
             if self.ops is not None:
                 self.output = self.ops(self.output)
 
-class get_new_bi(get_new):
+class get_bi(get):
     def get_output(self):
         input_forward=self.input
         input_backward=self.input[:,::-1,:]

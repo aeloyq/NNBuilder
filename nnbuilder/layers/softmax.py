@@ -13,7 +13,7 @@ from layers import output_layer, layer_tools
 ''' setup softmax output layer inherited from base output layer '''
 
 
-class get_new(output_layer):
+class get(output_layer):
     def __init__(self, in_dim, unit_dim,activation=T.nnet.softmax):
         output_layer.__init__(self, in_dim, unit_dim,activation)
         self.cost_function=self.cost_functions.neglog

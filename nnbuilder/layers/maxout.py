@@ -12,6 +12,6 @@ from layers import hidden_layer
 
 ''' setup hidden layer of feedforward network inherited from Hidden_Layer '''
 
-class layer(hidden_layer):
+class get(hidden_layer):
     def __init__(self, Rng, in_dim, N_hl, Name='undefined', Wt=None, Bi=None, Wt_init='uniform', Bi_init='zeros', Activation=T.argmax):
         hidden_layer.__init__(self, Rng, in_dim, N_hl, Name, Wt, Bi, Wt_init, Bi_init, Activation)

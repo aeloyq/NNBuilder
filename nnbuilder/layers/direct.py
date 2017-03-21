@@ -8,15 +8,16 @@ Created on Thu Feb 09 14:30:08 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from layers import output_layer, layer_tools,baselayer
+from layers import output_layer, layer_tools,baselayer,costfunctions
 
 ''' setup softmax output layer inherited from base output layer '''
 
 
-class get_new(baselayer):
+class get(baselayer):
     def __init__(self,**kwargs):
         baselayer.__init__(self)
         self.cost_function=layer_tools.square_cost
+        self.cost_functions = costfunctions()
     def get_output(self):
         baselayer.get_output(self)
         if self.ops is not None:

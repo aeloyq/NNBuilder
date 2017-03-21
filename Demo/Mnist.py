@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     nnbuilder.config.name= 'MNIST_DEMO'
     nnbuilder.config.data_path= "./datasets/mnist.pkl.gz"
-    nnbuilder.config.max_epoches=5
+    nnbuilder.config.max_epoches=1000
     nnbuilder.config.valid_batch_size=20
     nnbuilder.config.batch_size=20
 

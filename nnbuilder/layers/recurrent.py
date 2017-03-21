@@ -20,7 +20,7 @@ class output_ways:
         self.all = layer_tools.all
         self.mean_pooling = layer_tools.mean_pooling
 
-class get_new(hidden_layer):
+class get(hidden_layer):
     def __init__(self, in_dim, unit_dim,state_0_init=False, activation=T.tanh,**kwargs):
         hidden_layer.__init__(self, in_dim, unit_dim,activation,**kwargs)
         self.state_0_init=state_0_init
@@ -52,29 +52,23 @@ class get_new(hidden_layer):
     def set_mask(self,tvar):
         self.mask=tvar
 
+    def get_state_before(self):
+        self.state_before=T.dot(self.input, self.wt)+ self.bi
+
+
     def get_output(self):
-        def _step(x_,m_,h_):
-            out_=T.dot(h_,self.u)+T.dot(x_, self.wt)+ self.bi
-            if self.activation is not None:
-                out_ = self.activation(out_)
-            else:
-                out_ = out_
-            out_=m_[:, None] * out_+ (1. - m_)[:, None] * out_
-            if self.hidden_unit_dropout:
-                if self.ops is not None:
-                    out_=self.ops(out_)
-            return out_
+        self.get_state_before()
         if self.input.ndim == 3:
             n_samples = self.input.shape[1]
         else:
             n_samples = 1
         if not self.state_0_init:
-            lin_out,scan_update=theano.scan(_step, sequences=[self.input,self.mask],
+            lin_out,scan_update=theano.scan(self.step, sequences=[self.state_before,self.mask],
                                             outputs_info=[
                                 T.alloc(np.asarray(0.).astype(theano.config.floatX),
                                         n_samples, self.unit_dim)], name=self.name + '_Scan', n_steps=self.input.shape[0])
         else:
-            lin_out, scan_update = theano.scan(_step, sequences=[self.input, self.mask],
+            lin_out, scan_update = theano.scan(self.step, sequences=[self.input, self.mask],
                                                outputs_info=[T.reshape(T.repeat(self.state_0_init,n_samples),[n_samples, self.unit_dim])], name=self.name + '_Scan',
                                                n_steps=self.input.shape[0])
 
@@ -82,15 +76,26 @@ class get_new(hidden_layer):
         if self.output_dropout:
             if self.ops is not None:
                 self.output = self.ops(self.output)
+    def step(self,x_,m_,h_):
+        out_=T.dot(h_,self.u)+x_
+        if self.activation is not None:
+            out_ = self.activation(out_)
+        else:
+            out_ = out_
+        out_=m_[:, None] * out_+ (1. - m_)[:, None] * out_
+        if self.hidden_unit_dropout:
+            if self.ops is not None:
+                out_=self.ops(out_)
+        return out_
 
-class get_new_bi(get_new):
+class get_bi(get):
     def get_output(self):
         input_forward=self.input
         input_backward=self.input[:,::-1,:]
         self.input=input_forward
-        get_new.get_output()
+        get.get_output()
         output_forward=self.output
         self.input = input_backward
-        get_new.get_output()
+        get.get_output()
         output_backward = self.output
         self.output=output_forward+output_backward

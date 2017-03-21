@@ -10,7 +10,7 @@ import theano
 import theano.tensor as T
 from layers import layer_tools,baselayer
 
-class get_new(baselayer):
+class get(baselayer):
     def __init__(self,in_dim,emb_dim,**kwargs):
         baselayer.__init__(self)
         self.in_dim = in_dim

@@ -78,12 +78,13 @@ def train(datastream, model, algrithm, extension):
         return -1, [], [], debug_result
     while(True):
         # Train model iter by iter
-        for _,index in train_minibatches:
+        for idx,index in train_minibatches:
             data=prepare_data(train_X,train_Y,index)
             train_result=train_model(*data)
             dict['train_result'] = train_result
             train_cost=train_result[0]
             iteration_total[0] += 1
+            if(idx==train_minibatches[-1][0]):epoches[0] += 1
             for ex in extension_instance:   ex.after_iteration()
             if dict['stop']:
                 for ex in extension_instance:   ex.after_train()
@@ -106,7 +107,6 @@ def train(datastream, model, algrithm, extension):
         train_error[0] = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
         errors.append(train_error[0])
         costs.append(train_cost)
-        epoches[0] += 1
         for ex in extension_instance:   ex.after_epoch()
         # Stop When Timeout
         if epoches[0] > max_epoches - 1 and max_epoches != -1:

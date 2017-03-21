@@ -11,7 +11,7 @@ import numpy as np
 
 import layers.baselayer as base
 
-class get_new_lstm_attention(base):
+class get_lstm_attention(base):
     def __init__(self,in_dim,unit_dim,emb_dim,h_0_init=False,c_0_init=False,activation=T.tanh):
         base.__init__(self)
         self.in_dim = in_dim

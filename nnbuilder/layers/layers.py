@@ -162,8 +162,11 @@ class layer_tools:
 
     @staticmethod
     def orthogonal(*args):
-        param = layer_tools.uniform(*args)
-        param=np.linalg.svd(param)[0]
+        param = layer_tools.uniform(args[0],args[0])
+        param = np.linalg.svd(param)[0]
+        for _ in range(args[1]/args[0]-1):
+            param_ = layer_tools.uniform(args[0], args[0])
+            param=np.concatenate((param,np.linalg.svd(param_)[0]),1)
         return layer_tools.numpy_asarray_floatx(param)
 
     # recurrent output

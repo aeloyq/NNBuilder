@@ -11,7 +11,7 @@ from layers import output_layer
 
 ''' setup logistic output layer inherited from base output layer '''
 
-class get_new(output_layer):
+class get(output_layer):
     def __init__(self,in_dim, unit_dim,Activation=T.nnet.sigmoid):
        output_layer.__init__(self,in_dim,unit_dim, Activation)
        self.cost_function=self.cost_functions.cross_entropy

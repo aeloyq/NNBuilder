@@ -107,7 +107,7 @@ class ex(base):
         params2save['errors'] = kwargs['errors']
         params2save['costs'] = kwargs['costs']
         #file=open(path+'finall_model.npz','wb')
-        np.savez(file,**params2save)
+        np.savez(path+'/finall',**params2save)
         #file.close()
 config=ex({})
 

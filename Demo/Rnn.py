@@ -8,7 +8,7 @@ Created on Thu Dec 15 18:44:11 2016
 import nnbuilder
 from nnbuilder.dataprepares import Load_add
 from nnbuilder.layers import recurrent,direct
-from nnbuilder.algrithms import adadelta
+from nnbuilder.algrithms import adadelta,sgd
 from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode,saveload
 from nnbuilder.model import model
 from nnbuilder.mainloop import train
@@ -40,9 +40,10 @@ if __name__ == '__main__':
     Y=T.imatrix('Y')
     X_mask=T.matrix('X_mask')
 
-    rnn_hiddenlayer=recurrent.get_new(in_dim=10,unit_dim=10)
+    rnn_hiddenlayer=recurrent.get(in_dim=10,unit_dim=10,activation=T.nnet.sigmoid)
     rnn_hiddenlayer.set_mask(X_mask)
-    outputlayer=direct.get_new()
+    outputlayer=direct.get()
+    outputlayer.cost_function=outputlayer.cost_functions.cross_entropy
 
     model = model()
     model.X=X
@@ -52,5 +53,5 @@ if __name__ == '__main__':
     model.addlayer(layer=rnn_hiddenlayer,input=model.X,name='hidden')
     model.addlayer(layer=outputlayer,input=rnn_hiddenlayer,name='output')
 
-    result_stream = train( datastream=datastream,model=model,algrithm=adadelta, extension=[monitor,saveload])
+    result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[monitor])
     vision_return = get_result(result_stream=result_stream,model_stream=model)
