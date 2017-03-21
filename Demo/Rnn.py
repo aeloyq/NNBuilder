@@ -30,7 +30,7 @@ if __name__ == '__main__':
     earlystop.config.valid_freq=2500
     sample.config.sample_func=samples.add_sample
     saveload.config.save_freq=2500
-    saveload.config.load=False
+    #saveload.config.load=False
 
     adadelta.config.if_clip=True
 
@@ -53,5 +53,5 @@ if __name__ == '__main__':
     model.addlayer(layer=rnn_hiddenlayer,input=model.X,name='hidden')
     model.addlayer(layer=outputlayer,input=rnn_hiddenlayer,name='output')
 
-    result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[monitor])
+    result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[saveload,monitor])
     vision_return = get_result(result_stream=result_stream,model_stream=model)

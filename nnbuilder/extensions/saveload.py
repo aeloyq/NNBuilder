@@ -37,7 +37,7 @@ class ex(base):
                 self.load_file_name=savelist[-1]
             self.logger('Checkpoint is found:{}...'.format(self.load_file_name), 3)
             #file=open(path+'/'+self.load_file_name,'rb')
-            params=np.load(path+'/'+self.load_file_name)
+            params=(np.load(path+'/'+self.load_file_name))['save'].tolist()
         #file.close()
             for key in layers:
                 for param,sparam in zip(layers[key].params,params[key]):
@@ -78,7 +78,7 @@ class ex(base):
             #file=open(path + '/%s.npz' % (time.asctime().replace(' ','-').replace(':','_')),'wb')
             savename=path + '/%s.npz' % (time.asctime().replace(' ','-').replace(':','_'))
             self.logger("Prepare to save model", 3)
-            np.savez(savename, **params2save)
+            np.savez(savename, save=params2save)
             self.logger("Save sucessfully at file:{}".format(savename), 3)
             #file.close()
             savelist = [name for name in os.listdir(path) if name.endswith('.npz')]
@@ -107,7 +107,7 @@ class ex(base):
         params2save['errors'] = kwargs['errors']
         params2save['costs'] = kwargs['costs']
         #file=open(path+'finall_model.npz','wb')
-        np.savez(path+'/finall',**params2save)
+        np.savez(path+'/finall',save=params2save)
         #file.close()
 config=ex({})
 
