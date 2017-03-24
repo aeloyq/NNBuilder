@@ -35,7 +35,7 @@ sgd.config.if_clip=True
 
 config.name='mt_demo'
 config.data_path='./data/datasets.npz'
-config.batch_size=1
+config.batch_size=128
 config.valid_batch_size=256
 config.max_epoches=1000
 config.savelog=True
