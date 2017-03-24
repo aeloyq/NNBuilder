@@ -26,3 +26,7 @@ class extension:
         pass
     def after_train(self):
         pass
+    def save_(self,dict):
+        pass
+    def load_(self,dict):
+        pass

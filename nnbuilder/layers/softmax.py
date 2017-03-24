@@ -47,5 +47,38 @@ class get(output_layer):
             else:
                 return T.mean(T.neq(self.pred_Y, Y))
 
+class get_sequence(output_layer):
+    def __init__(self, in_dim, unit_dim,activation=T.nnet.softmax):
+        output_layer.__init__(self, in_dim, unit_dim,activation)
+        self.cost_function=self.cost_functions.neglog
+
+    def set_mask(self,tvar):
+        self.mask=tvar
+
+    def get_output(self):
+        def _step(x_):
+            out=T.nnet.nnet.softmax(T.dot(x_,self.wt)+self.bi)
+            return  out
+        out,upd=theano.scan(_step,sequences=[self.input],name='Softmax_sequence_scan_'+self.name,n_steps=self.input.shape[0])
+        self.output=out
+        self.predict()
+
+    def predict(self):
+        self.pred_Y = T.argmax(self.output, axis=2)
+
+    def cost(self, Y):
+        axis0 = T.tile(T.arange(Y.shape[0]), Y.shape[1])
+        axis1 = T.repeat(T.arange(Y.shape[1]), Y.shape[0])
+        axis2 = T.flatten(Y)
+        mask = T.flatten(self.mask)
+        flattened=self.output[axis0,axis1,axis2]
+        flattened =-T.log(flattened*mask)
+        flattened =T.sum(flattened)
+        return flattened / T.sum(mask)
+
+
+    def error(self, Y):
+        return T.mean(T.neq(self.pred_Y, Y))
+
 
 

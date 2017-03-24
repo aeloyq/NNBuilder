@@ -43,3 +43,6 @@ def add_sample(inputs,result,y):
     y_new=int(y_new,2)
     sample_str+="%d + %d = %d"%(a,b,c)
     return sample_str,y_new
+
+def mt_sample(inputs,result,y):
+    sample_str = "Sample:\r\n"

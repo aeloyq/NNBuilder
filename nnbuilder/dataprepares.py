@@ -137,6 +137,11 @@ def Load_imdb(n_words=100000,valid_portion=0.1,maxlen=None,sort_by_len=True):
         train_set_y = [train_set_y[i] for i in sorted_index]
     return [train_set_x,valid_set_x, test_set_x, train_set_y, valid_set_y, test_set_y]
 
+
+def Load_mt():
+    path=config.data_path
+    data=np.load(path)
+    return data['arr_0']
 ''' load theano variable '''
             
 def convert_to_theano_variable(trainsets,validsets,testsets):

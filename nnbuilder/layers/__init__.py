@@ -1,3 +1,4 @@
+import decoder
 import direct
 import embedding
 import gru
@@ -9,4 +10,4 @@ import maxout
 import readout
 import recurrent
 import softmax
-__all__=['direct','embedding','gru','hiddenlayer','layers','logistic','lstm','maxout','readout','recurrent','softmax']
+__all__=['decoder','direct','embedding','gru','hiddenlayer','layers','logistic','lstm','maxout','readout','recurrent','softmax']

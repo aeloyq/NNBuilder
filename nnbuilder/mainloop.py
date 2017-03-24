@@ -32,8 +32,7 @@ def train(datastream, model, algrithm, extension):
     batch_size=config.batch_size
     max_epoches=config.max_epoches
     iteration_total=[0]
-    epoch_time=[0.]
-    train_result=[]
+    train_result=[0]
     debug_result=[]
     train_error=[1.]
     test_error=[1.]
@@ -58,7 +57,6 @@ def train(datastream, model, algrithm, extension):
     dict['minibatches']=[train_minibatches,valid_minibatches,test_minibatches]
     dict['data_stream']=datastream
     dict['sample_data']=sample_data
-    dict['epoch_time'] = epoch_time
     dict['train_error'] = train_error
     dict['train_result'] = train_result
     dict['test_error'] = test_error
@@ -71,20 +69,35 @@ def train(datastream, model, algrithm, extension):
     dict['stop']=False
     extension_instance=[]
     for ex in extension:ex.config.kwargs=dict;ex.config.init();extension_instance.append(ex.config)
+    dict['extension']=extension_instance
     # Main Loop
     logger('Training Start',1)
     for ex in extension_instance:   ex.before_train()
     if dict['stop']:
-        return -1, [], [], debug_result
+        return -1, [], [], debug_result,[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
     while(True):
+        # Stop When Timeout
+        if epoches[0] > max_epoches - 1 and max_epoches != -1:
+            logger("⊙Trainning Time Out⊙", 1, 1)
+            break
         # Train model iter by iter
         for idx,index in train_minibatches:
             data=prepare_data(train_X,train_Y,index)
             train_result=train_model(*data)
-            dict['train_result'] = train_result
+            dict['train_result'] = [train_result[0].tolist()]
             train_cost=train_result[0]
             iteration_total[0] += 1
-            if(idx==train_minibatches[-1][0]):epoches[0] += 1
+            if(idx==train_minibatches[-1][0]):
+                # After epoch
+                epoches[0] += 1
+                testdatas = []
+                for _, index in test_minibatches:
+                    data = prepare_data(test_X, test_Y, index)
+                    testdatas.append(data)
+                train_error[0] = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
+                errors.append(train_error[0])
+                costs.append(train_cost)
+                for ex in extension_instance:   ex.after_epoch()
             for ex in extension_instance:   ex.after_iteration()
             if dict['stop']:
                 for ex in extension_instance:   ex.after_train()
@@ -99,48 +112,54 @@ def train(datastream, model, algrithm, extension):
                     best_iter[0] = iteration_total
                     logger( "●Trainning Sucess●",1,1)
                     break
-        # After epoch
-        testdatas = []
-        for _, index in test_minibatches:
-            data = prepare_data(test_X,test_Y, index)
-            testdatas.append(data)
-        train_error[0] = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
-        errors.append(train_error[0])
-        costs.append(train_cost)
-        for ex in extension_instance:   ex.after_epoch()
-        # Stop When Timeout
-        if epoches[0] > max_epoches - 1 and max_epoches != -1:
-            logger("⊙Trainning Time Out⊙",1,1)
-            break
+
+
     for ex in extension_instance:   ex.after_train()
     return epoches[0],errors,costs,debug_result
 
 def prepare_data(data_x,data_y,index):
-    if not config.transpose_inputs:
+    if not config.transpose_x:
         x = [data_x[t] for t in index]
-        y = [data_y[t] for t in index]
-        data = [x, y]
-        data = tuple(data)
-        return  data
     else:
         x = [data_x[t] for t in index]
-        y = [data_y[t] for t in index]
-        maxlen=max([len(d) for d in x])
-        x=np.array(x)
-        mask=np.ones([len(index),maxlen]).astype(theano.config.floatX)
-        for idx,i in enumerate(x):
+        maxlen = max([len(d) for d in x])
+        x = np.array(x)
+        mask_x = np.ones([len(index), maxlen]).astype(theano.config.floatX)
+        for idx, i in enumerate(x):
             for j in range(len(i), maxlen):
                 i.append(np.zeros_like(i[0]).tolist())
-                mask[idx,j]=mask[idx,j]-1
-        x_new=[]
+                mask_x[idx, j] = mask_x[idx, j] - 1
+        x_new = []
         for idx in range(len(x[0])):
             x_new.append([x[i][idx] for i in range(len(x))])
-        x=x_new
-        y=y
-        mask=mask.transpose()
-        data=[x,y,mask]
-        data = tuple(data)
-        return data
+        x = x_new
+        mask_x = mask_x.transpose()
+
+    if not config.transpose_y:
+        y = [data_y[t] for t in index]
+    else:
+        y = [data_y[t] for t in index]
+        maxlen = max([len(d) for d in y])
+        y = np.array(y)
+        mask_y = np.ones([len(index), maxlen]).astype(theano.config.floatX)
+        for idx, i in enumerate(y):
+            for j in range(len(i), maxlen):
+                i.append(np.zeros_like(i[0]).tolist())
+                mask_y[idx, j] = mask_y[idx, j] - 1
+        y_new = []
+        for idx in range(len(y[0])):
+            y_new.append([y[i][idx] for i in range(len(y))])
+        y = y_new
+        mask_y = mask_y.transpose()
+    if config.int_x:x=np.asarray(x).astype('int64').tolist()
+    if config.int_y:y=np.asarray(y).astype('int64').tolist()
+    data=[x,y]
+    if config.mask_x:
+        data.append(mask_x)
+    if config.mask_y:
+        data.append(mask_y)
+    data = tuple(data)
+    return data
 
 def get_minibatches_idx(datastream, shuffle=False):
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream

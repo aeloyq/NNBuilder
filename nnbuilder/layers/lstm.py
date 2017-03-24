@@ -22,6 +22,8 @@ class get(base):
         self.cell_unit_dropout=False
         self.h_0_init=h_0_init
         self.c_0_init=c_0_init
+        self.param_init_function['h_0']=self.param_init_functions.zeros
+        self.param_init_function['c_0']=self.param_init_functions.zeros
 
     def init_layer_params(self):
         wt_values = self.param_init_function['wt'](self.in_dim,self.unit_dim*4)
@@ -78,8 +80,8 @@ class get(base):
         state_below = T.dot(self.input, self.wt)+self.bi
         h_0=T.alloc(np.asarray(0.).astype(theano.config.floatX),n_samples, self.unit_dim)
         c_0=T.alloc(np.asarray(0.).astype(theano.config.floatX),n_samples, self.unit_dim)
-        if self.h_0_init:h_0=self.h_0
-        if self.c_0_init: c_0 = self.c_0
+        if self.h_0_init: h_0= T.reshape(T.tile(h_0,n_samples),[n_samples,self.unit_dim])
+        if self.c_0_init: c_0 =T.reshape(T.tile(c_0,n_samples),[n_samples,self.unit_dim])
         lin_out, scan_update = theano.scan(_step, sequences=[self.mask,state_below],
                                        outputs_info=[h_0,c_0], name=self.name + '_Scan',
                                        n_steps=self.input.shape[0])
@@ -94,9 +96,9 @@ class get_bi(get):
         input_forward=self.input
         input_backward=self.input[:,::-1,:]
         self.input=input_forward
-        get.get_output()
+        get.get_output(self)
         output_forward=self.output
         self.input = input_backward
-        get.get_output()
+        get.get_output(self)
         output_backward = self.output
         self.output=output_forward+output_backward

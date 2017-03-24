@@ -13,13 +13,13 @@ from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode,sa
 from nnbuilder.model import model
 from nnbuilder.mainloop import train
 from nnbuilder.visions.Visualization import get_result
-
+import theano
 import theano.tensor as T
 
 if __name__ == '__main__':
 
     global data_stream, model_stream, result_stream, vision_return
-
+    theano.config.NanGuardMode.nan_is_error = True
     nnbuilder.config.name='rnn_additive'
     nnbuilder.config.max_epoches=2500
     nnbuilder.config.valid_batch_size=64
@@ -28,11 +28,10 @@ if __name__ == '__main__':
 
     earlystop.config.patience=10000
     earlystop.config.valid_freq=2500
-    sample.config.sample_func=samples.add_sample
-    saveload.config.save_freq=2500
-    #saveload.config.load=False
 
-    adadelta.config.if_clip=True
+    saveload.config.save_freq=2500
+
+    sample.config.sample_func=samples.add_sample
 
     datastream  = Load_add()
 
@@ -41,8 +40,10 @@ if __name__ == '__main__':
     X_mask=T.matrix('X_mask')
 
     rnn_hiddenlayer=lstm.get(in_dim=10,unit_dim=10,activation=T.tanh)
+    rnn_hiddenlayer.output_way=rnn_hiddenlayer.output_ways.final
     rnn_hiddenlayer.set_mask(X_mask)
     outputlayer=logistic.get(in_dim=10,unit_dim=10)
+    outputlayer.cost_function=outputlayer.cost_functions.square
 
     model = model()
     model.X=X
@@ -52,5 +53,5 @@ if __name__ == '__main__':
     model.addlayer(layer=rnn_hiddenlayer,input=model.X,name='hidden')
     model.addlayer(layer=outputlayer,input=rnn_hiddenlayer,name='output')
 
-    result_stream = train( datastream=datastream,model=model,algrithm=adadelta, extension=[monitor])
+    result_stream = train( datastream=datastream,model=model,algrithm=adadelta, extension=[saveload,monitor])
     vision_return = get_result(result_stream=result_stream,model_stream=model)

@@ -33,13 +33,11 @@ class model():
         self.X_mask=None
         self.Y_mask=None
 
-    def set_inputs(self,train_inputs,model_inputs):
-        self.inputs=train_inputs
-        for input in model_inputs:
-            if input not in self.inputs:
-                self.inputs.append(input)
-        self.train_inputs=train_inputs
-        self.model_inputs=model_inputs
+    def set_inputs(self, inputs):
+        self.inputs=inputs
+        self.train_inputs=inputs
+        self.X=inputs[0]
+        self.Y = inputs[1]
 
 
     def set_output(self,layer):
