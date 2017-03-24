@@ -67,14 +67,15 @@ class get_sequence(output_layer):
         self.pred_Y = T.argmax(self.output, axis=2)
 
     def cost(self, Y):
-        axis0 = T.tile(T.arange(Y.shape[0]), Y.shape[1])
-        axis1 = T.repeat(T.arange(Y.shape[1]), Y.shape[0])
+        axis0 = T.repeat(T.arange(Y.shape[0]), Y.shape[1])
+        axis1 = T.tile(T.arange(Y.shape[1]), Y.shape[0])
         axis2 = T.flatten(Y)
         mask = T.flatten(self.mask)
-        flattened=self.output[axis0,axis1,axis2]
-        flattened =-T.log(flattened*mask)
-        flattened =T.sum(flattened)
-        return flattened / T.sum(mask)
+        flattened_0=self.output[axis0,axis1,axis2]
+        flattened_1 =-T.log(flattened_0)
+        flattened_2 = flattened_1*mask
+        flattened_3 =T.sum(flattened_2)
+        return flattened_3 / T.sum(mask)
 
 
     def error(self, Y):

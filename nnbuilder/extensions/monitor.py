@@ -51,7 +51,7 @@ class ex(base):
             if kwargs['iteration_total'][0]%self.report_iter_frequence==0:
                 self.logger( "Iteration Report at Epoch:%d   Iteration:%d   Time Used:%.2fs   " \
                       "Cost:%.4f" % (kwargs['epoches'][0], kwargs['iteration_total'][0],
-                                     iteration_time,kwargs[' train_cost'][0]),2)
+                                     iteration_time,kwargs['train_result'][0]),2)
 
         if self.plot:
             if kwargs['iteration_total'][0]%self.plot_frequence==0:

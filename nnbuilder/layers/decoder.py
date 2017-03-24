@@ -96,7 +96,7 @@ class get_lstm_attention(baselayer):
 
         def _step( h_, c_,r_):
             def _step_attention(x__):
-                out_ = T.dot(T.concatenate([x__,h_],1), self.wt_attention) + self.bi_attention
+                out_ = T.exp(T.dot(T.concatenate([x__,h_],1), self.wt_attention) + self.bi_attention)
                 return out_
             attention_out,attention_update=theano.scan(_step_attention,sequences=[self.input],n_steps=self.input.shape[0])
             attention_out=T.reshape(attention_out,[attention_out.shape[0],attention_out.shape[1]])*self.x_mask

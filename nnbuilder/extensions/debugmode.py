@@ -134,7 +134,7 @@ class ex(base):
             self.logger('☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆', 2)
 
         self.logger('★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★', 2, 1)
-
+        kwargs['debug_result']=values
         kwargs['stop'] = True
 
 config=ex({})

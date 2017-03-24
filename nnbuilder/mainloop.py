@@ -14,6 +14,8 @@ import config
 from logger import logger
 import os
 
+from theano.compile.nanguardmode import NanGuardMode
+
 def train(datastream, model, algrithm, extension):
     if not os.path.exists('./%s' % config.name):
         os.mkdir('./%s' % config.name)
@@ -74,7 +76,7 @@ def train(datastream, model, algrithm, extension):
     logger('Training Start',1)
     for ex in extension_instance:   ex.before_train()
     if dict['stop']:
-        return -1, [], [], debug_result,[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
+        return -1, [], [], dict['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
     while(True):
         # Stop When Timeout
         if epoches[0] > max_epoches - 1 and max_epoches != -1:
@@ -82,7 +84,7 @@ def train(datastream, model, algrithm, extension):
             break
         # Train model iter by iter
         for idx,index in train_minibatches:
-            data=prepare_data(train_X,train_Y,index)
+            data = prepare_data(train_X, train_Y, index)
             train_result=train_model(*data)
             dict['train_result'] = [train_result[0].tolist()]
             train_cost=train_result[0]
@@ -198,26 +200,56 @@ def get_minibatches_idx(datastream, shuffle=False):
     return train_minibatches,valid_minibatches,test_minibatches
 
 def get_sample_data(datastream):
-    if not config.transpose_inputs:
-        train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
-        try:
-            n_train = train_X.get_value().shape[0]
-        except:
-            n_train = len(train_X)
-        idx=config.rng.randint(0,n_train)
-        sample_x=train_X[idx]
-        sample_y=train_Y[idx]
-        data=[[sample_x],[sample_y]]
-        return data
+    train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
+    try:
+        n_train = train_X.get_value().shape[0]
+    except:
+        n_train = len(train_X)
+    index = config.rng.randint(0, n_train)
+    data_x=train_X
+    data_y=train_Y
+    if not config.transpose_x:
+        x = [data_x[t] for t in index]
     else:
-        train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
-        try:
-            n_train = train_X.get_value().shape[0]
-        except:
-            n_train = len(train_X)
-        idx=config.rng.randint(0,n_train)
-        data=prepare_data(train_X,train_Y,[idx])
-        return data
+        x = [data_x[t] for t in index]
+        maxlen = max([len(d) for d in x])
+        x = np.array(x)
+        mask_x = np.ones([len(index), maxlen]).astype(theano.config.floatX)
+        for idx, i in enumerate(x):
+            for j in range(len(i), maxlen):
+                i.append(np.zeros_like(i[0]).tolist())
+                mask_x[idx, j] = mask_x[idx, j] - 1
+        x_new = []
+        for idx in range(len(x[0])):
+            x_new.append([x[i][idx] for i in range(len(x))])
+        x = x_new
+        mask_x = mask_x.transpose()
+
+    if not config.transpose_y:
+        y = [data_y[t] for t in index]
+    else:
+        y = [data_y[t] for t in index]
+        maxlen = max([len(d) for d in y])
+        y = np.array(y)
+        mask_y = np.ones([len(index), maxlen]).astype(theano.config.floatX)
+        for idx, i in enumerate(y):
+            for j in range(len(i), maxlen):
+                i.append(np.zeros_like(i[0]).tolist())
+                mask_y[idx, j] = mask_y[idx, j] - 1
+        y_new = []
+        for idx in range(len(y[0])):
+            y_new.append([y[i][idx] for i in range(len(y))])
+        y = y_new
+        mask_y = mask_y.transpose()
+    if config.int_x:x=np.asarray(x).astype('int64').tolist()
+    if config.int_y:y=np.asarray(y).astype('int64').tolist()
+    data=[x,y]
+    if config.mask_x:
+        data.append(mask_x)
+    if config.mask_y:
+        data.append(mask_y)
+    data = tuple(data)
+    return data
 
 def print_config(model, algrithm, extension):
     logger('Configurations:',0,1)
@@ -264,7 +296,10 @@ def get_modelstream(model,algrithm):
     logger('Compiling Training Model',1)
     train_model = theano.function(inputs=train_inputs,
                                   outputs=train_output,
-                                  updates=train_updates)
+                                  updates=train_updates,
+                                    mode = NanGuardMode(nan_is_error=True,
+                                                        inf_is_error=True,
+                                                        big_is_error=True))
     logger('Compiling Validing Model',1)
     valid_model = theano.function(inputs=train_inputs,
                                   outputs=error)

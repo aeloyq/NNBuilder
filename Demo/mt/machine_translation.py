@@ -17,6 +17,8 @@ from nnbuilder.model import model
 from nnbuilder.extensions import monitor ,debugmode,saveload,earlystop
 from nnbuilder.mainloop import train
 
+theano.config.fast_compile=True
+
 source_vocab_size=80000
 target_vocab_size=80000
 
@@ -26,12 +28,14 @@ target_emb_dim=512
 enc_dim=1024
 dec_dim=1024
 
-vocab_source='./data/vocab.en-fr.en.pkl'
-vocab_target='./data/vocab.en-fr.fr.pkl'
+config.vocab_source='./data/vocab.en-fr.en.pkl'
+config.vocab_target='./data/vocab.en-fr.fr.pkl'
+
+sgd.config.if_clip=True
 
 config.name='mt_demo'
 config.data_path='./data/datasets.npz'
-config.batch_size=128
+config.batch_size=1
 config.valid_batch_size=256
 config.max_epoches=1000
 config.savelog=True
@@ -42,8 +46,9 @@ config.mask_y=True
 config.int_x=True
 config.int_y=True
 
-monitor.config.report_iter_frequence=10
+monitor.config.report_iter_frequence=2
 monitor.config.report_iter=True
+monitor.config.plot_frequence=10
 
 
 
@@ -73,6 +78,8 @@ mt_model.addlayer(enc,emb,'enc')
 mt_model.addlayer(dec,enc,'dec')
 mt_model.addlayer(out,dec,'out')
 
-result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[saveload,monitor,earlystop])
+result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[monitor])
 
-
+d=[result[3][0],result[3][1],result[3][2],result[3][3]]
+f=result[-1][0]
+u=result[-1][-3]
