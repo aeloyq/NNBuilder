@@ -22,7 +22,7 @@ class ex(base):
         self.sample_freq=len(kwargs['minibatches'][0])
     def after_iteration(self):
         kwargs = self.kwargs
-        if kwargs['iteration_total'][0] % self.sample_freq == 0:
+        if kwargs['iteration_total'] % self.sample_freq == 0:
             if self.sample_func != None:
                 datastream=kwargs['data_stream']
                 sample_model=kwargs['sample_model']

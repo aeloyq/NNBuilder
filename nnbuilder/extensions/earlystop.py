@@ -36,7 +36,7 @@ class ex(base):
             self.patience = n_train
     def after_iteration(self):
         kwargs=self.kwargs
-        if (kwargs['iteration_total'][0]) % self.valid_freq == 0:
+        if (kwargs['iteration_total']) % self.valid_freq == 0:
             valid_minibatches = kwargs['minibatches'][1]
             train_X, valid_X, test_X, train_Y, valid_Y, test_Y = kwargs['data_stream']
             valid_model=kwargs['valid_model']
@@ -45,14 +45,14 @@ class ex(base):
                 data = kwargs['prepare_data'](valid_X,valid_Y, index)
                 validdatas.append(data)
             valid_error = np.mean([valid_model(*tuple(validdata)) for validdata in validdatas])
-            if valid_error < kwargs['best_valid_error'][0]:
-                if valid_error < kwargs['best_valid_error'][0] * self.imp_threshold:
-                    self.patience = max(self.patience, kwargs['iteration_total'][0] * self.patience_increase)
-                kwargs['best_valid_error'][0] = valid_error
-                kwargs['best_iter'][0] = kwargs['iteration_total'][0]
+            if valid_error < kwargs['best_valid_error']:
+                if valid_error < kwargs['best_valid_error'] * self.imp_threshold:
+                    self.patience = max(self.patience, kwargs['iteration_total'] * self.patience_increase)
+                kwargs['best_valid_error'] = valid_error
+                kwargs['best_iter'] = kwargs['iteration_total']
                 self.logger("★Better Model Detected at Epoches:%d  Iterations:%d  Cost:%.4f  Valid error:%.4f%%★" % (
-                    kwargs['epoches'][0], kwargs['iteration_total'][0], kwargs['train_result'][0], valid_error * 100),2,1)
-            if self.patience < kwargs['iteration_total'][0]:
+                    kwargs['epoches'], kwargs['iteration_total'], kwargs['train_result'], valid_error * 100),2,1)
+            if self.patience < kwargs['iteration_total']:
                 self.logger( "▲NO Trainning Patience      Early Stopped▲",1,1)
                 kwargs['stop']=True
 

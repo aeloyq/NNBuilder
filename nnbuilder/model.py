@@ -134,7 +134,9 @@ class model():
             self.l2=l2
             self.params=[]
             for key in layers:
-                self.params.extend(layers[key].params[:-1])
+                for param in  layers[key].params:
+                    if param.name.find('Bi')==-1:
+                        self.params.append(param)
         def evaulate(self,cost):
             reg = 0
             for param in self.params:

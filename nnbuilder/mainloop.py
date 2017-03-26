@@ -14,7 +14,6 @@ import config
 from logger import logger
 import os
 
-from theano.compile.nanguardmode import NanGuardMode
 
 def train(datastream, model, algrithm, extension):
     if not os.path.exists('./%s' % config.name):
@@ -31,18 +30,7 @@ def train(datastream, model, algrithm, extension):
     logger("Trainning Model:",0,1)
     train_minibatches, valid_minibatches, test_minibatches=get_minibatches_idx(datastream)
     sample_data=[datastream[0],datastream[3]]
-    batch_size=config.batch_size
     max_epoches=config.max_epoches
-    iteration_total=[0]
-    train_result=[0]
-    debug_result=[]
-    train_error=[1.]
-    test_error=[1.]
-    best_valid_error=[1.]
-    best_iter=[0]
-    epoches=[0]
-    errors=[]
-    costs=[]
     dict={}
     dict['dim_model']=dim_model
     dict['logger'] = logger
@@ -55,19 +43,19 @@ def train(datastream, model, algrithm, extension):
     dict['test_model'] = test_model
     dict['sample_model'] = sample_model
     dict['model']=model
-    dict['iteration_total']=iteration_total
+    dict['iteration_total']=0
     dict['minibatches']=[train_minibatches,valid_minibatches,test_minibatches]
     dict['data_stream']=datastream
     dict['sample_data']=sample_data
-    dict['train_error'] = train_error
-    dict['train_result'] = train_result
-    dict['test_error'] = test_error
-    dict['debug_result'] = debug_result
-    dict['best_valid_error'] = best_valid_error
-    dict['best_iter'] = best_iter
-    dict['epoches'] = epoches
-    dict['errors'] = errors
-    dict['costs'] = costs
+    dict['train_error'] = 1
+    dict['train_result'] = 1
+    dict['test_error'] = 1
+    dict['debug_result'] = []
+    dict['best_valid_error'] = 1
+    dict['best_iter'] = -1
+    dict['epoches'] = 0
+    dict['errors'] = []
+    dict['costs'] = []
     dict['stop']=False
     extension_instance=[]
     for ex in extension:ex.config.kwargs=dict;ex.config.init();extension_instance.append(ex.config)
@@ -79,45 +67,45 @@ def train(datastream, model, algrithm, extension):
         return -1, [], [], dict['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
     while(True):
         # Stop When Timeout
-        if epoches[0] > max_epoches - 1 and max_epoches != -1:
+        if dict['epoches'] > max_epoches - 1 and max_epoches != -1:
             logger("⊙Trainning Time Out⊙", 1, 1)
             break
         # Train model iter by iter
         for idx,index in train_minibatches:
             data = prepare_data(train_X, train_Y, index)
             train_result=train_model(*data)
-            dict['train_result'] = [train_result[0].tolist()]
+            dict['train_result'] = train_result[0]
             train_cost=train_result[0]
-            iteration_total[0] += 1
+            dict['iteration_total'] += 1
             if(idx==train_minibatches[-1][0]):
                 # After epoch
-                epoches[0] += 1
+                dict['epoches'] += 1
                 testdatas = []
                 for _, index in test_minibatches:
                     data = prepare_data(test_X, test_Y, index)
                     testdatas.append(data)
-                train_error[0] = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
-                errors.append(train_error[0])
-                costs.append(train_cost)
+                dict['train_error'] = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
+                dict['errors'].append(dict['train_error'])
+                dict['costs'].append(train_cost)
                 for ex in extension_instance:   ex.after_epoch()
             for ex in extension_instance:   ex.after_iteration()
             if dict['stop']:
                 for ex in extension_instance:   ex.after_train()
-                return epoches[0],errors,costs,debug_result
+                return dict['epoches'],dict['errors'],dict['costs'],dict['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
             # Stop When Sucess
-            if train_error == 0:
+            if dict['train_error'] == 0:
                 testdatas = []
                 for _, index in test_minibatches:
                     data = prepare_data(test_X,test_Y, index)
                     testdatas.append(data)
                 if np.mean([test_model(*tuple(testdata)) for testdata in testdatas]) == 0:
-                    best_iter[0] = iteration_total
+                    dict['best_iter'] = dict['iteration_total']
                     logger( "●Trainning Sucess●",1,1)
                     break
 
 
     for ex in extension_instance:   ex.after_train()
-    return epoches[0],errors,costs,debug_result
+    return dict['epoches'],dict['errors'],dict['costs'],dict['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
 
 def prepare_data(data_x,data_y,index):
     if not config.transpose_x:
@@ -296,10 +284,7 @@ def get_modelstream(model,algrithm):
     logger('Compiling Training Model',1)
     train_model = theano.function(inputs=train_inputs,
                                   outputs=train_output,
-                                  updates=train_updates,
-                                    mode = NanGuardMode(nan_is_error=True,
-                                                        inf_is_error=True,
-                                                        big_is_error=True))
+                                  updates=train_updates)
     logger('Compiling Validing Model',1)
     valid_model = theano.function(inputs=train_inputs,
                                   outputs=error)

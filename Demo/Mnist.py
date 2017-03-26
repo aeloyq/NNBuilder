@@ -20,9 +20,9 @@ if __name__ == '__main__':
 
     global data_stream, model_stream, result_stream, vision_return
 
-    nnbuilder.config.name= 'MNIST_DEMO'
+    nnbuilder.config.name= 'mnist'
     nnbuilder.config.data_path= "./datasets/mnist.pkl.gz"
-    nnbuilder.config.max_epoches=1000
+    nnbuilder.config.max_epoches=100
     nnbuilder.config.valid_batch_size=20
     nnbuilder.config.batch_size=20
 
@@ -31,16 +31,18 @@ if __name__ == '__main__':
     sgd.config.learning_rate=0.01
     sample.config.sample_func=samples.mnist_sample
     saveload.config.save_freq=2500
+    monitor.config.plot=False
+
 
     datastream  = Load_mnist()
 
-    hidden_1=hiddenlayer.get_new(in_dim=28*28,unit_dim=500)
-    outputlayer=softmax.get_new(in_dim=500,unit_dim=10)
+    hidden_1=hiddenlayer.get(in_dim=28*28,unit_dim=500)
+    outputlayer=softmax.get(in_dim=500,unit_dim=10)
 
     model = model()
     model.addlayer(layer=hidden_1,input=model.X,name='hidden')
     model.addlayer(layer=outputlayer,input=hidden_1,name='output')
-    model.add_weight_decay()
+    #model.add_weight_decay()
 
-    result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[monitor, saveload])
+    result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[monitor])
     vision_return = get_result(result_stream=result_stream,model_stream=model)

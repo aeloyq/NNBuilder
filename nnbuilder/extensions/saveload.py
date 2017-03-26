@@ -43,10 +43,10 @@ class ex(base):
             for key in layers:
                 for param,sparam in zip(layers[key].params,params[key]):
                     param.set_value(sparam)
-            kwargs['epoches'][0]=params['epoches'][0]#TODO:may smaller than real number
-            kwargs['iteration_total'][0] = params['iteration_total'][0]
-            kwargs['best_iter'][0] = params['best_iter'][0]
-            kwargs['best_valid_error'][0] =params['best_valid_error'][0]
+            kwargs['epoches']=params['epoches']#TODO:may smaller than real number
+            kwargs['iteration_total']= params['iteration_total']
+            kwargs['best_iter'] = params['best_iter']
+            kwargs['best_valid_error'] =params['best_valid_error']
             for i in params['errors']:
                 kwargs['errors'].append(i)
             for i in params['costs']:
@@ -62,7 +62,7 @@ class ex(base):
 
     def after_iteration(self):
         kwargs = self.kwargs
-        if kwargs['iteration_total'][0] % self.save_freq == 0:
+        if kwargs['iteration_total'] % self.save_freq == 0:
             savename=self.path + '/%s.npz' % (time.asctime().replace(' ','-').replace(':','_'))
             self.save_npz(savename)
 

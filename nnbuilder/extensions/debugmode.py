@@ -50,8 +50,6 @@ class ex(base):
         data = tuple(data)
         debug_result=debug_model(*data)
         user_debug_result=user_debug_model(*data)
-        kwargs['debug_result'].append(debug_result)
-        kwargs['debug_result'].append(user_debug_result)
 
         self.logger("Debug model finished abort trainning",1,1)
 
