@@ -66,7 +66,7 @@ class get_sequence(output_layer):
     def predict(self):
         self.pred_Y = T.argmax(self.output, axis=2)
 
-    def cost(self, Y):
+    def cost_(self, Y):
         axis0 = T.repeat(T.arange(Y.shape[0]), Y.shape[1])
         axis1 = T.tile(T.arange(Y.shape[1]), Y.shape[0])
         axis2 = T.flatten(Y)
@@ -76,6 +76,11 @@ class get_sequence(output_layer):
         flattened_2 = flattened_1*mask
         flattened_3 =T.sum(flattened_2)
         return flattened_3 / T.sum(mask)
+    def cost(self, Y):
+        def _step(o,y,m):
+            return -T.mean(T.log(o)[T.arange(y.shape[0]), y]*m)
+        c,u=theano.scan(_step,[self.output,Y,self.mask])
+        return T.mean(c)
 
 
     def error(self, Y):

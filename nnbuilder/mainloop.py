@@ -63,6 +63,14 @@ def train(datastream, model, algrithm, extension):
     # Main Loop
     logger('Training Start',1)
     for ex in extension_instance:   ex.before_train()
+    for i in range(10):
+        data = prepare_data(train_X, train_Y, train_minibatches[i][1])
+        train_result = train_model(*data)
+        dict['train_result'] = 1
+        train_cost = 1
+        dict['iteration_total'] += 1
+        for ex in extension_instance:   ex.after_iteration()
+    dict['stop']=True
     if dict['stop']:
         return -1, [], [], dict['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
     while(True):
@@ -256,14 +264,16 @@ def print_config(model, algrithm, extension):
             if not key.startswith('__'):
                 logger(key + ' : %s'% model.layers[lykey].__dict__[key], 3)
     logger('algrithm:', 1)
+    logger(str(algrithm.config.__class__), 2)
     for key in algrithm.config.__dict__:
         if not key.startswith('__'):
-            logger(key + ' : %s'% algrithm.config.__dict__[key], 2)
+            logger(key + ' : %s'% algrithm.config.__dict__[key], 3)
     logger('extension:', 1)
     for ex in extension:
+        logger(str(ex.__class__),2)
         for key in ex.config.__dict__:
             if not key.startswith('__'):
-                logger(key + ' : %s'% ex.config.__dict__[key], 2)
+                logger(key + ' : %s'% ex.config.__dict__[key], 3)
 
 def get_modelstream(model,algrithm):
     logger("Building Model:",0,1)
@@ -297,7 +307,7 @@ def get_modelstream(model,algrithm):
     logger('Compiling Model',1)
     model = theano.function(inputs=train_inputs,
                             outputs=pred_Y,on_unused_input='ignore')
-    return [train_model, valid_model, test_model, sample_model,model, NNB_model,optimizer]
+    return [train_model, valid_model, test_model, sample_model,model, [],optimizer]
 
 
 

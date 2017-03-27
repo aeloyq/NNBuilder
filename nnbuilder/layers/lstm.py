@@ -91,14 +91,4 @@ class get(base):
             if self.ops is not None:
                 self.output = self.ops(self.output)
 
-class get_bi(get):
-    def get_output(self):
-        input_forward=self.input
-        input_backward=self.input[:,::-1,:]
-        self.input=input_forward
-        get.get_output(self)
-        output_forward=self.output
-        self.input = input_backward
-        get.get_output(self)
-        output_backward = self.output
-        self.output=output_forward+output_backward
+

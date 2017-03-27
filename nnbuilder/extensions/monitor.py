@@ -23,7 +23,7 @@ class ex(base):
         self.report_iter=False
         self.report_iter_frequence=5
         self.report_epoch = True
-        self.plot=True
+        self.plot=False
         self.plot_frequence=1000
         self.start_iter=-1
     def init(self):
@@ -47,69 +47,87 @@ class ex(base):
             self.plot_errors = []
         d3v.d3viz(kwargs['dim_model'].output.output,self.path + 'model.html')
     def after_iteration(self):
-        kwargs = self.kwargs
         iteration_time=timeit.default_timer()-self.iteration_s_time
         self.iteration_s_time=timeit.default_timer()
+        if self.report_iter:
+
+            iter = self.kwargs['iteration_total']
+            if iter % self.report_iter_frequence == 0:
+                self.logger("Iteration Report at Epoch:%d   Iteration:%d   Time Used:%.2fs   " \
+                            "Cost:%.4f" % (self.kwargs['epoches'], iter,
+                                           iteration_time, self.kwargs['train_result']), 2)
+
+        if self.plot:
+
+            iter = self.kwargs['iteration_total']
+            if iter % (self.plot_frequence) == 0:
+                train_result=self.kwargs['train_result']
+                errors=self.kwargs['errors']
+                t_plot=threading.Thread(target=self.plot_func,name='monitor.plot',args=(iter,train_result,errors))
+                t_plot.start()
 
 
+    def plot_func(self,iter,train_result,errors):
 
-    def plot_func(self,kwargs):
-        iter = kwargs['iteration_total']
 
-        if iter%(self.plot_frequence)==0:
+        x_axis = range(self.start_iter, iter, self.plot_frequence)
 
-            x_axis = range(self.start_iter, iter, self.plot_frequence)
+        if len(x_axis) > len(self.plot_costs):
+            self.plot_costs.append(train_result)
+            if len(errors) > 0:
+                self.plot_errors.append(errors[-1])
+            else:
+                self.plot_errors.append(1.)
 
-            if len(x_axis) > len(self.plot_costs):
-                self.plot_costs.append(kwargs['train_result'])
-                if len(kwargs['errors']) > 0:
-                    self.plot_errors.append(kwargs['errors'][-1])
-                else:
-                    self.plot_errors.append(1.)
+        plt.figure(1)
+        plt.cla()
+        x_axis=range(self.start_iter,iter,self.plot_frequence)
+        plt.title(nnbuilder.config.name)
+        plt.ylabel('Loss')
+        plt.xlabel('Iters')
+        plt.plot(x_axis,self.plot_costs,label='Loss',color='orange')
+        plt.legend()
+        plt.savefig(self.path+'process_cost.png')
 
-            plt.figure(1)
-            plt.cla()
-            x_axis=range(self.start_iter,iter,self.plot_frequence)
-            plt.title(nnbuilder.config.name)
-            plt.ylabel('Loss/Error')
-            plt.xlabel('Iters')
-            plot_costs=self.plot_costs
-            if max(plot_costs)>1:
-                plot_costs=(np.array(plot_costs)/max(plot_costs)).tolist()
-            plt.plot(x_axis,plot_costs,label='Loss',color='orange')
-            plt.plot(x_axis, self.plot_errors, label='Error', color='blue')
-            plt.legend()
-            plt.savefig(self.path+'process.png')
+        plt.figure(2)
+        plt.cla()
+        x_axis = range(self.start_iter, iter, self.plot_frequence)
+        plt.title(nnbuilder.config.name)
+        plt.ylabel('Error')
+        plt.xlabel('Iters')
+        plt.plot(x_axis, self.plot_errors, label='Error', color='blue')
+        plt.legend()
+        plt.savefig(self.path + 'process_error.png')
 
-            n_im = len(self.params)
-            a = np.int(np.sqrt(n_im))
-            b = a
-            if a * b < n_im: a += 1
-            if a * b < n_im: b += 1
-            plt.figure(2, (b*4,a*4))
-            plt.cla()
+        n_im = len(self.params)
+        a = np.int(np.sqrt(n_im))
+        b = a
+        if a * b < n_im: a += 1
+        if a * b < n_im: b += 1
+        plt.figure(3, (b*4,a*4))
+        plt.cla()
 
-            i=0
-            for key in self.params:
-                i += 1
-                if key.find('Bi')==-1:
-                    plt.subplot(a,b,i)
-                    plt.title(key)
-                    img=np.asarray(self.params[key].get_value())
-                    img=(img-np.min(img))
-                    img=img/np.max(img)
-                    img=img*255
-                    if img.ndim!=1:
-                        plt.imshow(img,cmap='gray')
-                else:
-                    plt.subplot(a, b, i)
-                    plt.title(key)
-                    y=self.params[key].get_value()
-                    x_axis_bi=range(y.shape[0])
-                    y=y+np.min(y)
-                    y=(y*2)/np.max(y)-1
-                    plt.plot(x_axis_bi,y,color='black')
-                    plt.savefig(self.path + 'paramsplot.png')
+        i=0
+        for key in self.params:
+            i += 1
+            if key.find('Bi')==-1:
+                plt.subplot(a,b,i)
+                plt.title(key)
+                img=np.asarray(self.params[key].get_value())
+                img=(img-np.min(img))
+                img=img/np.max(img)
+                img=img*255
+                if img.ndim!=1:
+                    plt.imshow(img,cmap='gray')
+            else:
+                plt.subplot(a, b, i)
+                plt.title(key)
+                y=self.params[key].get_value()
+                x_axis_bi=range(y.shape[0])
+                y=y+np.min(y)
+                y=(y*2)/np.max(y)-1
+                plt.plot(x_axis_bi,y,color='black')
+                plt.savefig(self.path + 'paramsplot.png')
 
 
 

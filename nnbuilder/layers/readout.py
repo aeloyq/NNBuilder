@@ -6,6 +6,7 @@ Created on  Feb 25 6:15 PM 2017
 """
 
 import numpy as np
+import theano
 import theano.tensor as T
 from layers import hidden_layer
 

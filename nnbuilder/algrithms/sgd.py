@@ -32,6 +32,7 @@ class algrithm:
         if self.if_clip:self.updates2output=[self.grad_clip(update2output) for update2output in self.updates2output]
         self.updates=[(param, param - lrgp)
                for param, lrgp in zip(self.params, self.updates2output)]
+        #return []
         return self.updates
     def grad_clip(self,grad):
         return T.clip(grad,-self.grad_clip_norm,self.grad_clip_norm)

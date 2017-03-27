@@ -31,7 +31,6 @@ if __name__ == '__main__':
     sgd.config.learning_rate=0.01
     sample.config.sample_func=samples.mnist_sample
     saveload.config.save_freq=2500
-    monitor.config.plot=False
 
 
     datastream  = Load_mnist()
