@@ -17,11 +17,9 @@ from nnbuilder.model import model
 from nnbuilder.extensions import monitor ,debugmode,saveload,earlystop
 from nnbuilder.mainloop import train
 
-theano.config.profile=True
-theano.config.profile_memory=True
 
-source_vocab_size=80000
-target_vocab_size=80000
+source_vocab_size=40000
+target_vocab_size=40000
 
 source_emb_dim=512
 target_emb_dim=512
@@ -36,8 +34,8 @@ sgd.config.if_clip=True
 
 config.name='mt_demo'
 config.data_path='./data/datasets.npz'
-config.batch_size=60
-config.valid_batch_size=60
+config.batch_size=80
+config.valid_batch_size=64
 config.max_epoches=1000
 config.savelog=True
 config.transpose_x=True
@@ -51,8 +49,7 @@ monitor.config.report_iter_frequence=2
 monitor.config.report_iter=True
 
 
-
-data=Load_mt()
+data=Load_mt(maxlen=50,sort_by_len=True,sort_by_asc=False)
 
 
 X=T.imatrix('X')
@@ -63,7 +60,7 @@ Y_mask=T.matrix('Y_Mask')
 emb=embedding.get(in_dim=source_vocab_size,emb_dim=source_emb_dim)
 enc=encoder.get_bi_lstm(in_dim=source_emb_dim,unit_dim=enc_dim)
 enc.set_mask(X_mask)
-dec=decoder.get_lstm_attention(in_dim=enc_dim,unit_dim=dec_dim)
+dec=decoder.get_lstm(in_dim=enc_dim,unit_dim=dec_dim)
 dec.set_x_mask(X_mask)
 dec.set_y_mask(Y_mask)
 rdo=readout.get(in_dim=dec_dim,unit_dim=target_emb_dim)

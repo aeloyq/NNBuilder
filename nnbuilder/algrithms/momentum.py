@@ -25,8 +25,7 @@ class algrithm(base):
         self.gparams = T.grad(self.cost, self.params)
         self.momentum_factor_shared=theano.shared(self.numpy_floatX(self.momentum_factor)
                                            ,name='momentum_factor')
-        self.learning_rate_shared = theano.shared(self.numpy_floatX(self.learning_rate), name='Learning_Rate')
-        self.train_updates_current_delta_x = [self.momentum_factor_shared*p_grad+self.learning_rate_shared * gparam for
+        self.train_updates_current_delta_x = [self.momentum_factor_shared*p_grad+self.learning_rate * gparam for
                             gparam, p_grad in zip(self.gparams, self.pro_update)]
         if self.if_clip: self.train_updates_current_delta_x = [self.grad_clip(update2output) for update2output in self.train_updates_current_delta_x]
         self.train_updates=[(param, param - updt_curnt)

@@ -15,6 +15,8 @@ from nnbuilder.model import model
 from nnbuilder.mainloop import train
 from nnbuilder.visions.Visualization import get_result
 
+import theano
+theano.config.profile=True
 
 if __name__ == '__main__':
 
@@ -22,7 +24,7 @@ if __name__ == '__main__':
 
     nnbuilder.config.name= 'mnist'
     nnbuilder.config.data_path= "./datasets/mnist.pkl.gz"
-    nnbuilder.config.max_epoches=100
+    nnbuilder.config.max_epoches=10
     nnbuilder.config.valid_batch_size=20
     nnbuilder.config.batch_size=20
 

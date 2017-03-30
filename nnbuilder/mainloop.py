@@ -22,6 +22,8 @@ def train(datastream, model, algrithm, extension):
         os.mkdir('./%s/log' % config.name)
     if not os.path.exists('./%s/save' % config.name):
         os.mkdir('./%s/save' % config.name)
+    if not os.path.exists('./%s/tmp' % config.name):
+        os.mkdir('./%s/save' % config.name)
     model.build()
     dim_model=model
     print_config(model, algrithm, extension)
@@ -31,89 +33,88 @@ def train(datastream, model, algrithm, extension):
     train_minibatches, valid_minibatches, test_minibatches=get_minibatches_idx(datastream)
     sample_data=[datastream[0],datastream[3]]
     max_epoches=config.max_epoches
-    dict={}
-    dict['dim_model']=dim_model
-    dict['logger'] = logger
-    dict['prepare_data']=prepare_data
-    dict['get_sample_data']=get_sample_data
-    dict['conf'] = config
-    dict['batch_size']=config.batch_size
-    dict['train_model']=train_model
-    dict['valid_model'] = valid_model
-    dict['test_model'] = test_model
-    dict['sample_model'] = sample_model
-    dict['model']=model
-    dict['iteration_total']=0
-    dict['minibatches']=[train_minibatches,valid_minibatches,test_minibatches]
-    dict['data_stream']=datastream
-    dict['sample_data']=sample_data
-    dict['train_error'] = 1
-    dict['train_result'] = 1
-    dict['test_error'] = 1
-    dict['debug_result'] = []
-    dict['best_valid_error'] = 1
-    dict['best_iter'] = -1
-    dict['epoches'] = 0
-    dict['errors'] = []
-    dict['costs'] = []
-    dict['stop']=False
+    dict_param={}
+    dict_param['dim_model']=dim_model
+    dict_param['logger'] = logger
+    dict_param['prepare_data']=prepare_data
+    dict_param['get_sample_data']=get_sample_data
+    dict_param['conf'] = config
+    dict_param['batch_size']=config.batch_size
+    dict_param['train_model']=train_model
+    dict_param['valid_model'] = valid_model
+    dict_param['test_model'] = test_model
+    dict_param['sample_model'] = sample_model
+    dict_param['model']=model
+    dict_param['iteration_total']=0
+    dict_param['minibatches']=[train_minibatches,valid_minibatches,test_minibatches]
+    dict_param['data_stream']=datastream
+    dict_param['sample_data']=sample_data
+    dict_param['train_error'] = 1
+    dict_param['train_result'] = 1
+    dict_param['test_error'] = 1
+    dict_param['debug_result'] = []
+    dict_param['best_valid_error'] = 1
+    dict_param['best_iter'] = -1
+    dict_param['epoches'] = 0
+    dict_param['errors'] = []
+    dict_param['costs'] = []
+    dict_param['stop']=False
     extension_instance=[]
-    for ex in extension:ex.config.kwargs=dict;ex.config.init();extension_instance.append(ex.config)
-    dict['extension']=extension_instance
+    for ex in extension:ex.config.kwargs=dict_param;ex.config.init();extension_instance.append(ex.config)
+    dict_param['extension']=extension_instance
     # Main Loop
     logger('Training Start',1)
     for ex in extension_instance:   ex.before_train()
-    for i in range(10):
-        data = prepare_data(train_X, train_Y, train_minibatches[i][1])
-        train_result = train_model(*data)
-        dict['train_result'] = 1
-        train_cost = 1
-        dict['iteration_total'] += 1
-        for ex in extension_instance:   ex.after_iteration()
-    dict['stop']=True
-    if dict['stop']:
-        return -1, [], [], dict['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
+    if dict_param['stop']:
+        return -1, [], [], dict_param['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
     while(True):
         # Stop When Timeout
-        if dict['epoches'] > max_epoches - 1 and max_epoches != -1:
+        if dict_param['epoches'] > max_epoches - 1 and max_epoches != -1:
             logger("⊙Trainning Time Out⊙", 1, 1)
             break
         # Train model iter by iter
         for idx,index in train_minibatches:
             data = prepare_data(train_X, train_Y, index)
             train_result=train_model(*data)
-            dict['train_result'] = train_result[0]
+            dict_param['train_result'] = train_result[0]
             train_cost=train_result[0]
-            dict['iteration_total'] += 1
+            dict_param['iteration_total'] += 1
             if(idx==train_minibatches[-1][0]):
                 # After epoch
-                dict['epoches'] += 1
+                dict_param['epoches'] += 1
                 testdatas = []
                 for _, index in test_minibatches:
                     data = prepare_data(test_X, test_Y, index)
                     testdatas.append(data)
-                dict['train_error'] = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
-                dict['errors'].append(dict['train_error'])
-                dict['costs'].append(train_cost)
+                dict_param['train_error'] = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
+                dict_param['errors'].append(dict_param['train_error'])
+                dict_param['costs'].append(train_cost)
                 for ex in extension_instance:   ex.after_epoch()
             for ex in extension_instance:   ex.after_iteration()
-            if dict['stop']:
+            if dict_param['stop']:
                 for ex in extension_instance:   ex.after_train()
-                return dict['epoches'],dict['errors'],dict['costs'],dict['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
+                return dict_param['epoches'],dict_param['errors'],dict_param['costs'],dict_param['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
             # Stop When Sucess
-            if dict['train_error'] == 0:
+            if dict_param['train_error'] == 0:
                 testdatas = []
                 for _, index in test_minibatches:
                     data = prepare_data(test_X,test_Y, index)
                     testdatas.append(data)
                 if np.mean([test_model(*tuple(testdata)) for testdata in testdatas]) == 0:
-                    dict['best_iter'] = dict['iteration_total']
+                    dict_param['best_iter'] = dict_param['iteration_total']
                     logger( "●Trainning Sucess●",1,1)
                     break
 
 
     for ex in extension_instance:   ex.after_train()
-    return dict['epoches'],dict['errors'],dict['costs'],dict['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
+    return dict_param['epoches'],dict_param['errors'],dict_param['costs'],dict_param['debug_result'],[train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer]
+
+
+
+
+
+
+
 
 def prepare_data(data_x,data_y,index):
     if not config.transpose_x:

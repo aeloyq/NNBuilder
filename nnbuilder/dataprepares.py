@@ -102,6 +102,7 @@ def Load_imdb(n_words=100000,valid_portion=0.1,maxlen=None,sort_by_len=True):
     n_samples = len(train_set_x)
     sidx = np.random.permutation(n_samples)
     n_train = int(np.round(n_samples * (1. - valid_portion)))
+    n_test=n_samples-n_train
     valid_set_x = [train_set_x[s] for s in sidx[n_train:]]
     valid_set_y = [train_set_y[s] for s in sidx[n_train:]]
     train_set_x = [train_set_x[s] for s in sidx[:n_train]]
@@ -135,13 +136,53 @@ def Load_imdb(n_words=100000,valid_portion=0.1,maxlen=None,sort_by_len=True):
         sorted_index = len_argsort(train_set_x)
         train_set_x = [train_set_x[i] for i in sorted_index]
         train_set_y = [train_set_y[i] for i in sorted_index]
-    return [train_set_x,valid_set_x, test_set_x, train_set_y, valid_set_y, test_set_y]
+    return [train_set_x,valid_set_x, test_set_x[0:n_test], train_set_y, valid_set_y, test_set_y[0:n_test]]
 
 
-def Load_mt():
+def Load_mt(maxlen=None,sort_by_len=True,sort_by_asc=True):
+    print '\r\nloading data...'
     path=config.data_path
     data=np.load(path)
-    return data['arr_0']
+    train_set, valid_set, test_set, train_sety, valid_sety, test_sety=data['arr_0']
+    if maxlen:
+        print 'clipping to max length...'
+        new_train_set_x = []
+        new_train_set_y = []
+        for x, y in zip(train_set, train_sety):
+            if len(x) < maxlen:
+                new_train_set_x.append(x)
+                new_train_set_y.append(y)
+        train_set = new_train_set_x
+        train_sety= new_train_set_y
+        del new_train_set_x, new_train_set_y
+        print 'clipped,ok'
+
+    def len_argsort(seq):
+        return sorted(range(len(seq)), key=lambda x: len(seq[x]))
+
+    if sort_by_len:
+        print 'sorting by length...'
+        sorted_index = len_argsort(test_set)
+        if not sort_by_asc:sorted_index.reverse()
+        test_set = [test_set[i] for i in sorted_index]
+        test_sety = [test_sety[i] for i in sorted_index]
+
+        sorted_index = len_argsort(valid_set)
+        if not sort_by_asc: sorted_index.reverse()
+        valid_set = [valid_set[i] for i in sorted_index]
+        valid_sety = [valid_sety[i] for i in sorted_index]
+
+        sorted_index = len_argsort(train_set)
+        if not sort_by_asc: sorted_index.reverse()
+        train_set = [train_set[i] for i in sorted_index]
+        train_sety = [train_sety[i] for i in sorted_index]
+        print 'sorted,ok'
+    print 'Data loaded,ok'
+    print 'Train sentence pairs loaded in total: %s'%(len(train_set))
+    print 'Valid sentence pairs loaded in total: %s' % (len(valid_set))
+    print 'Test sentence pairs loaded in total: %s' % (len(test_set))
+    print 'Max length in trainsets: %s'%max([len(i) for i in train_set])
+    return train_set, valid_set, test_set, train_sety, valid_sety, test_sety
 ''' load theano variable '''
             
 def convert_to_theano_variable(trainsets,validsets,testsets):

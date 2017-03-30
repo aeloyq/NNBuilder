@@ -24,15 +24,12 @@ class algrithm:
         self.params = [theta for param in wt_packs for theta in param]
     def get_updates(self):
         self.gparams = T.grad(self.cost, self.params)
-        learning_rate=theano.shared(self.numpy_floatX(self.learning_rate),name='Learning_Rate',borrow=True)
-        self.updates2output=[learning_rate * gparam for
-                            gparam in self.gparams]
-        self.updates2output = [0.01 * gparam for
+        learning_rate = theano.shared(self.numpy_floatX(self.learning_rate), name='Learning_Rate', borrow=True)
+        self.updates2output = [learning_rate * gparam for
                                gparam in self.gparams]
         if self.if_clip:self.updates2output=[self.grad_clip(update2output) for update2output in self.updates2output]
         self.updates=[(param, param - lrgp)
                for param, lrgp in zip(self.params, self.updates2output)]
-        #return []
         return self.updates
     def grad_clip(self,grad):
         return T.clip(grad,-self.grad_clip_norm,self.grad_clip_norm)

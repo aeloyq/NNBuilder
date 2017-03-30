@@ -118,9 +118,9 @@ class model():
             self.output=self.layer.output = T.switch(self.use_noise,
                                     (self.layer.output *
                                      self.trng.binomial(self.layer.output.shape,
-                                                        p=0.5, n=1,
+                                                        p=self.use_noise, n=1,
                                                         dtype=self.layer.output.dtype)),
-                                    self.layer.output * 0.5)
+                                    self.layer.output * (1-self.use_noise))
 
 
     def add_weight_decay(self,l2=0.0001, layers=None):
