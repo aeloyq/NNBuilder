@@ -20,20 +20,16 @@ class get(baselayer):
         self.cost_functions = costfunctions()
     def get_output(self):
         baselayer.get_output(self)
-        if self.ops is not None:
-            self.output = self.ops(self.output)
         self.predict()
     def predict(self):
         self.pred_Y=T.round(self.output)
-    def cost(self,Y):
+    def cost_(self,Y):
         if Y.ndim==2:
             return self.cost_function(Y, self.output)
         if Y.ndim==1:
             return self.cost_function(T.reshape(Y, [Y.shape[0], 1]),  self.output)
+    def cost(self,Y):
+        return T.sum(self.output)
     def error(self,Y):
-        if Y.ndim == 1:
-            return layer_tools.errors(T.reshape(Y, [Y.shape[0], 1]), self.pred_Y)
-        if Y.ndim==2:
-            return layer_tools.errors(Y, self.pred_Y)
-
+        return T.sum(self.output)
 

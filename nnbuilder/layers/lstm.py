@@ -19,6 +19,7 @@ base = recurrent.get
 class get(base):
     def __init__(self, in_dim, unit_dim, h_0_init=False, c_0_init=False, activation=None, **kwargs):
         base.__init__(self, in_dim, unit_dim, h_0_init, activation, **kwargs)
+        self.masked=True
         self.c_0_init = c_0_init
         if self.c_0_init:
             self.c_0 = 'c_0'
@@ -55,16 +56,24 @@ class get(base):
         c_0 = T.alloc(np.asarray(0.).astype(theano.config.floatX), self.n_samples, self.unit_dim)
         if self.h_0_init: h_0=T.reshape(T.tile(self.h_0,self.n_samples),[self.n_samples,self.unit_dim])
         if self.c_0_init: c_0=T.reshape(T.tile(self.c_0,self.n_samples),[self.n_samples,self.unit_dim])
-        lin_out, scan_update = theano.scan(self.step, sequences=[self.state_before, self.x_mask],
+        if self.masked:
+            lin_out, scan_update = theano.scan(self.step_mask, sequences=[self.state_before, self.x_mask],
                                            outputs_info=[h_0,c_0], name=self.name + '_Scan',
                                            n_steps=self.input.shape[0])
+        else:
+            lin_out, scan_update = theano.scan(self.step, sequences=[self.state_before],
+                                               outputs_info=[h_0, c_0], name=self.name + '_Scan',
+                                               n_steps=self.input.shape[0])
         lin_out = lin_out[0]
-        self.output = self.output_way(lin_out, self.x_mask)
+        if self.masked:
+            self.output = self.output_way(lin_out, self.x_mask)
+        else:
+            self.output=lin_out
         if self.output_dropout:
             if self.ops is not None:
                 self.output = self.ops(self.output)
 
-    def step(self, x_, m_, h_, c_):
+    def step_mask(self, x_, m_, h_, c_):
         preact = T.dot(h_, self.u) + x_
 
         i = T.nnet.sigmoid(self.slice(preact, 0, self.unit_dim))
@@ -73,7 +82,7 @@ class get(base):
         c = T.tanh(self.slice(preact, 3, self.unit_dim))
 
         c = f * c_ + i * c
-        if self.output_way == self.output_ways.final:
+        if self.masked:
             c = m_[:, None] * c + (1. - m_)[:, None] * c_
 
         if self.cell_unit_dropout:
@@ -81,8 +90,30 @@ class get(base):
                 c = self.ops(c)
 
         h = o * T.tanh(c)
-        if self.output_way == self.output_ways.final:
+        if self.masked:
             h = m_[:, None] * h + (1. - m_)[:, None] * h_
+
+        if self.hidden_unit_dropout:
+            if self.ops is not None:
+                h = self.ops(h)
+
+        return [h, c]
+
+    def step(self, x_, h_, c_):
+        preact = T.dot(h_, self.u) + x_
+
+        i = T.nnet.sigmoid(self.slice(preact, 0, self.unit_dim))
+        f = T.nnet.sigmoid(self.slice(preact, 1, self.unit_dim))
+        o = T.nnet.sigmoid(self.slice(preact, 2, self.unit_dim))
+        c = T.tanh(self.slice(preact, 3, self.unit_dim))
+
+        c = f * c_ + i * c
+
+        if self.cell_unit_dropout:
+            if self.ops is not None:
+                c = self.ops(c)
+
+        h = o * T.tanh(c)
 
         if self.hidden_unit_dropout:
             if self.ops is not None:

@@ -10,13 +10,19 @@ from nnbuilder import config
 import numpy as np
 import theano
 import theano.tensor as T
-from nnbuilder.layers import embedding,lstm,decoder,softmax,softplus,encoder,readout
+from nnbuilder.layers import embedding
+from nnbuilder.models import encoder,decoder
 from nnbuilder.algrithms import sgd,adadelta,rmsprop
 from nnbuilder.dataprepares import Load_mt
 from nnbuilder.model import model
 from nnbuilder.extensions import monitor ,debugmode,saveload,earlystop
 from nnbuilder.mainloop import train
 
+#theano.config.profile=True
+#theano.config.profile_memory=True
+#theano.config.optimizer='fast_compile'
+debugmode.config.debug_time=5
+debugmode.config.debug_batch=40
 
 source_vocab_size=40000
 target_vocab_size=40000
@@ -30,11 +36,13 @@ dec_dim=1024
 config.vocab_source='./data/vocab.en-fr.en.pkl'
 config.vocab_target='./data/vocab.en-fr.fr.pkl'
 
+sgd.config.learning_rate=0.7
+sgd.config.grad_clip_norm=1.
 sgd.config.if_clip=True
 
 config.name='mt_demo'
 config.data_path='./data/datasets.npz'
-config.batch_size=80
+config.batch_size=40
 config.valid_batch_size=64
 config.max_epoches=1000
 config.savelog=True
@@ -45,11 +53,8 @@ config.mask_y=True
 config.int_x=True
 config.int_y=True
 
-monitor.config.report_iter_frequence=2
+monitor.config.report_iter_frequence=1
 monitor.config.report_iter=True
-
-
-data=Load_mt(maxlen=50,sort_by_len=True,sort_by_asc=False)
 
 
 X=T.imatrix('X')
@@ -59,13 +64,13 @@ Y_mask=T.matrix('Y_Mask')
 
 emb=embedding.get(in_dim=source_vocab_size,emb_dim=source_emb_dim)
 enc=encoder.get_bi_lstm(in_dim=source_emb_dim,unit_dim=enc_dim)
-enc.set_mask(X_mask)
-dec=decoder.get_lstm(in_dim=enc_dim,unit_dim=dec_dim)
+dec=decoder.get_lstm_attention_maxout_readout_feedback(in_dim=enc_dim,unit_dim=dec_dim,
+                                                       attention_dim=1024,
+                                                       emb_dim=target_emb_dim,
+                                                       vocab_dim=target_vocab_size)
 dec.set_x_mask(X_mask)
 dec.set_y_mask(Y_mask)
-rdo=readout.get(in_dim=dec_dim,unit_dim=target_emb_dim)
-out=softmax.get_sequence(in_dim=target_emb_dim,unit_dim=target_vocab_size)
-out.set_mask(Y_mask)
+dec.set_y(Y)
 
 
 mt_model=model()
@@ -73,9 +78,10 @@ mt_model.set_inputs([X,Y,X_mask,Y_mask])
 mt_model.addlayer(emb,X,'emb')
 mt_model.addlayer(enc,emb,'enc')
 mt_model.addlayer(dec,enc,'dec')
-mt_model.addlayer(rdo,dec,'rdo')
-mt_model.addlayer(out,rdo,'out')
 
-result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[monitor])
+#data=Load_mt(maxlen=50,sort_by_len=True,sort_by_asc=True)
+data=Load_mt()
+
+result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[debugmode,monitor,saveload,earlystop])
 
 

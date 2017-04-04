@@ -32,6 +32,7 @@ class model():
         self.trng=config.trng
         self.X_mask=None
         self.Y_mask=None
+        self.updates=None
 
     def set_inputs(self, inputs):
         self.inputs=inputs

@@ -13,7 +13,7 @@ import copy
 import config
 from logger import logger
 import os
-
+from extensions import debugmode
 
 def train(datastream, model, algrithm, extension):
     if not os.path.exists('./%s' % config.name):
@@ -27,7 +27,10 @@ def train(datastream, model, algrithm, extension):
     model.build()
     dim_model=model
     print_config(model, algrithm, extension)
-    train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer=get_modelstream(model,algrithm)
+    if debugmode in extension:
+        train_model,valid_model,test_model,sample_model,model,NNB_model,optimizer=get_modelstream(model,algrithm,False)
+    else:
+        train_model, valid_model, test_model, sample_model, model, NNB_model, optimizer = get_modelstream(model,algrithm)
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
     logger("Trainning Model:",0,1)
     train_minibatches, valid_minibatches, test_minibatches=get_minibatches_idx(datastream)
@@ -35,6 +38,7 @@ def train(datastream, model, algrithm, extension):
     max_epoches=config.max_epoches
     dict_param={}
     dict_param['dim_model']=dim_model
+    dict_param['algrithm'] = algrithm
     dict_param['logger'] = logger
     dict_param['prepare_data']=prepare_data
     dict_param['get_sample_data']=get_sample_data
@@ -276,7 +280,7 @@ def print_config(model, algrithm, extension):
             if not key.startswith('__'):
                 logger(key + ' : %s'% ex.config.__dict__[key], 3)
 
-def get_modelstream(model,algrithm):
+def get_modelstream(model,algrithm,get_fn=True):
     logger("Building Model:",0,1)
     NNB_model = model
     train_inputs=NNB_model.train_inputs
@@ -288,27 +292,31 @@ def get_modelstream(model,algrithm):
     optimizer = algrithm.config
     optimizer.init(params,cost)
     train_updates=optimizer.get_updates()
+    model.updates=train_updates
     debug_output=[]
     for key in NNB_model.layers:
         debug_output.extend(NNB_model.layers[key].debug_stream)
     train_output=[cost]
-    logger('Compiling Training Model',1)
-    train_model = theano.function(inputs=train_inputs,
-                                  outputs=train_output,
-                                  updates=train_updates)
-    logger('Compiling Validing Model',1)
-    valid_model = theano.function(inputs=train_inputs,
-                                  outputs=error)
-    logger('Compiling Test Model',1)
-    test_model = theano.function(inputs=train_inputs,
-                                 outputs=error)
-    logger('Compiling Sampling Model',1)
-    sample_model = theano.function(inputs=train_inputs,
-                                 outputs=[pred_Y,cost,error])
-    logger('Compiling Model',1)
-    model = theano.function(inputs=train_inputs,
-                            outputs=pred_Y,on_unused_input='ignore')
-    return [train_model, valid_model, test_model, sample_model,model, [],optimizer]
+    if get_fn:
+        logger('Compiling Training Model',1)
+        train_model = theano.function(inputs=train_inputs,
+                                      outputs=train_output,
+                                      updates=train_updates)
+        logger('Compiling Validing Model',1)
+        valid_model = theano.function(inputs=train_inputs,
+                                      outputs=error)
+        logger('Compiling Test Model',1)
+        test_model = theano.function(inputs=train_inputs,
+                                     outputs=error)
+        logger('Compiling Sampling Model',1)
+        sample_model = theano.function(inputs=train_inputs,
+                                     outputs=[pred_Y,cost,error])
+        logger('Compiling Model',1)
+        model = theano.function(inputs=train_inputs,
+                                outputs=pred_Y,on_unused_input='ignore')
+        return [train_model, valid_model, test_model, sample_model,model, [],optimizer]
+    else:
+        return [None, None, None, None,None, [],optimizer]
 
 
 

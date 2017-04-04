@@ -1,26 +1,84 @@
 # -*- coding: utf-8 -*-
 """
-Created on  三月 18 22:10 2017
+Created on Thu Feb 09 14:30:08 2017
 
 @author: aeloyq
 """
+
+import numpy as np
 import theano
 import theano.tensor as T
+from nnbuilder.layers.layers import hidden_layer, layer_tools, baselayer, costfunctions
+import nnbuilder.layers.lstm, nnbuilder.layers.gru
+from nnbuilder.layers.recurrent import output_ways
 
-from nnbuilder.layers import lstm,gru,recurrent,embedding
-from model import base
-class model(base):
-    def __init__(self,vocab_size,wordvector_dim,recurent_layer,recurent_unit_dim):
-        base.__init__()
-        self.vocab_size=vocab_size
-        self.wordvector_dim=wordvector_dim
-        self.recurent_layer=recurent_layer
-        self.recurent_unit_dim=recurent_unit_dim
-    def add_graph(self,model):
-        emb=embedding.get_new(in_dim=self.vocab_size,emb_dim=self.wordvector_dim)
-        recurrent_forward=self.recurent_layer.get_new(in_dim=self.wordvector_dim,unit_dim=self.recurent_unit_dim)
-        recurrent_backward=self.recurent_layer.get_new(in_dim=self.wordvector_dim,unit_dim=self.recurent_unit_dim)
+''' setup softmax output layer inherited from base output layer '''
 
-        model.addlayer(emb,model.X,'embedding_layer')
-        model.addlayer(recurrent_forward,emb,'recurrent_forward',model.X_mask)
-        model.addlayer(recurrent_backward,T. model.X[:,::], 'recurrent_backward', model.X_mask)
+
+class get_bi_lstm(baselayer):
+    def __init__(self, in_dim, unit_dim, h_0_init=False, c_0_init=False, activation=None, **kwargs):
+        baselayer.__init__(self)
+        self.forward = nnbuilder.layers.lstm.get(in_dim, unit_dim, h_0_init, c_0_init, activation, **kwargs)
+        self.forward.masked=False
+        self.backward = nnbuilder.layers.lstm.get(in_dim, unit_dim, h_0_init, c_0_init, activation, **kwargs)
+        self.backward.masked=False
+
+    def init_layer_params(self):
+        self.forward.init_layer_params()
+        self.backward.init_layer_params()
+        self.params = self.forward.params
+        self.params.extend(self.backward.params)
+
+    def set_name(self, name):
+        self.name = name
+        self.forward.name = 'Forward_' + name
+        self.backward.name = 'Backward_' + name
+
+    def set_x_mask(self, tvar):
+        self.x_mask=tvar
+        self.forward.set_x_mask(tvar)
+        self.backward.set_x_mask(tvar[:, ::-1])
+
+    def set_input(self, X):
+        self.input = X
+        self.forward.set_input(X)
+        self.backward.set_input(X[:, ::-1, :])
+
+    def get_output(self):
+        self.forward.get_output()
+        self.backward.get_output()
+        self.output = T.concatenate([self.forward.output , self.backward.output[:, ::-1, :]],2)
+
+class get_bi_gru(baselayer):
+    def __init__(self, in_dim, unit_dim, h_0_init=False, activation=None, **kwargs):
+        baselayer.__init__(self)
+        self.forward = nnbuilder.layers.gru.get(in_dim, unit_dim, h_0_init, activation, **kwargs)
+        self.forward.masked=False
+        self.backward = nnbuilder.layers.gru.get(in_dim, unit_dim, h_0_init, activation, **kwargs)
+        self.backward.masked=False
+
+    def init_layer_params(self):
+        self.forward.init_layer_params()
+        self.backward.init_layer_params()
+        self.params = self.forward.params
+        self.params.extend(self.backward.params)
+
+    def set_name(self, name):
+        self.name = name
+        self.forward.name = 'Forward_' + name
+        self.backward.name = 'Backward_' + name
+
+    def set_x_mask(self, tvar):
+        self.x_mask=tvar
+        self.forward.set_x_mask(tvar)
+        self.backward.set_x_mask(tvar[:, ::-1])
+
+    def set_input(self, X):
+        self.input = X
+        self.forward.set_input(X)
+        self.backward.set_input(X[:, ::-1, :])
+
+    def get_output(self):
+        self.forward.get_output()
+        self.backward.get_output()
+        self.output = T.concatenate([self.forward.output , self.backward.output[:, ::-1, :]],2)

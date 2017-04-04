@@ -23,6 +23,7 @@ class output_ways:
 class get(hidden_layer):
     def __init__(self, in_dim, unit_dim, h_0_init=False, activation=T.tanh, **kwargs):
         hidden_layer.__init__(self, in_dim, unit_dim,activation,**kwargs)
+        self.masked=True
         self.h_0_init=h_0_init
         self.param_init_function = {'wt': self.param_init_functions.uniform, 'bi': self.param_init_functions.zeros,
                                     'u': self.param_init_functions.orthogonal,'h_0':self.param_init_functions.zeros}
@@ -68,19 +69,37 @@ class get(hidden_layer):
         h_0=T.alloc(np.asarray(0.).astype(theano.config.floatX),
                                     self.n_samples, self.unit_dim)
         if self.h_0_init:h_0=T.reshape(T.tile(self.h_0,self.n_samples),[self.n_samples,self.unit_dim])
-        lin_out,scan_update=theano.scan(self.step, sequences=[self.state_before,self.x_mask],
+        if self.masked:
+            lin_out,scan_update=theano.scan(self.step_mask, sequences=[self.state_before,self.x_mask],
                                         outputs_info=[h_0], name=self.name + '_Scan', n_steps=self.state_before.shape[0])
+        else:
+            lin_out, scan_update = theano.scan(self.step, sequences=[self.state_before],
+                                               outputs_info=[h_0], name=self.name + '_Scan',
+                                               n_steps=self.state_before.shape[0])
         self.output = self.output_way(lin_out,self.x_mask)
         if self.output_dropout:
             if self.ops is not None:
                 self.output = self.ops(self.output)
-    def step(self, x_, m_, h_):
+
+    def step_mask(self, x_, m_, h_):
         h= T.dot(h_, self.u) + x_
         if self.activation is not None:
             h = self.activation(h)
         else:
             h = h
-        h= m_[:, None] * h + (1. - m_)[:, None] * h
+        if self.masked:
+            h= m_[:, None] * h + (1. - m_)[:, None] * h
+        if self.hidden_unit_dropout:
+            if self.ops is not None:
+                h=self.ops(h)
+        return h
+
+    def step(self, x_, h_):
+        h= T.dot(h_, self.u) + x_
+        if self.activation is not None:
+            h = self.activation(h)
+        else:
+            h = h
         if self.hidden_unit_dropout:
             if self.ops is not None:
                 h=self.ops(h)

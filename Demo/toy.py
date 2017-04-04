@@ -33,7 +33,8 @@ saveload.config.load=False
 monitor.config.report_iter=True
 monitor.config.report_iter_frequence=2
 
-
+theano.config.profile=True
+theano.config.profile_memory=True
 
 
 datastream  = Load_imdb(n_words=100000,maxlen=100)
@@ -42,7 +43,6 @@ X_mask=T.matrix('X_mask')
 emblayer=embedding.get(in_dim=100000,emb_dim=500)
 lstm_hiddenlayer=encoder.get_bi_lstm(in_dim=500,unit_dim=1280)
 lstm_hiddenlayer.set_mask(X_mask)
-lstm_hiddenlayer.output_way=lstm_hiddenlayer.output_ways.mean_pooling
 
 dec=decoder.get_rnn(1280,1280)
 dec.set_y_mask(X_mask)
@@ -61,4 +61,3 @@ model.addlayer(layer=hidden,input=dec,name='rdo')
 model.addlayer(layer=outputlayer,input=hidden,name='output')
 
 result_stream = train( datastream=datastream,model=model,algrithm=sgd, extension=[monitor])
-vision_return = get_result(result_stream=result_stream,model_stream=model)

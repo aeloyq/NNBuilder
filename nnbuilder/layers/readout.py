@@ -15,3 +15,7 @@ from layers import hidden_layer
 class get(hidden_layer):
     def __init__(self, in_dim, unit_dim, activation=T.tanh):
         hidden_layer.__init__(self,in_dim, unit_dim, activation)
+
+class get_deep(hidden_layer):
+    def __init__(self, in_dim, unit_dim, activation=T.tanh):
+        hidden_layer.__init__(self,in_dim, unit_dim, activation)
