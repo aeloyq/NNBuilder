@@ -23,7 +23,7 @@ def train(datastream, model, algrithm, extension):
     if not os.path.exists('./%s/save' % config.name):
         os.mkdir('./%s/save' % config.name)
     if not os.path.exists('./%s/tmp' % config.name):
-        os.mkdir('./%s/save' % config.name)
+        os.mkdir('./%s/tmp' % config.name)
     model.build()
     dim_model=model
     print_config(model, algrithm, extension)

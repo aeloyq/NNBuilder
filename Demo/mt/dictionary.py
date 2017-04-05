@@ -29,7 +29,6 @@ def mt_sample(inputs,result,y):
         tst=tst+dst[i[0]]+' '
     for i in result:
         mst=mst+dst[i[0]]+' '
-        if i[0]==0:break
     sample_str += 'Source Sentence: {}\r\n'.format(sst)
     sample_str += 'Sample Sentence: {}'.format(mst)
     return sample_str,tst

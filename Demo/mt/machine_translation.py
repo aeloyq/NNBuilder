@@ -29,6 +29,8 @@ sample.config.sample_freq=20
 sample.config.sample_times=2
 sample.config.sample_func=dictionary.mt_sample
 
+saveload.config.save_freq=500
+
 source_vocab_size=40000
 target_vocab_size=40000
 
@@ -69,6 +71,7 @@ Y_mask=T.matrix('Y_Mask')
 
 emb=embedding.get(in_dim=source_vocab_size,emb_dim=source_emb_dim)
 enc=encoder.get_bi_gru(in_dim=source_emb_dim,unit_dim=enc_dim)
+enc.set_x_mask(X_mask)
 dec=decoder.get_lstm_attention_maxout_readout_feedback(in_dim=enc_dim,unit_dim=dec_dim,
                                                        attention_dim=1024,
                                                        emb_dim=target_emb_dim,
@@ -86,6 +89,6 @@ mt_model.addlayer(dec,enc,'dec')
 
 data=Load_mt(maxlen=50,sort_by_len=False)
 
-result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[monitor,sample])
+result=train(datastream=data,model=mt_model,algrithm=adadelta,extension=[monitor,sample])
 
 

@@ -10,7 +10,7 @@ import theano
 import theano.tensor as T
 from nnbuilder.layers.layers import hidden_layer, layer_tools, baselayer, costfunctions
 import nnbuilder.layers.lstm, nnbuilder.layers.gru
-from nnbuilder.layers.recurrent import output_ways
+from nnbuilder.layers import recurrent
 
 ''' setup softmax output layer inherited from base output layer '''
 
@@ -53,9 +53,7 @@ class get_bi_gru(baselayer):
     def __init__(self, in_dim, unit_dim, h_0_init=False, activation=None, **kwargs):
         baselayer.__init__(self)
         self.forward = nnbuilder.layers.gru.get(in_dim, unit_dim, h_0_init, activation, **kwargs)
-        self.forward.masked=False
         self.backward = nnbuilder.layers.gru.get(in_dim, unit_dim, h_0_init, activation, **kwargs)
-        self.backward.masked=False
 
     def init_layer_params(self):
         self.forward.init_layer_params()
