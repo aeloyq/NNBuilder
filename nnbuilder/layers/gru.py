@@ -73,9 +73,6 @@ class get(base):
             if self.ops is not None:
                 self.output = self.ops(self.output)
 
-    def get_state_before(self):
-        self.state_before=T.dot(self.input, self.wg)+ self.big
-
     def step_mask(self, x_, m_, h_):
         preact = T.dot(h_, self.ug) + T.dot(x_, self.wg)+ self.big
 
