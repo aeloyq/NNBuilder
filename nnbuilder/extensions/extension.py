@@ -13,7 +13,6 @@ class extension:
         self.kwargs=kwargs
     def init(self):
         self.logger=self.kwargs['logger']
-        pass
     def before_train(self):
         pass
     def before_iteration(self):

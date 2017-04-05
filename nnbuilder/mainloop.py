@@ -206,7 +206,7 @@ def get_sample_data(datastream):
         n_train = train_X.get_value().shape[0]
     except:
         n_train = len(train_X)
-    index = config.rng.randint(0, n_train)
+    index = [config.rng.randint(0, n_train)]
     data_x=train_X
     data_y=train_Y
     if not config.transpose_x:

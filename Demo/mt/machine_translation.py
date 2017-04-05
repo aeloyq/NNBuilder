@@ -15,14 +15,19 @@ from nnbuilder.models import encoder,decoder
 from nnbuilder.algrithms import sgd,adadelta,rmsprop
 from nnbuilder.dataprepares import Load_mt
 from nnbuilder.model import model
-from nnbuilder.extensions import monitor ,debugmode,saveload,earlystop
+from nnbuilder.extensions import monitor ,debugmode,saveload,earlystop,sample
 from nnbuilder.mainloop import train
+import dictionary
 
 #theano.config.profile=True
 #theano.config.profile_memory=True
 #theano.config.optimizer='fast_compile'
 debugmode.config.debug_time=5
 debugmode.config.debug_batch=40
+
+sample.config.sample_freq=20
+sample.config.sample_times=2
+sample.config.sample_func=dictionary.mt_sample
 
 source_vocab_size=40000
 target_vocab_size=40000
@@ -63,7 +68,7 @@ X_mask=T.matrix('X_Mask')
 Y_mask=T.matrix('Y_Mask')
 
 emb=embedding.get(in_dim=source_vocab_size,emb_dim=source_emb_dim)
-enc=encoder.get_bi_lstm(in_dim=source_emb_dim,unit_dim=enc_dim)
+enc=encoder.get_bi_gru(in_dim=source_emb_dim,unit_dim=enc_dim)
 dec=decoder.get_lstm_attention_maxout_readout_feedback(in_dim=enc_dim,unit_dim=dec_dim,
                                                        attention_dim=1024,
                                                        emb_dim=target_emb_dim,
@@ -79,9 +84,8 @@ mt_model.addlayer(emb,X,'emb')
 mt_model.addlayer(enc,emb,'enc')
 mt_model.addlayer(dec,enc,'dec')
 
-#data=Load_mt(maxlen=50,sort_by_len=True,sort_by_asc=True)
-data=Load_mt()
+data=Load_mt(maxlen=50,sort_by_len=False)
 
-result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[debugmode,monitor,saveload,earlystop])
+result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[monitor,sample])
 
 
