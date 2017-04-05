@@ -213,11 +213,10 @@ def get_sample_data(datastream):
         x = [data_x[t] for t in index]
     else:
         x = [data_x[t] for t in index]
-        maxlen = max([len(d) for d in x])
         x = np.array(x)
-        mask_x = np.ones([len(index), maxlen]).astype(theano.config.floatX)
+        mask_x = np.ones([len(index), len(x)]).astype(theano.config.floatX)
         for idx, i in enumerate(x):
-            for j in range(len(i), maxlen):
+            for j in range(len(i), len(x)):
                 i.append(np.zeros_like(i[0]).tolist())
                 mask_x[idx, j] = mask_x[idx, j] - 1
         x_new = []
@@ -230,11 +229,10 @@ def get_sample_data(datastream):
         y = [data_y[t] for t in index]
     else:
         y = [data_y[t] for t in index]
-        maxlen = max([len(d) for d in y])
         y = np.array(y)
-        mask_y = np.ones([len(index), maxlen]).astype(theano.config.floatX)
+        mask_y = np.ones([len(index), len(y)]).astype(theano.config.floatX)
         for idx, i in enumerate(y):
-            for j in range(len(i), maxlen):
+            for j in range(len(i), len(y)):
                 i.append(np.zeros_like(i[0]).tolist())
                 mask_y[idx, j] = mask_y[idx, j] - 1
         y_new = []
