@@ -240,14 +240,14 @@ class get_gru_readout_feedback(get_gru_readout):
         return r, h, y,cost
 
 class get_gru_maxout_readout_feedback(get_gru_readout_feedback):
-    def __init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, c_0_init=False, r_0_init=False,
+    def __init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, r_0_init=False,
                  activation=T.tanh,
                  **kwargs):
-        get_lstm_readout_feedback.__init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, c_0_init, r_0_init,
+        get_gru_readout_feedback.__init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, r_0_init,
                  activation, **kwargs)
 
     def init_layer_params(self):
-        get_lstm_readout_feedback.init_layer_params(self)
+        get_gru_readout_feedback.init_layer_params(self)
         self.s0wt = theano.shared(value=self.param_init_function['sowt'](self.unit_dim/2,self.emb_dim),
                                  name='S0wt_' + self.name, borrow=True)
         self.params = [self.u,self.bi,self.wc,self.ws,self.bis,self.ug,self.big,self.ch,self.uo,
@@ -284,10 +284,10 @@ class get_gru_maxout_readout_feedback(get_gru_readout_feedback):
         return r, h, y,cost
 
 class get_gru_attention_maxout_readout_feedback(get_gru_maxout_readout_feedback):
-    def __init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, c_0_init=False, r_0_init=False,
+    def __init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, r_0_init=False,
                  activation=T.tanh,
                  **kwargs):
-        get_lstm_maxout_readout_feedback.__init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, c_0_init, r_0_init,
+        get_gru_maxout_readout_feedback.__init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, r_0_init,
                  activation, **kwargs)
 
         self.wa = 'wa'
@@ -301,7 +301,7 @@ class get_gru_attention_maxout_readout_feedback(get_gru_maxout_readout_feedback)
         self.params.extend([self.wa, self.ua, self.wv,  self.bia])
 
     def init_layer_params(self):
-        get_lstm_maxout_readout_feedback.init_layer_params(self)
+        get_gru_maxout_readout_feedback.init_layer_params(self)
         self.wa = theano.shared(value=self.param_init_function['wa'](self.unit_dim, self.attention_dim),
                                 name='Wa_' + self.name, borrow=True)
         self.ua = theano.shared(value=self.param_init_function['ua'](self.in_dim * 2, self.attention_dim),
@@ -318,7 +318,7 @@ class get_gru_attention_maxout_readout_feedback(get_gru_maxout_readout_feedback)
         r_0 = T.alloc(np.asarray(0.).astype(theano.config.floatX), self.n_samples, self.emb_dim)
         if self.r_0_init: r_0 = T.reshape(T.tile(self.r_0, self.n_samples), [self.n_samples, self.emb_dim])
         self.offset=theano.shared(value=np.array(1e-6).astype('float32'),name='Off_set',borrow=True)
-        [r, h, c, y,cost], scan_update = theano.scan(self.step,
+        [r, h, y,cost], scan_update = theano.scan(self.step,
                                            sequences=[self.y,self.y_mask],
                                            outputs_info=[r_0, h_0, None,None],
                                            non_sequences=[self.x_mask,self.input],
@@ -360,7 +360,7 @@ class get_gru_attention_maxout_readout_feedback(get_gru_maxout_readout_feedback)
 
         r = T.dot(y, self.e)
 
-        cost=T.nnet.categorical_crossentropy(y,y_true)
+        cost=T.nnet.categorical_crossentropy(y,y_true)*y_m
         return r, h, y,cost
 
 class get_lstm(baselayer_lstm):

@@ -49,8 +49,6 @@ class get(base):
         if self.h_0_init: self.params.append(self.h_0)
 
     def slice(self, _x, n, dim):
-        if _x.ndim == 3:
-            return _x[:, :, n * dim:(n + 1) * dim]
         return _x[:, n * dim:(n + 1) * dim]
 
     def get_output(self):
@@ -69,9 +67,6 @@ class get(base):
             self.output = self.output_way(lin_out, self.x_mask)
         else:
             self.output=lin_out
-        if self.output_dropout:
-            if self.ops is not None:
-                self.output = self.ops(self.output)
 
     def step_mask(self, x_, m_, h_):
         preact = T.dot(h_, self.ug) + T.dot(x_, self.wg)+ self.big

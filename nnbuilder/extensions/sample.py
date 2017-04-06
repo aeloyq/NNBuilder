@@ -33,7 +33,6 @@ class ex(base):
                 self.logger('____________________________________________', 2)
                 for _ in range(self.sample_times):
                     sample_data = kwargs['get_sample_data'](datastream)
-                    tuple(sample_data)
                     sp_pred, sp_cost, sp_error = sample_model(*sample_data)
                     s2p,sp_y=self.sample_func(sample_data[0], sp_pred,sample_data[1])
                     self.logger( s2p,2)

@@ -131,7 +131,7 @@ def prepare_data(data_x,data_y,index):
         for idx, i in enumerate(x):
             for j in range(len(i), maxlen):
                 i.append(np.zeros_like(i[0]).tolist())
-                mask_x[idx, j] = mask_x[idx, j] - 1
+                mask_x[idx, j] = 0
         x_new = []
         for idx in range(len(x[0])):
             x_new.append([x[i][idx] for i in range(len(x))])
@@ -148,7 +148,7 @@ def prepare_data(data_x,data_y,index):
         for idx, i in enumerate(y):
             for j in range(len(i), maxlen):
                 i.append(np.zeros_like(i[0]).tolist())
-                mask_y[idx, j] = mask_y[idx, j] - 1
+                mask_y[idx, j] = 0
         y_new = []
         for idx in range(len(y[0])):
             y_new.append([y[i][idx] for i in range(len(y))])
@@ -215,31 +215,23 @@ def get_sample_data(datastream):
         x = [data_x[t] for t in index]
         x = np.array(x)
         mask_x = np.ones([len(index), len(x[0])]).astype(theano.config.floatX)
-        for idx, i in enumerate(x):
-            for j in range(len(i), len(x[0])):
-                i.append(np.zeros_like(i[0]).tolist())
-                mask_x[idx, j] = mask_x[idx, j] - 1
         x_new = []
         for idx in range(len(x[0])):
             x_new.append([x[i][idx] for i in range(len(x))])
         x = x_new
-        mask_x = mask_x.transpose()
-
+        mask_x=mask_x.transpose()
     if not config.transpose_y:
         y = [data_y[t] for t in index]
     else:
         y = [data_y[t] for t in index]
         y = np.array(y)
+
         mask_y = np.ones([len(index), len(y[0])]).astype(theano.config.floatX)
-        for idx, i in enumerate(y):
-            for j in range(len(i), len(y[0])):
-                i.append(np.zeros_like(i[0]).tolist())
-                mask_y[idx, j] = mask_y[idx, j] - 1
         y_new = []
         for idx in range(len(y[0])):
             y_new.append([y[i][idx] for i in range(len(y))])
         y = y_new
-        mask_y = mask_y.transpose()
+        mask_y=mask_y.transpose()
     if config.int_x:x=np.asarray(x).astype('int64').tolist()
     if config.int_y:y=np.asarray(y).astype('int64').tolist()
     data=[x,y]
