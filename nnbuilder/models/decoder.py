@@ -306,7 +306,7 @@ class get_gru_attention_maxout_readout_feedback(get_gru_maxout_readout_feedback)
                                 name='Wa_' + self.name, borrow=True)
         self.ua = theano.shared(value=self.param_init_function['ua'](self.in_dim * 2, self.attention_dim),
                                 name='Ua_' + self.name, borrow=True)
-        self.wv = theano.shared(value=self.param_init_function['wv'](self.attention_dim, 1),
+        self.wv = theano.shared(value=self.param_init_function['wv'](self.attention_dim),
                                 name='Wv_' + self.name, borrow=True)
         self.bia = theano.shared(value=self.param_init_function['bia'](self.attention_dim),
                                  name='Bia_' + self.name, borrow=True)
@@ -317,7 +317,6 @@ class get_gru_attention_maxout_readout_feedback(get_gru_maxout_readout_feedback)
         h_0 = T.tanh(T.dot(self.input[0,:,self.in_dim:self.in_dim*2], self.ws) + self.bis)
         r_0 = T.alloc(np.asarray(0.).astype(theano.config.floatX), self.n_samples, self.emb_dim)
         if self.r_0_init: r_0 = T.reshape(T.tile(self.r_0, self.n_samples), [self.n_samples, self.emb_dim])
-        self.offset=theano.shared(value=np.array(1e-6).astype('float32'),name='Off_set',borrow=True)
         [r, h, y,cost], scan_update = theano.scan(self.step,
                                            sequences=[self.y,self.y_mask],
                                            outputs_info=[r_0, h_0, None,None],
@@ -332,9 +331,10 @@ class get_gru_attention_maxout_readout_feedback(get_gru_maxout_readout_feedback)
         self.predict()
 
     def step(self, y_true,y_m, r_, h_, x_m, bs):
-        attention = T.exp(T.dot((T.dot(h_, self.wa) +T.dot(bs,self.ua)+self.bia), self.wv)) * x_m[:, :, None]
-        attention_norm = T.reshape(attention / T.sum(attention, 0),[attention.shape[0],attention.shape[1]])
-        ci = T.sum((attention_norm)[:, :, None] * bs,0)
+        attention = T.exp(T.dot(T.tanh(T.dot(h_, self.wa) +T.dot(bs,self.ua)+self.bia), self.wv)*x_m)
+        attention_norm = attention / T.sum(attention, 0)
+        ci = T.sum(attention_norm[:,:,None] * bs,0)
+
         preact = T.dot(h_, self.ug) + T.dot(r_, self.wg) + T.dot(ci,self.wc)+self.big
 
         rg = T.nnet.sigmoid(self.slice(preact, 0, self.unit_dim))
@@ -362,6 +362,11 @@ class get_gru_attention_maxout_readout_feedback(get_gru_maxout_readout_feedback)
 
         cost=T.nnet.categorical_crossentropy(y,y_true)*y_m
         return r, h, y,cost
+
+    def sp(self,enc_h, x_mk,dec_s_):
+        eij=T.dot(T.tanh(T.dot(dec_s_, self.wa) + T.dot(enc_h, self.ua) + self.bia),self.wv)*x_mk
+        return eij
+
 
 class get_lstm(baselayer_lstm):
     def __init__(self, in_dim, unit_dim, h_0_init=False, c_0_init=False, activation=T.tanh, **kwargs):

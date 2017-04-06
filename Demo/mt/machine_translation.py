@@ -22,10 +22,10 @@ import dictionary
 #theano.config.profile=True
 #theano.config.profile_memory=True
 #theano.config.optimizer='fast_compile'
-debugmode.config.debug_time=1
-debugmode.config.debug_batch=40
+debugmode.config.debug_time=3
+debugmode.config.debug_batch=5
 
-sample.config.sample_freq=1
+sample.config.sample_freq=20
 sample.config.sample_times=2
 sample.config.sample_func=dictionary.mt_sample
 
@@ -70,7 +70,7 @@ X_mask=T.matrix('X_Mask')
 Y_mask=T.matrix('Y_Mask')
 
 emb=embedding.get(in_dim=source_vocab_size,emb_dim=source_emb_dim)
-enc=encoder.get_bi_gru(in_dim=source_emb_dim,unit_dim=enc_dim)
+enc=encoder.get_bi_gru_(in_dim=source_emb_dim,unit_dim=enc_dim)
 enc.set_x_mask(X_mask)
 dec=decoder.get_gru_attention_maxout_readout_feedback(in_dim=enc_dim,unit_dim=dec_dim,
                                                        attention_dim=1024,
