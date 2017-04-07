@@ -292,6 +292,7 @@ def get_modelstream(model,algrithm,get_fn=True):
         train_model = theano.function(inputs=train_inputs,
                                       outputs=train_output,
                                       updates=train_updates)
+        update_model=theano.function(inputs=train_inputs,updates=train_updates)
         logger('Compiling Validing Model',1)
         valid_model = theano.function(inputs=train_inputs,
                                       outputs=error)
@@ -304,7 +305,7 @@ def get_modelstream(model,algrithm,get_fn=True):
         logger('Compiling Model',1)
         model = theano.function(inputs=train_inputs,
                                 outputs=pred_Y,on_unused_input='ignore')
-        return [train_model, valid_model, test_model, sample_model,model, [],optimizer]
+        return [train_model, valid_model, test_model, sample_model,model, [],update_model]
     else:
         return [None, None, None, None,None, [],optimizer]
 

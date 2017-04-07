@@ -87,8 +87,17 @@ mt_model.addlayer(emb,X,'emb')
 mt_model.addlayer(enc,emb,'enc')
 mt_model.addlayer(dec,enc,'dec')
 
-data=Load_mt(maxlen=50,sort_by_len=False)
+data=Load_mt(maxlen=50,sort_by_asc=False)
 
-result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[monitor,sample])
+#result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[monitor,sample])
+
+import timeit
+import nnbuilder
+mt_model.build()
+a=nnbuilder.mainloop.get_modelstream(mt_model,sgd)
+d=nnbuilder.mainloop.prepare_data(data[0],data[3],range(40))
+f=theano.function(mt_model.train_inputs,sgd.config.gparams)
+#theano.printing.pydotprint(f,outfile='f:/1.png')
+
 
 
