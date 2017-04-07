@@ -89,7 +89,7 @@ mt_model.addlayer(dec,enc,'dec')
 
 data=Load_mt(maxlen=50,sort_by_asc=False)
 
-#result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[monitor,sample])
+result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[monitor,sample])
 
 import timeit
 import nnbuilder

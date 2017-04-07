@@ -22,7 +22,7 @@ class get(output_layer):
         self.pred_Y = T.argmax(self.output, axis=self.output.ndim-1)
 
     def cost(self, Y):
-        return -T.log(self.output[-1,T.arange(Y.shape[0]), Y] + 1e-6).mean()
+        return -T.log(self.output[-1,T.arange(Y.shape[0]), Y]).mean()
 
 
     def error(self, Y):
