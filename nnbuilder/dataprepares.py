@@ -149,7 +149,7 @@ def Load_mt(maxlen=None,sort_by_len=True,sort_by_asc=True):
         new_train_set_x = []
         new_train_set_y = []
         for x, y in zip(train_set, train_sety):
-            if len(x) < maxlen:
+            if len(x) < maxlen+1 and len(y) < maxlen+1:
                 new_train_set_x.append(x)
                 new_train_set_y.append(y)
         train_set = new_train_set_x
@@ -182,6 +182,7 @@ def Load_mt(maxlen=None,sort_by_len=True,sort_by_asc=True):
     print 'Valid sentence pairs loaded in total: %s' % (len(valid_set))
     print 'Test sentence pairs loaded in total: %s' % (len(test_set))
     print 'Max length in trainsets: %s'%max([len(i) for i in train_set])
+    print 'Mean length in trainsets: %s' % np.mean([len(i) for i in train_set])
     return train_set, valid_set, test_set, train_sety, valid_sety, test_sety
 ''' load theano variable '''
             

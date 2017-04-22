@@ -8,7 +8,7 @@ Created on  Feb 16 1:28 AM 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from layers import layer_tools
+from layers import utils
 import recurrent
 
 base = recurrent.get
@@ -53,7 +53,9 @@ class get(base):
 
     def get_output(self):
         self.get_n_samples()
-        h_0 = T.alloc(np.asarray(0.).astype(theano.config.floatX), self.n_samples, self.unit_dim)
+        h_0 = T.alloc(0.,self.n_samples, self.unit_dim)
+        #x2gate=T.dot(self.input, self.wg)
+        #x2hu=  T.dot(self.input, self.wt)
         if self.h_0_init: h_0 = T.reshape(T.tile(self.h_0, self.n_samples), [self.n_samples, self.unit_dim])
         if self.masked:
             lin_out, scan_update = theano.scan(self.step_mask, sequences=[self.input, self.x_mask],
@@ -68,13 +70,13 @@ class get(base):
         else:
             self.output=lin_out
 
-    def step_mask(self, x_, m_, h_):
-        preact = T.dot(h_, self.ug) + T.dot(x_, self.wg)+ self.big
+    def step_mask(self, x, m_, h_):
+        preact = T.dot(h_, self.ug) + T.dot(x,self.wg)+ self.big
 
         r = T.nnet.sigmoid(self.slice(preact, 0, self.unit_dim))
         z = T.nnet.sigmoid(self.slice(preact, 1, self.unit_dim))
 
-        h_c = T.tanh(T.dot(x_,self.wt)+T.dot(r*h_,self.u)+self.bi)
+        h_c = T.tanh(T.dot(x,self.wt)+T.dot(r*h_,self.u)+self.bi)
 
         h = (1-z)*h_+z*h_c
 
@@ -87,13 +89,13 @@ class get(base):
 
         return h
 
-    def step(self, x_, h_):
-        preact = T.dot(h_, self.ug) + T.dot(x_, self.wg) + self.big
+    def step(self, x, h_):
+        preact = T.dot(h_, self.ug) + T.dot(x,self.wg) + self.big
 
         r = T.nnet.sigmoid(self.slice(preact, 0, self.unit_dim))
         z = T.nnet.sigmoid(self.slice(preact, 1, self.unit_dim))
 
-        h_c = T.tanh(T.dot(x_, self.wt) + T.dot(r * h_, self.u) + self.bi)
+        h_c = T.tanh(T.dot(x,self.wt) + T.dot(r * h_, self.u) + self.bi)
 
         h = (1 - z) * h_ + z * h_c
 

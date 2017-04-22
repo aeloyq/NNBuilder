@@ -8,7 +8,7 @@ Created on Thu Feb 09 14:30:08 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from layers import output_layer, layer_tools
+from layers import output_layer, utils
 
 ''' setup softmax output layer inherited from base output layer '''
 
@@ -22,7 +22,7 @@ class get(output_layer):
         self.pred_Y = T.argmax(self.output, axis=self.output.ndim-1)
 
     def cost(self, Y):
-        return -T.log(self.output[-1,T.arange(Y.shape[0]), Y]).mean()
+        return T.mean(T.nnet.categorical_crossentropy(self.output,Y))
 
 
     def error(self, Y):
@@ -38,7 +38,7 @@ class get_sequence(output_layer):
         self.param_init_function={'wt1':self.param_init_functions.uniform,
                                   'wt2': self.param_init_functions.uniform}
 
-    def init_layer_params(self):
+    def init_params(self):
         self.n_classes = int(np.ceil(np.sqrt(self.unit_dim)))
         wt1_values =self.param_init_function[self.wt1](self.in_dim,self.n_classes)
         wt2_values = self.param_init_function[self.wt2](self.n_classes,self.in_dim,self.n_classes)

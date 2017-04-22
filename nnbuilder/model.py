@@ -32,7 +32,7 @@ class model():
         self.trng=config.trng
         self.X_mask=None
         self.Y_mask=None
-        self.updates=None
+        self.updates=[]
 
     def set_inputs(self, inputs):
         self.inputs=inputs
@@ -50,6 +50,7 @@ class model():
         self.output=self.graph[-1].layer
         for key in self.layers:
             self.user_debug_stream.extend(self.layers[key].debug_stream)
+            self.updates.extend(self.layers[key].updates)
 
     def get_cost_pred_error(self):
         self.pred_Y=self.output.pred_Y
@@ -71,7 +72,7 @@ class model():
             self.name=name
             self.mask=mask
             if name is not None: layer.set_name(name)
-            self.layer.init_layer_params()
+            self.layer.init_params()
         def evaulate(self):
             try:
                 self.layer.set_input(self.input.output)

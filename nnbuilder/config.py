@@ -6,11 +6,16 @@ Created on  Feb 28 9:47 PM 2017
 """
 import numpy as np
 import os
+import theano
+import theano.tensor as t
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 name='unamed'
+
+train=theano.shared(value=0,name='Is_Train',borrow=True)
 rng=np.random.RandomState(1234)
 trng=RandomStreams(1234)
+
 batch_size=20
 valid_batch_size=64
 max_epoches=1000

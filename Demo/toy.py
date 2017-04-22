@@ -40,12 +40,12 @@ datastream  = Load_imdb(n_words=100000,maxlen=100)
 X_mask=T.matrix('X_mask')
 
 emblayer=embedding.get(in_dim=100000,emb_dim=500)
-lstm_hiddenlayer=encoder.get_bi_gru(in_dim=500,unit_dim=1280)
+lstm_hiddenlayer=encoder.get_bi_gru__(in_dim=500,unit_dim=1280)
 lstm_hiddenlayer.set_x_mask(X_mask)
 
 
 
-outputlayer=softmax.get(in_dim=1280*2,unit_dim=20000)
+outputlayer=softmax.get(in_dim=1280*2,unit_dim=2)
 
 model = model()
 model.X_mask=X_mask

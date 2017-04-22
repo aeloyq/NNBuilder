@@ -9,16 +9,16 @@ Created on  Feb 16 1:28 AM 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from layers import hidden_layer,layer_tools
+from layers import hidden_layer,utils
 
 ''' setup hidden layer of feedforward network inherited from Hidden_Layer '''
 
 
 class output_ways:
     def __init__(self):
-        self.final = layer_tools.final
-        self.all = layer_tools.all
-        self.mean_pooling = layer_tools.mean_pooling
+        self.final = utils.final
+        self.all = utils.all
+        self.mean_pooling = utils.mean_pooling
 
 class get(hidden_layer):
     def __init__(self, in_dim, unit_dim, h_0_init=False, activation=T.tanh, **kwargs):
@@ -37,7 +37,7 @@ class get(hidden_layer):
         self.hidden_unit_dropout=True
         self.output_dropout = False
 
-    def init_layer_params(self):
+    def init_params(self):
         wt_values = self.param_init_function['wt'](self.in_dim,self.unit_dim)
         bi_values = self.param_init_function['bi'](self.unit_dim)
         u_values=self.param_init_function['u'](self.unit_dim,self.unit_dim)

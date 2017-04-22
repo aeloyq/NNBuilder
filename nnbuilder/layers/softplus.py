@@ -8,7 +8,7 @@ Created on Thu Feb 09 14:30:08 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from layers import hidden_layer, layer_tools,baselayer,costfunctions
+from layers import hidden_layer, utils,baselayer,costfunctions
 
 ''' setup softmax output layer inherited from base output layer '''
 

@@ -6,135 +6,24 @@ Created on Sat Dec 17 13:55:42 2016
 """
 
 from nnbuilder import config
+from collections import OrderedDict
 import numpy as np
 import theano
 import theano.tensor as T
 
 
-''' base class '''
-
-class baselayer:
-    def __init__(self):
-        self.rng=config.rng
-        self.name='unnamed'
-        self.input=None
-        self.output=None
-        self.ops_on_output = []
-        self.debug_stream=[]
-        self.param_init_functions=paraminitfunctions()
-        self.params=[]
-        self.ops=None
-    def add_debug(self,additem):
-        self.debug_stream.append(additem)
-    def set_input(self,X):
-        self.input=X
-    def get_output(self):
-        self.output=self.input
-    def build(self):
-        for op in self.ops_on_output:
-            self.output = op(self.output)
-    def set_name(self,name):
-        self.name=name
-
-    def init_layer_params(self):
+class roles:
+    class weight:
         pass
+    class bias:
+        pass
+weight=roles.weight
+bias=roles.weight
 
-class paraminitfunctions:
+class utils:
+    ''' tools for building layers '''
     def __init__(self):
-        self.uniform=layer_tools.uniform
-        self.zeros=layer_tools.zeros
-        self.randn=layer_tools.randn
-        self.orthogonal=layer_tools.orthogonal
-
-class costfunctions:
-    def __init__(self):
-        self.square = layer_tools.square_cost
-        self.cross_entropy = layer_tools.cross_entropy_cost
-        self.neglog = layer_tools.neglog_cost
-
-
-class layer(baselayer):
-    def __init__(self, in_dim, unit_dim, activation=None, **kwargs):
-        baselayer.__init__(self)
-        self.in_dim=in_dim
-        self.unit_dim=unit_dim
-        self.param_init_function={'wt':self.param_init_functions.uniform,'bi':self.param_init_functions.zeros}
-        if 'name' in kwargs:
-            self.name = kwargs['name']
-        if 'param_init_function' in kwargs:
-            self.param_init_function = kwargs['param_init_function']
-        self.activation=activation
-        self.wt='wt'
-        self.bi='bi'
-        self.params=[self.wt,self.bi]
-    def init_layer_params(self):
-        wt_values = self.param_init_function['wt'](self.in_dim,self.unit_dim)
-        bi_values = self.param_init_function['bi'](self.unit_dim)
-        self.wt = theano.shared(value=wt_values, name='Wt'+'_'+self.name, borrow=True)
-        self.bi = theano.shared(value=bi_values, name='Bi'+'_'+self.name, borrow=True)
-        self.params = [self.wt, self.bi]
-    def load_weights(self,*args):
-        self.wt=args[0]
-        self.bi=args[1]
-        self.params = [self.wt, self.bi]
-    def set_weight_init_function(self,*args):
-        self.param_init_function=args
-    def get_output(self):
-        if self.activation is not None:
-            self.output=self.activation(T.dot(self.input,self.wt)+self.bi)
-        else:
-            self.output=T.dot(self.input,self.wt)+self.bi
-    def set_activation(self,method):
-        self.activation=method
-
-
-''' setup base hidden layer '''
-
-class hidden_layer(layer):
-    def __init__(self,in_dim, unit_dim, activation=T.tanh,**kwargs):
-        layer.__init__(self, in_dim, unit_dim, activation, **kwargs)
-    
-''' setup base output layer '''
-
-class output_layer(layer):
-    def __init__(self, in_dim, unit_dim,Activation=T.nnet.sigmoid,**kwargs):
-        layer.__init__(self, in_dim, unit_dim, Activation, **kwargs)
-        self.cost_functions=costfunctions()
-        self.cost_function=self.cost_functions.square
-    def get_output(self):
-
-        if self.activation is not None:
-            if self.input.ndim == 2:
-                self.output=self.activation(T.dot(self.input,self.wt)+self.bi)
-            elif self.input.ndim == 3:
-                out, up = theano.scan(lambda i: self.activation(T.dot(i, self.wt) + self.bi),
-                                      sequences=[self.input], n_steps=self.input.shape[0])
-                self.output = out
-        else:
-            self.output=T.dot(self.input,self.wt)+self.bi
-
-        self.predict()
-    def predict(self):
-        self.pred_Y=T.round(self.output)
-    def cost(self,Y):
-        if Y.ndim==2:
-            return self.cost_function(Y, self.output)
-        if Y.ndim==1:
-            return self.cost_function(T.reshape(Y, [Y.shape[0], 1]),  self.output)
-    def error(self,Y):
-        if Y.ndim == 1:
-            return layer_tools.errors(T.reshape(Y, [Y.shape[0], 1]), self.pred_Y)
-        if Y.ndim==2:
-            return layer_tools.errors(Y, self.pred_Y)
-
-    def add_Y_mask(self,tvar):
-        self.Y_mask=tvar
-
-''' tools for building layers '''
-
-class layer_tools:
-    def __init__(self):
-        pass    
+        pass
     # weights init function
 
     @staticmethod
@@ -145,12 +34,12 @@ class layer_tools:
     @staticmethod
     def randn(*args):
         param=config.rng.randn(*args)
-        return layer_tools.numpy_asarray_floatx(param)
+        return utils.numpy_asarray_floatx(param)
 
     @staticmethod
     def uniform(*args):
         param = config.rng.uniform(low=-np.sqrt(6. / sum(args)),high=np.sqrt(6. / sum(args)),size=args)
-        return layer_tools.numpy_asarray_floatx(param)
+        return utils.numpy_asarray_floatx(param)
 
     @staticmethod
     def zeros(*args):
@@ -158,16 +47,16 @@ class layer_tools:
         for dim in args:
             shape.append(dim)
         param = np.zeros(shape)
-        return layer_tools.numpy_asarray_floatx(param)
+        return utils.numpy_asarray_floatx(param)
 
     @staticmethod
     def orthogonal(*args):
-        param = layer_tools.uniform(args[0],args[0])
+        param = utils.uniform(args[0], args[0])
         param = np.linalg.svd(param)[0]
         for _ in range(args[1]/args[0]-1):
-            param_ = layer_tools.uniform(args[0], args[0])
+            param_ = utils.uniform(args[0], args[0])
             param=np.concatenate((param,np.linalg.svd(param_)[0]),1)
-        return layer_tools.numpy_asarray_floatx(param)
+        return utils.numpy_asarray_floatx(param)
 
     # recurrent output
     @staticmethod
@@ -182,6 +71,51 @@ class layer_tools:
     def mean_pooling(outputs,mask):
         return ((outputs * mask[:, :, None]).sum(axis=0))/mask.sum(axis=0)[:, None]
 
+    @staticmethod
+    def concatenate(tensor_list, axis=0):
+        """
+        Alternative implementation of `theano.tensor.concatenate`.
+        This function does exactly the same thing, but contrary to Theano's own
+        implementation, the gradient is implemented on the GPU.
+        Backpropagating through `theano.tensor.concatenate` yields slowdowns
+        because the inverse operation (splitting) needs to be done on the CPU.
+        This implementation does not have that problem.
+        :usage:
+            >>> x, y = theano.tensor.matrices('x', 'y')
+            >>> c = concatenate([x, y], axis=1)
+        :parameters:
+            - tensor_list : list
+                list of Theano tensor expressions that should be concatenated.
+            - axis : int
+                the tensors will be joined along this axis.
+        :returns:
+            - out : tensor
+                the concatenated tensor expression.
+        """
+        concat_size = sum(tt.shape[axis] for tt in tensor_list)
+
+        output_shape = ()
+        for k in range(axis):
+            output_shape += (tensor_list[0].shape[k],)
+        output_shape += (concat_size,)
+        for k in range(axis + 1, tensor_list[0].ndim):
+            output_shape += (tensor_list[0].shape[k],)
+
+        out = tensor.zeros(output_shape)
+        offset = 0
+        for tt in tensor_list:
+            indices = ()
+            for k in range(axis):
+                indices += (slice(None),)
+            indices += (slice(offset, offset + tt.shape[axis]),)
+            for k in range(axis + 1, tensor_list[0].ndim):
+                indices += (slice(None),)
+
+            out = tensor.set_subtensor(out[indices], tt)
+            offset += tt.shape[axis]
+
+        return out
+
 
     # cost function
     @staticmethod
@@ -194,6 +128,140 @@ class layer_tools:
     def cross_entropy_cost(Y_reshaped,outputs_reshaped):
         return -T.mean(Y_reshaped*T.log(outputs_reshaped)+(1-Y_reshaped)*T.log(1-outputs_reshaped))
     # calculate the error rates
-    @staticmethod    
+    @staticmethod
     def errors(Y_reshaped,pred_Y):
         return T.mean(T.neq(pred_Y, Y_reshaped))
+
+uniform=utils.uniform
+zeros=utils.zeros
+
+
+
+class baselayer:
+    ''' base class '''
+    def __init__(self,**kwargs):
+        self.kwargs=kwargs
+        self.setattr('rng',config.rng)
+        self.setattr('name','None')
+        self.setattr('input')
+        self.setattr('output')
+        self.setattr('children',OrderedDict())
+        self.setattr('params', OrderedDict())
+        self.setattr('roles', OrderedDict())
+        self.setattr('updates', OrderedDict())
+        self.setattr('debug_stream', OrderedDict())
+    def set_name(self,name):
+        self.name=name
+    def set_input(self,X):
+        self.input=X
+    def get_output(self):
+        self.apply()
+    def apply(self):
+        return self.input
+    def _allocate(self,role,name,rndfn,*args):
+        if name in self.kwargs:
+            if callable(self.kwargs[name]):rndfn=self.kwargs[name]
+            else:
+                self.params[name] = theano.shared(value=self.kwargs[name], name=name + '_' + self.name, borrow=True)
+                self.roles[name] = role
+                return self.params[name]
+        if role is roles.weight:
+            self.params[name] = theano.shared(value=rndfn(*args), name=name + '_' + self.name, borrow=True)
+            self.roles[name]=role
+        return self.params[name]
+
+    def init_params(self):
+        pass
+    def build(self,X,name):
+        self.set_name(name)
+        self.init_params()
+        self.set_input(X)
+        self.merge()
+        self.get_output()
+    def merge(self):
+        for name,child in self.children:
+            inp=self.input
+            chd=child
+            if isinstance(child,list):
+                chd=child[0]
+                inp=child[1]
+            chd.build(inp,self.name+'_'+name)
+            self.params.update(child.params)
+            self.roles.update(child.roles)
+    def setattr(self,name,value=None):
+        if name in self.kwargs:
+            setattr(self,name,self.kwargs[name])
+        else:
+            setattr(self, name, value)
+    def add_debug(self,*additem):
+        self.debug_stream.extend(list(additem))
+
+
+
+class layer(baselayer):
+    def __init__(self,**kwargs):
+        baselayer.__init__(self,**kwargs)
+    def apply(self):
+        if self.children != []:
+            return utils.concatenate([child.output for child in self.children],axis=self.children[0].output.ndim-1)
+        else:
+            return self.input
+
+
+class linear(layer):
+    def __init__(self, in_dim, unit_dim, activation=None,**kwargs):
+        layer.__init__(self,**kwargs)
+        self.in_dim=in_dim
+        self.unit_dim=unit_dim
+        self.activation=activation
+    def init_params(self):
+        self.wt = self._allocate(uniform,'Wt',weight,self.in_dim,self.unit_dim)
+    def apply(self):
+        if self.activation is not None:
+            self.output=self.activation(T.dot(self.input,self.wt))
+        else:
+            self.output=T.dot(self.input,self.wt)
+
+class linear_bias(linear):
+    def __init__(self, in_dim, unit_dim, activation=None, **kwargs):
+        linear.__init__(self, in_dim, unit_dim, activation, **kwargs)
+    def init_params(self):
+        linear.init_params(self)
+        self.bi = self._allocate(uniform,'Bi',weight,self.unit_dim)
+    def apply(self):
+        if self.activation is not None:
+            self.output=self.activation(T.dot(self.input,self.wt)+self.bi)
+        else:
+            self.output=T.dot(self.input,self.wt)+self.bi
+
+
+class hidden_layer(layer):
+    ''' setup base hidden layer '''
+    def __init__(self,in_dim, unit_dim, activation=T.tanh,**kwargs):
+        layer.__init__(self, **kwargs)
+        self.children['lb']=linear_bias(in_dim, unit_dim, activation)
+
+class output_layer(layer):
+    ''' setup base output layer '''
+    def __init__(self, in_dim, unit_dim,Activation=T.nnet.sigmoid,**kwargs):
+        layer.__init__(self, **kwargs)
+        self.cost_func=utils.square_cost
+        self.cost=None
+        self.predict = None
+        self.error = None
+        if 'cost_func' in kwargs:
+            self.cost_func = kwargs['cost_func']
+    def get_output(self):
+        layer.get_output()
+        self.predict()
+    def get_predict(self):
+        self.predict=T.round(self.output)
+    def get_cost(self,Y):
+        self.cost=self.cost_fn(Y,self.output)
+    def get_error(self,Y):
+        self.error=T.mean(T.neq(Y,self.predict))
+
+
+
+
+

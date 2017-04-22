@@ -31,25 +31,28 @@ sample.config.sample_func=dictionary.mt_sample
 
 saveload.config.save_freq=500
 
-source_vocab_size=40000
-target_vocab_size=40000
+source_vocab_size=30000
+target_vocab_size=30000
 
-source_emb_dim=512
-target_emb_dim=512
+source_emb_dim=620
+target_emb_dim=620
 
-enc_dim=1024
-dec_dim=1024
+enc_dim=1000
+dec_dim=1000
 
 config.vocab_source='./data/vocab.en-fr.en.pkl'
 config.vocab_target='./data/vocab.en-fr.fr.pkl'
 
-sgd.config.learning_rate=0.7
+sgd.config.learning_rate=0.0001
 sgd.config.grad_clip_norm=1.
 sgd.config.if_clip=True
 
+adadelta.config.if_clip=True
+sgd.config.grad_clip_norm=1.
+
 config.name='mt_demo'
 config.data_path='./data/datasets.npz'
-config.batch_size=40
+config.batch_size=80
 config.valid_batch_size=64
 config.max_epoches=1000
 config.savelog=True
@@ -70,10 +73,10 @@ X_mask=T.matrix('X_Mask')
 Y_mask=T.matrix('Y_Mask')
 
 emb=embedding.get(in_dim=source_vocab_size,emb_dim=source_emb_dim)
-enc=encoder.get_bi_gru_(in_dim=source_emb_dim,unit_dim=enc_dim)
+enc=encoder.get_bi_gru(in_dim=source_emb_dim,unit_dim=enc_dim)
 enc.set_x_mask(X_mask)
 dec=decoder.get_gru_attention_maxout_readout_feedback(in_dim=enc_dim,unit_dim=dec_dim,
-                                                       attention_dim=1024,
+                                                       attention_dim=1000,
                                                        emb_dim=target_emb_dim,
                                                        vocab_dim=target_vocab_size)
 dec.set_x_mask(X_mask)
@@ -89,15 +92,20 @@ mt_model.addlayer(dec,enc,'dec')
 
 data=Load_mt(maxlen=50,sort_by_asc=False)
 
-result=train(datastream=data,model=mt_model,algrithm=sgd,extension=[monitor,sample])
 
+result=train(datastream=data,model=mt_model,algrithm=adadelta,extension=[monitor,sample])
+'''
 import timeit
 import nnbuilder
 mt_model.build()
-a=nnbuilder.mainloop.get_modelstream(mt_model,sgd)
+#a=nnbuilder.mainloop.get_modelstream(mt_model,sgd)
 d=nnbuilder.mainloop.prepare_data(data[0],data[3],range(40))
-f=theano.function(mt_model.train_inputs,sgd.config.gparams)
+def t(f):
+    st=timeit.default_timer()
+    f()
+    print timeit.default_timer()-st
+
 #theano.printing.pydotprint(f,outfile='f:/1.png')
 
-
+'''
 

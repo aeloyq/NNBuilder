@@ -8,28 +8,25 @@ Created on Thu Feb 09 14:30:08 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from layers import output_layer, layer_tools,baselayer,costfunctions
+from layers import output_layer, utils,baselayer,costfunctions
 
-''' setup softmax output layer inherited from base output layer '''
+
 
 
 class get(baselayer):
+    ''' setup direct output layer inherited from base output layer '''
     def __init__(self,**kwargs):
         baselayer.__init__(self)
-        self.cost_function=layer_tools.square_cost
-        self.cost_functions = costfunctions()
-    def get_output(self):
-        baselayer.get_output(self)
-        self.predict()
-    def predict(self):
-        self.pred_Y=T.round(self.output)
-    def cost_(self,Y):
-        if Y.ndim==2:
-            return self.cost_function(Y, self.output)
-        if Y.ndim==1:
-            return self.cost_function(T.reshape(Y, [Y.shape[0], 1]),  self.output)
-    def cost(self,Y):
-        return T.sum(self.output)
-    def error(self,Y):
-        return T.sum(self.output)
+        self.cost_fn = utils.square_cost
+        self.cost = None
+        self.predict = None
+        self.error = None
+        if 'cost_fn' in kwargs:
+            self.cost_fn = kwargs['cost_fn']
+    def get_predict(self):
+        self.predict=T.round(self.output)
+    def get_cost(self,Y):
+        self.cost=self.cost_fn(Y,self.output)
+    def get_error(self,Y):
+        self.error=T.mean(T.neq(Y,self.predict))
 

@@ -8,11 +8,14 @@ import theano
 import theano.tensor as T
 import numpy as np
 import nnbuilder.layers.lstm, nnbuilder.layers.recurrent
+import nnbuilder.config as config
+
+trng=config.trng
 
 baselayer_lstm = nnbuilder.layers.lstm.get
 baselayer_rnn = nnbuilder.layers.recurrent.get
 baselayer_gru = nnbuilder.layers.gru.get
-from nnbuilder.layers.layers import layer_tools
+from nnbuilder.layers.layers import utils,baselayer
 
 
 class get_rnn(baselayer_rnn):
@@ -133,10 +136,14 @@ class get_gru_readout(baselayer_gru):
                                            name=self.name + '_Scan',
                                            n_steps=self.y_mask.shape[0])
         self.output = y
+        for key in scan_update:
+            u=[(key,scan_update[key])]
+            self.updates.extend(u)
         self.loss=T.mean(cost)
         if self.output_dropout:
             if self.ops is not None:
                 self.output = self.ops(self.output)
+
         self.predict()
 
     def step(self, y_true,y_m, h_,ci):
@@ -149,16 +156,16 @@ class get_gru_readout(baselayer_gru):
 
         h = (1 - zg) * h_ + zg * h_c
 
-        if self.hidden_unit_dropout:
-            if self.ops is not None:
-                h = self.ops(h)
-
         t = T.dot(h, self.uo) + T.dot(ci, self.co) + self.bio
 
         s_0 = T.nnet.softmax(T.dot(t, self.s0wt))
         y = T.nnet.softmax(T.dot(s_0, self.s1wt) + self.s1bi)
 
-        cost=T.nnet.categorical_crossentropy(y,y_true)
+
+
+        cost=T.nnet.categorical_crossentropy(y,y_true)*y_m
+
+        y = trng.multinomial(pvals=y)
 
         return  h, y,cost
 
@@ -210,9 +217,9 @@ class get_gru_readout_feedback(get_gru_readout):
                                            n_steps=self.y_mask.shape[0])
         self.output = y
         self.loss=cost
-        if self.output_dropout:
-            if self.ops is not None:
-                self.output = self.ops(self.output)
+        for key in scan_update:
+            u=[(key,scan_update[key])]
+            self.updates.extend(u)
         self.predict()
     def step(self, y_true,y_m,r_, h_,ci):
 
@@ -233,10 +240,10 @@ class get_gru_readout_feedback(get_gru_readout):
 
         s_0=T.nnet.softmax(T.dot(t,self.s0wt))
         y=T.nnet.softmax(T.dot(s_0,self.s1wt)+self.s1bi)
-
-        r = T.dot(y, self.e)
-
         cost=T.nnet.categorical_crossentropy(y,y_true)
+        y = trng.multinomial(pvals=y)
+        y_max=T.argmax(y,1)
+        r = T.reshape(self.e[y_max] ,[y.shape[0],self.emb_dim])
         return r, h, y,cost
 
 class get_gru_maxout_readout_feedback(get_gru_readout_feedback):
@@ -278,95 +285,452 @@ class get_gru_maxout_readout_feedback(get_gru_readout_feedback):
         s_0=T.nnet.softmax(T.dot(t,self.s0wt))
         y=T.nnet.softmax(T.dot(s_0,self.s1wt)+self.s1bi)
 
-        r = T.dot(y, self.e)
-
         cost=T.nnet.categorical_crossentropy(y,y_true)
+        y = trng.multinomial(pvals=y,dtype='float32')
+        r = T.dot(y, self.e)
         return r, h, y,cost
 
-class get_gru_attention_maxout_readout_feedback(get_gru_maxout_readout_feedback):
-    def __init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, r_0_init=False,
-                 activation=T.tanh,
+class get_gru_attention_maxout_readout_feedback(baselayer):
+    def __init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim,
+                 beam_size=12,
                  **kwargs):
-        get_gru_maxout_readout_feedback.__init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim, r_0_init,
-                 activation, **kwargs)
+        baselayer.__init__(self)
+        self.in_dim=in_dim
+        self.unit_dim=unit_dim
+        self.attention_dim=attention_dim
+        self.emb_dim=emb_dim
+        self.vocab_dim=vocab_dim
+        self.trng=config.trng
+        self.beam_size=beam_size
 
-        self.wa = 'wa'
-        self.ua = 'ua'
-        self.wv = 'wv'
-        self.bia = 'bia'
-        self.param_init_function['wa'] = self.param_init_functions.uniform
-        self.param_init_function['ua'] = self.param_init_functions.uniform
-        self.param_init_function['wv'] = self.param_init_functions.uniform
-        self.param_init_function['bia'] = self.param_init_functions.zeros
-        self.params.extend([self.wa, self.ua, self.wv,  self.bia])
+    def init_params(self):
+        self.params=[]
+        def alloc(shape, name,func):
+            p = theano.shared(func(*tuple(shape)), name=name, borrow=True)
+            self.params.append(p)
+            return p
 
-    def init_layer_params(self):
-        get_gru_maxout_readout_feedback.init_layer_params(self)
-        self.wa = theano.shared(value=self.param_init_function['wa'](self.unit_dim, self.attention_dim),
-                                name='Wa_' + self.name, borrow=True)
-        self.ua = theano.shared(value=self.param_init_function['ua'](self.in_dim * 2, self.attention_dim),
-                                name='Ua_' + self.name, borrow=True)
-        self.wv = theano.shared(value=self.param_init_function['wv'](self.attention_dim),
-                                name='Wv_' + self.name, borrow=True)
-        self.bia = theano.shared(value=self.param_init_function['bia'](self.attention_dim),
-                                 name='Bia_' + self.name, borrow=True)
-        self.params.extend( [self.wa, self.ua, self.wv, self.bia])
+        self.dec_w = alloc([self.emb_dim, self.unit_dim], 'dec_w', utils.uniform)
+        self.dec_wz = alloc([self.emb_dim, self.unit_dim], 'dec_wz', utils.uniform)
+        self.dec_wr = alloc([self.emb_dim, self.unit_dim], 'dec_wr', utils.uniform)
+        self.dec_u = alloc([self.unit_dim, self.unit_dim], 'dec_u', utils.orthogonal)
+        self.dec_uz = alloc([self.unit_dim, self.unit_dim], 'dec_uz', utils.orthogonal)
+        self.dec_ur = alloc([self.unit_dim, self.unit_dim], 'dec_ur', utils.orthogonal)
+        self.dec_c = alloc([self.in_dim * 2, self.unit_dim], 'dec_c', utils.uniform)
+        self.dec_cz = alloc([self.in_dim * 2, self.unit_dim], 'dec_cz', utils.uniform)
+        self.dec_cr = alloc([self.in_dim * 2, self.unit_dim], 'dec_cr', utils.uniform)
+        self.dec_wa=alloc([self.unit_dim, self.attention_dim], 'dec_wa', utils.uniform)
+        self.dec_ua = alloc([self.in_dim*2, self.attention_dim], 'dec_ua', utils.uniform)
+        self.dec_va = alloc([self.attention_dim], 'dec_va', utils.uniform)
+        self.dec_bia= alloc([self.attention_dim], 'dec_bia', utils.zeros)
+        self.dec_wo = alloc([self.unit_dim / 2, self.vocab_dim], 'dec_wo', utils.uniform)
+        self.dec_uo = alloc([self.unit_dim, self.unit_dim], 'dec_uo', utils.orthogonal)
+        self.dec_vo = alloc([self.emb_dim, self.unit_dim], 'dec_vo', utils.uniform)
+        self.dec_co = alloc([self.in_dim * 2, self.unit_dim], 'dec_co', utils.uniform)
+        self.dec_e = alloc([self.vocab_dim, self.emb_dim], 'dec_e', utils.uniform)
+
+        self.dec_ws = alloc([self.in_dim, self.unit_dim], 'dec_ws', utils.uniform)
+        self.dec_bis = alloc([self.unit_dim], 'dec_Bis', utils.zeros)
+
+        self.dec_bir = alloc([self.unit_dim], 'dec_Bir', utils.zeros)
+        self.dec_biz = alloc([self.unit_dim], 'dec_Biz', utils.zeros)
+
+        self.dec_bi = alloc([self.unit_dim], 'dec_Bi', utils.zeros)
+
+        self.dec_bio = alloc([self.unit_dim], 'dec_Bio', utils.zeros)
+
+    def set_y_mask(self, tvar):
+        self.y_mask = tvar
+
+    def set_y(self,tvar):
+        self.y=tvar
+
+    def set_x_mask(self, tvar):
+        self.x_mask = tvar
 
     def get_output(self):
-        self.get_n_samples()
-        h_0 = T.tanh(T.dot(self.input[0,:,self.in_dim:self.in_dim*2], self.ws) + self.bis)
-        r_0 = T.alloc(np.asarray(0.).astype(theano.config.floatX), self.n_samples, self.emb_dim)
-        if self.r_0_init: r_0 = T.reshape(T.tile(self.r_0, self.n_samples), [self.n_samples, self.emb_dim])
-        [r, h, y,cost], scan_update = theano.scan(self.step,
-                                           sequences=[self.y,self.y_mask],
-                                           outputs_info=[r_0, h_0, None,None],
-                                           non_sequences=[self.x_mask,self.input],
+        batch_size = self.y.shape[1]
+        out_length = self.y.shape[0]
+        s_0 = T.tanh(T.dot(self.input[0,:,self.in_dim:self.in_dim*2], self.dec_ws) + self.dec_bis)
+        atp=T.dot(self.input,self.dec_ua)+self.dec_bia
+        e_ys = T.reshape(self.dec_e[self.y.flatten()], [out_length, batch_size, self.emb_dim])
+        emb_shifted = T.zeros_like(e_ys)
+        e_ys = T.set_subtensor(emb_shifted[1:], e_ys[:-1])
+        '''
+        e_y_r=T.dot(e_ys,self.dec_wr)+self.dec_bir
+        e_y_z=T.dot(e_ys,self.dec_wz)+self.dec_biz
+        e_y_x=T.dot(e_ys,self.dec_w)+self.dec_bi
+        e_y_o=T.dot(e_ys,self.dec_vo)+self.dec_bio'''
+
+        def step(y_t, y_m, e_y, s_, x_m, att_pre,att_in):
+
+            eij = (T.exp(T.dot(T.tanh(T.dot(s_, self.dec_wa) + att_pre), self.dec_va))) * x_m
+            aij = eij / eij.sum(0, keepdims=True)
+            ci = T.sum(aij[:, :, None] * att_in, 0)
+
+            r_gate = T.nnet.sigmoid(
+                T.dot(e_y,self.dec_wr) + T.dot(s_, self.dec_ur) + T.dot(ci, self.dec_cr)+self.dec_bir)
+            z_gate = T.nnet.sigmoid(
+                T.dot(e_y, self.dec_wz) + T.dot(s_, self.dec_uz) + T.dot(ci, self.dec_cz)+self.dec_biz)
+
+            s_c = T.tanh(T.dot(e_y, self.dec_w)+ T.dot(r_gate * s_, self.dec_u) + T.dot(ci, self.dec_c)+self.dec_bi)
+
+            s = (1 - z_gate) * s_ + z_gate * s_c
+
+            t_c = T.dot(s_, self.dec_uo) +T.dot(e_y, self.dec_vo)+ T.dot(ci, self.dec_co)+self.dec_bio
+
+            t = T.max(t_c.reshape([t_c.shape[0], 2, t_c.shape[1] // 2]), 1)
+
+            y = T.nnet.softmax(T.dot(t, self.dec_wo))
+
+            cost = T.nnet.categorical_crossentropy(y, y_t) * y_m
+
+            return s, cost,y
+        def step_beamsearch(e_y_list, s_list_, att_pre,att_in):
+
+            def step_inner (e_y, s_, att_pre,att_in):
+
+                eij=(T.dot(T.tanh(T.dot(s_,self.dec_wa)+att_pre),self.dec_va))
+                aij=T.nnet.softmax(eij.dimshuffle(1,0)).dimshuffle(1,0)
+                ci=T.sum(aij[:,:,None]*att_in,0)
+
+                r_gate = T.nnet.sigmoid(
+                    T.dot(e_y, self.dec_wr) + T.dot(s_, self.dec_ur) + T.dot(ci, self.dec_cr)+self.dec_bir)
+                z_gate = T.nnet.sigmoid(
+                    T.dot(e_y, self.dec_wz) + T.dot(s_, self.dec_uz) + T.dot(ci, self.dec_cz)+self.dec_biz)
+
+                s_c = T.tanh(T.dot(e_y, self.dec_w) + T.dot(r_gate * s_, self.dec_u) + T.dot(ci, self.dec_c)+self.dec_bi)
+
+                s = (1 - z_gate) * s_ + z_gate * s_c
+
+                t_c = T.dot(s_, self.dec_uo) + T.dot(e_y, self.dec_vo) + T.dot(ci, self.dec_co)+self.dec_bio
+
+                t = T.max(t_c.reshape([t_c.shape[0], 2, t_c.shape[1] // 2]), 1)
+
+                y = T.nnet.softmax(T.dot(t, self.dec_wo))
+
+                y_out = T.argsort(y,1)[:,self.beam_size:]
+
+                e_y_next = T.reshape(self.dec_e[y_out.flatten()], [batch_size, self.emb_dim])
+
+                return e_y_next, s, y_out
+
+            [e_y_list_next, s_list, y_out],u=theano.scan(step_inner,sequences=[e_y_list,s_list_],outputs_info=[],non_sequences=[att_pre,att_in],n_steps=self.x_mask.shape[0]*2)
+
+            return e_y_list_next, s_list,y_out
+        [s,cost,y], scan_update = theano.scan(step,
+                                           sequences=[self.y,self.y_mask,e_ys],
+                                           outputs_info=[s_0, None,None],
+                                           non_sequences=[self.x_mask,atp,self.input],
                                            name=self.name + '_Scan',
-                                           n_steps=self.y_mask.shape[0])
+                                           n_steps=out_length)
         self.output = y
         self.loss=T.mean(cost)
-        if self.output_dropout:
-            if self.ops is not None:
-                self.output = self.ops(self.output)
+        self.updates=scan_update.items()
         self.predict()
 
-    def step(self, y_true,y_m, r_, h_, x_m, bs):
-        attention = T.exp(T.dot(T.tanh(T.dot(h_, self.wa) +T.dot(bs,self.ua)+self.bia), self.wv)*x_m)
-        attention_norm = attention / T.sum(attention, 0)
-        ci = T.sum(attention_norm[:,:,None] * bs,0)
 
-        preact = T.dot(h_, self.ug) + T.dot(r_, self.wg) + T.dot(ci,self.wc)+self.big
 
-        rg = T.nnet.sigmoid(self.slice(preact, 0, self.unit_dim))
-        zg = T.nnet.sigmoid(self.slice(preact, 1, self.unit_dim))
+    def predict(self):
 
-        h_c = T.tanh(T.dot(r_, self.wt) + T.dot(ci, self.ch) + T.dot(rg * h_, self.u) + self.bi)
+        self.pred_Y=self.output.argmax(2)
 
-        h = (1 - zg) * h_ + zg * h_c
+    def cost(self, Y):
+        return self.loss
 
-        if self.hidden_unit_dropout:
-            if self.ops is not None:
-                h = self.ops(h)
+    def error(self,Y):
+        return T.mean(T.neq(self.pred_Y,self.y)*self.y_mask)
 
-        t_ = T.dot(h, self.uo) + T.dot(r_, self.vo) + T.dot(ci, self.co) + self.bio
+class get_gru_attention_maxout_readout_feedback_g(baselayer):
+    def __init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim,
+                 beam_size=12,
+                 **kwargs):
+        baselayer.__init__(self)
+        self.in_dim=in_dim
+        self.unit_dim=unit_dim
+        self.attention_dim=attention_dim
+        self.emb_dim=emb_dim
+        self.vocab_dim=vocab_dim
+        self.trng=config.trng
+        self.beam_size=beam_size
 
-        output_dim = self.unit_dim // 2
-        new_shape = ([t_.shape[i] for i in range(t_.ndim - 1)] +[output_dim, 2])
+    def init_params(self):
+        self.params=[]
+        def alloc(shape, name,func):
+            p = theano.shared(func(*tuple(shape)), name=name, borrow=True)
+            self.params.append(p)
+            return p
 
-        t = T.max(t_.reshape(new_shape, ndim=t_.ndim + 1),axis=t_.ndim)
+        self.dec_w = alloc([self.emb_dim, self.unit_dim], 'dec_w', utils.uniform)
+        self.dec_wz = alloc([self.emb_dim, self.unit_dim], 'dec_wz', utils.uniform)
+        self.dec_wr = alloc([self.emb_dim, self.unit_dim], 'dec_wr', utils.uniform)
+        self.dec_u = alloc([self.unit_dim, self.unit_dim], 'dec_u', utils.orthogonal)
+        self.dec_uz = alloc([self.unit_dim, self.unit_dim], 'dec_uz', utils.orthogonal)
+        self.dec_ur = alloc([self.unit_dim, self.unit_dim], 'dec_ur', utils.orthogonal)
+        self.dec_c = alloc([self.in_dim * 2, self.unit_dim], 'dec_c', utils.uniform)
+        self.dec_cz = alloc([self.in_dim * 2, self.unit_dim], 'dec_cz', utils.uniform)
+        self.dec_cr = alloc([self.in_dim * 2, self.unit_dim], 'dec_cr', utils.uniform)
+        self.dec_wa=alloc([self.unit_dim, self.attention_dim], 'dec_wa', utils.uniform)
+        self.dec_ua = alloc([self.in_dim*2, self.attention_dim], 'dec_ua', utils.uniform)
+        self.dec_va = alloc([self.attention_dim,self.in_dim*2], 'dec_va', utils.uniform)
+        self.dec_bia= alloc([self.attention_dim], 'dec_bia', utils.zeros)
+        self.dec_wo = alloc([self.unit_dim / 2, self.vocab_dim], 'dec_wo', utils.uniform)
+        self.dec_uo = alloc([self.unit_dim, self.unit_dim], 'dec_uo', utils.orthogonal)
+        self.dec_vo = alloc([self.emb_dim, self.unit_dim], 'dec_vo', utils.uniform)
+        self.dec_co = alloc([self.in_dim * 2, self.unit_dim], 'dec_co', utils.uniform)
+        self.dec_e = alloc([self.vocab_dim, self.emb_dim], 'dec_e', utils.uniform)
 
-        s_0 = T.nnet.softmax(T.dot(t, self.s0wt))
-        y = T.nnet.softmax(T.dot(s_0, self.s1wt) + self.s1bi)
+        self.dec_ws = alloc([self.in_dim*2, self.unit_dim], 'dec_ws', utils.uniform)
+        self.dec_bis = alloc([self.unit_dim], 'dec_Bis', utils.zeros)
 
-        r = T.dot(y, self.e)
+        self.dec_bir = alloc([self.unit_dim], 'dec_Bir', utils.zeros)
+        self.dec_biz = alloc([self.unit_dim], 'dec_Biz', utils.zeros)
 
-        cost=T.nnet.categorical_crossentropy(y,y_true)*y_m
-        return r, h, y,cost
+        self.dec_bi = alloc([self.unit_dim], 'dec_Bi', utils.zeros)
 
-    def sp(self,enc_h, x_mk,dec_s_):
-        eij=T.dot(T.tanh(T.dot(dec_s_, self.wa) + T.dot(enc_h, self.ua) + self.bia),self.wv)*x_mk
-        return eij
+        self.dec_bio = alloc([self.unit_dim], 'dec_Bio', utils.zeros)
 
+    def set_y_mask(self, tvar):
+        self.y_mask = tvar
+
+    def set_y(self,tvar):
+        self.y=tvar
+
+    def set_x_mask(self, tvar):
+        self.x_mask = tvar
+
+    def get_output(self):
+        batch_size = self.y.shape[1]
+        out_length = self.y.shape[0]
+        s_0 = T.tanh(T.dot(self.input, self.dec_ws).sum(0) + self.dec_bis)
+        e_ys = T.reshape(self.dec_e[self.y.flatten()], [out_length, batch_size, self.emb_dim])
+        emb_shifted = T.zeros_like(e_ys)
+        e_ys = T.set_subtensor(emb_shifted[1:], e_ys[:-1])
+        atp=T.dot(self.input,self.dec_ua)+self.dec_bia
+
+        def step(y_t, y_m, e_y, s_, x_m, att_pre,att_in):
+
+            eij=(T.exp(T.dot(T.tanh(T.dot(s_,self.dec_wa)+att_pre),self.dec_va)))*x_m
+            aij=eij/eij.sum(0,keepdims=True)
+            ci=(aij*att_in).sum(0)
+
+            r_gate = T.nnet.sigmoid(
+                T.dot(e_y, self.dec_wr) + T.dot(s_, self.dec_ur) + T.dot(ci, self.dec_cr)+self.dec_bir)
+            z_gate = T.nnet.sigmoid(
+                T.dot(e_y, self.dec_wz) + T.dot(s_, self.dec_uz) + T.dot(ci, self.dec_cz)+self.dec_biz)
+
+            s_c = T.tanh(T.dot(e_y, self.dec_w) + T.dot(r_gate * s_, self.dec_u) + T.dot(ci, self.dec_c)+self.dec_bi)
+
+            s = (1 - z_gate) * s_ + z_gate * s_c
+
+            t_c = T.dot(s_, self.dec_uo) + T.dot(e_y, self.dec_vo) + T.dot(ci, self.dec_co)+self.dec_bio
+
+            t = T.max(t_c.reshape([t_c.shape[0], 2, t_c.shape[1] // 2]), 1)
+
+            y = T.nnet.softmax(T.dot(t, self.dec_wo))
+
+            cost = T.nnet.categorical_crossentropy(y, y_t) * y_m
+
+            return  s, cost,y
+        def step_beamsearch(y_t, y_m, e_y, s_, x_m, att_pre,att_in):
+
+            eij=(T.dot(T.tanh(T.dot(s_,self.dec_wa)+att_pre),self.dec_va))*x_m
+            aij=T.nnet.softmax(eij.dimshuffle(1,0)).dimshuffle(1,0)
+            ci=T.sum(aij[:,:,None]*att_in,0)
+
+            r_gate = T.nnet.sigmoid(
+                T.dot(e_y, self.dec_wr) + T.dot(s_, self.dec_ur) + T.dot(ci, self.dec_cr)+self.dec_bir)
+            z_gate = T.nnet.sigmoid(
+                T.dot(e_y, self.dec_wz) + T.dot(s_, self.dec_uz) + T.dot(ci, self.dec_cz)+self.dec_biz)
+
+            s_c = T.tanh(T.dot(e_y, self.dec_w) + T.dot(r_gate * s_, self.dec_u) + T.dot(ci, self.dec_c)+self.dec_bi)
+
+            s = (1 - z_gate) * s_ + z_gate * s_c
+
+            t_c = T.dot(s_, self.dec_uo) + T.dot(e_y, self.dec_vo) + T.dot(ci, self.dec_co)+self.dec_bio
+
+            t = T.max(t_c.reshape([t_c.shape[0], 2, t_c.shape[1] // 2]), 1)
+
+            y = T.nnet.softmax(T.dot(t, self.dec_wo))
+
+            cost = T.nnet.categorical_crossentropy(y, y_t) * y_m
+
+            y_rng=trng.multinomial(pvals=y)
+
+            y_out = T.argmax(y_rng, 1)
+
+            e_y_next = T.reshape(self.dec_e[y_out], [batch_size, self.emb_dim])
+
+            return e_y_next, s, cost,y_out
+
+        [s, cost, y], scan_update = theano.scan(step,
+                                                sequences=[self.y, self.y_mask, e_ys],
+                                                outputs_info=[s_0, None, None],
+                                                non_sequences=[self.x_mask, atp, self.input],
+                                                name=self.name + '_Scan',
+                                                n_steps=out_length)
+        self.output = y
+        self.loss = T.mean(cost)
+        self.updates = scan_update.items()
+        self.predict()
+
+    def predict(self):
+        self.pred_Y = self.output.argmax(2)
+
+    def cost(self, Y):
+        return self.loss
+
+    def error(self,Y):
+        return T.mean(T.neq(self.pred_Y,self.y)*self.y_mask)
+
+class get_gru_attention_maxout_readout_feedback_ug(baselayer):
+    def __init__(self, in_dim, unit_dim, attention_dim, emb_dim, vocab_dim,
+                 beam_size=12,
+                 **kwargs):
+        baselayer.__init__(self)
+        self.in_dim=in_dim
+        self.unit_dim=unit_dim
+        self.attention_dim=attention_dim
+        self.emb_dim=emb_dim
+        self.vocab_dim=vocab_dim
+        self.trng=config.trng
+        self.beam_size=beam_size
+
+    def init_params(self):
+        self.params=[]
+        def alloc(shape, name,func):
+            p = theano.shared(func(*tuple(shape)), name=name, borrow=True)
+            self.params.append(p)
+            return p
+
+        self.dec_w = alloc([self.emb_dim, self.unit_dim], 'dec_w', utils.uniform)
+        self.dec_wz = alloc([self.emb_dim, self.unit_dim], 'dec_wz', utils.uniform)
+        self.dec_wr = alloc([self.emb_dim, self.unit_dim], 'dec_wr', utils.uniform)
+        self.dec_u = alloc([self.unit_dim, self.unit_dim], 'dec_u', utils.orthogonal)
+        self.dec_uz = alloc([self.unit_dim, self.unit_dim], 'dec_uz', utils.orthogonal)
+        self.dec_ur = alloc([self.unit_dim, self.unit_dim], 'dec_ur', utils.orthogonal)
+        self.dec_c = alloc([self.in_dim * 2, self.unit_dim], 'dec_c', utils.uniform)
+        self.dec_cz = alloc([self.in_dim * 2, self.unit_dim], 'dec_cz', utils.uniform)
+        self.dec_cr = alloc([self.in_dim * 2, self.unit_dim], 'dec_cr', utils.uniform)
+        self.dec_wa=alloc([self.unit_dim, self.attention_dim], 'dec_wa', utils.uniform)
+        self.dec_ua = alloc([self.in_dim*2, self.attention_dim], 'dec_ua', utils.uniform)
+        self.dec_va = alloc([self.attention_dim], 'dec_va', utils.uniform)
+        self.dec_bia= alloc([self.attention_dim], 'dec_bia', utils.zeros)
+        self.dec_wo = alloc([self.unit_dim / 2, self.vocab_dim], 'dec_wo', utils.uniform)
+        self.dec_uo = alloc([self.unit_dim, self.unit_dim], 'dec_uo', utils.orthogonal)
+        self.dec_vo = alloc([self.emb_dim, self.unit_dim], 'dec_vo', utils.uniform)
+        self.dec_co = alloc([self.in_dim * 2, self.unit_dim], 'dec_co', utils.uniform)
+        self.dec_e = alloc([self.vocab_dim, self.emb_dim], 'dec_e', utils.uniform)
+
+        self.dec_ws = alloc([self.in_dim, self.unit_dim], 'dec_ws', utils.uniform)
+        self.dec_bis = alloc([self.unit_dim], 'dec_Bis', utils.zeros)
+
+        self.dec_bir = alloc([self.unit_dim], 'dec_Bir', utils.zeros)
+        self.dec_biz = alloc([self.unit_dim], 'dec_Biz', utils.zeros)
+
+        self.dec_bi = alloc([self.unit_dim], 'dec_Bi', utils.zeros)
+
+        self.dec_bio = alloc([self.unit_dim], 'dec_Bio', utils.zeros)
+
+    def set_y_mask(self, tvar):
+        self.y_mask = tvar
+
+    def set_y(self,tvar):
+        self.y=tvar
+
+    def set_x_mask(self, tvar):
+        self.x_mask = tvar
+
+    def get_output(self):
+        batch_size = self.y.shape[1]
+        out_length = self.y.shape[0]
+        s_0 = T.tanh(T.dot(self.input[0,:,self.in_dim:self.in_dim*2], self.dec_ws) + self.dec_bis)
+        y_0 = self.dec_e[T.zeros([batch_size],'int64')].reshape([batch_size,self.emb_dim])
+        atp=T.dot(self.input,self.dec_ua)+self.dec_bia
+
+        def step(y_t, y_m, e_y, s_, x_m, att_pre,att_in):
+
+            eij=(T.dot(T.tanh(T.dot(s_,self.dec_wa)+att_pre),self.dec_va))*x_m
+            aij=T.nnet.softmax(eij.dimshuffle(1,0)).dimshuffle(1,0)
+            ci=T.sum(aij[:,:,None]*att_in,0)
+
+            r_gate = T.nnet.sigmoid(
+                T.dot(e_y, self.dec_wr) + T.dot(s_, self.dec_ur) + T.dot(ci, self.dec_cr)+self.dec_bir)
+            z_gate = T.nnet.sigmoid(
+                T.dot(e_y, self.dec_wz) + T.dot(s_, self.dec_uz) + T.dot(ci, self.dec_cz)+self.dec_biz)
+
+            s_c = T.tanh(T.dot(e_y, self.dec_w) + T.dot(r_gate * s_, self.dec_u) + T.dot(ci, self.dec_c)+self.dec_bi)
+
+            s = (1 - z_gate) * s_ + z_gate * s_c
+
+            t_c = T.dot(s_, self.dec_uo) + T.dot(e_y, self.dec_vo) + T.dot(ci, self.dec_co)+self.dec_bio
+
+            t = T.max(t_c.reshape([t_c.shape[0], 2, t_c.shape[1] // 2]), 1)
+
+            y = T.nnet.softmax(T.dot(t, self.dec_wo))
+
+            cost = T.nnet.categorical_crossentropy(y, y_t) * y_m
+
+            y_rng=trng.multinomial(pvals=y)
+
+            y_out = T.argmax(y_rng, 1)
+
+            e_y_next = T.reshape(self.dec_e[y_out], [batch_size, self.emb_dim])
+
+            return e_y_next, s, cost,y_out
+        def step_beamsearch(y_t, y_m, e_y, s_, x_m, att_pre,att_in):
+
+            eij=(T.dot(T.tanh(T.dot(s_,self.dec_wa)+att_pre),self.dec_va))*x_m
+            aij=T.nnet.softmax(eij.dimshuffle(1,0)).dimshuffle(1,0)
+            ci=T.sum(aij[:,:,None]*att_in,0)
+
+            r_gate = T.nnet.sigmoid(
+                T.dot(e_y, self.dec_wr) + T.dot(s_, self.dec_ur) + T.dot(ci, self.dec_cr)+self.dec_bir)
+            z_gate = T.nnet.sigmoid(
+                T.dot(e_y, self.dec_wz) + T.dot(s_, self.dec_uz) + T.dot(ci, self.dec_cz)+self.dec_biz)
+
+            s_c = T.tanh(T.dot(e_y, self.dec_w) + T.dot(r_gate * s_, self.dec_u) + T.dot(ci, self.dec_c)+self.dec_bi)
+
+            s = (1 - z_gate) * s_ + z_gate * s_c
+
+            t_c = T.dot(s_, self.dec_uo) + T.dot(e_y, self.dec_vo) + T.dot(ci, self.dec_co)+self.dec_bio
+
+            t = T.max(t_c.reshape([t_c.shape[0], 2, t_c.shape[1] // 2]), 1)
+
+            y = T.nnet.softmax(T.dot(t, self.dec_wo))
+
+            cost = T.nnet.categorical_crossentropy(y, y_t) * y_m
+
+            y_rng=trng.multinomial(pvals=y)
+
+            y_out = T.argmax(y_rng, 1)
+
+            e_y_next = T.reshape(self.dec_e[y_out], [batch_size, self.emb_dim])
+
+            return e_y_next, s, cost,y_out
+        [e_y,s,cost,y_out], scan_update = theano.scan(step,
+                                           sequences=[self.y,self.y_mask],
+                                           outputs_info=[y_0, s_0, None,None],
+                                           non_sequences=[self.x_mask,atp,self.input],
+                                           name=self.name + '_Scan',
+                                           n_steps=out_length)
+        self.debug_stream.extend([s])
+        self.output = y_out
+        self.loss=T.mean(cost)
+        self.updates=scan_update.items()
+        self.predict()
+
+
+
+    def predict(self):
+
+        self.pred_Y=self.output
+
+    def cost(self, Y):
+        return self.loss
+
+    def error(self,Y):
+        return T.mean(T.neq(self.pred_Y,self.y)*self.y_mask)
 
 class get_lstm(baselayer_lstm):
     def __init__(self, in_dim, unit_dim, h_0_init=False, c_0_init=False, activation=T.tanh, **kwargs):
