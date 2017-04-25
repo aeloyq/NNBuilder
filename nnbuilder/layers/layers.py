@@ -20,6 +20,41 @@ class roles:
 weight=roles.weight
 bias=roles.weight
 
+class ops:
+    class dropout:
+        name='dropout'
+        use_noise='use_noise'
+        def __init__(self):
+            self.name='dropout'
+        @staticmethod
+        def op(tvar,**kwargs):
+            return tvar*config.trng.binomial(tvar.shape,
+                          p=kwargs['use_noise'], n=1,
+                          dtype=tvar.dtype)
+        @staticmethod
+        def op_(tvar,**kwargs):
+            return tvar*(1-kwargs['use_noise'])
+    class residual:
+        name='residual'
+        def __init__(self):
+            self.name='residual'
+        @staticmethod
+        def op(tvar,**kwargs):
+            return tvar+kwargs['pre_tvar']
+        @staticmethod
+        def op_(tvar, **kwargs):
+            return ops.residual.op(tvar,**kwargs)
+    class batch_normalization:
+        name='batch_normalization'
+        def __init__(self):
+            self.name='batch_normalization'
+        @staticmethod
+        def op(tvar,**kwargs):
+            return T.nnet.batch_normalization(tvar,kwargs['gamma'],kwargs['beta'],kwargs['mean'],kwargs['std'])
+        @staticmethod
+        def op_(tvar, **kwargs):
+            return ops.batch_normalization.op(tvar, **kwargs)
+
 class utils:
     ''' tools for building layers '''
     def __init__(self):
@@ -81,8 +116,8 @@ class utils:
         because the inverse operation (splitting) needs to be done on the CPU.
         This implementation does not have that problem.
         :usage:
-            >>> x, y = theano.tensor.matrices('x', 'y')
-            >>> c = concatenate([x, y], axis=1)
+            >>> x, y = T.matrices('x', 'y')
+            >>> c = utils.concatenate([x, y], axis=1)
         :parameters:
             - tensor_list : list
                 list of Theano tensor expressions that should be concatenated.
@@ -101,7 +136,7 @@ class utils:
         for k in range(axis + 1, tensor_list[0].ndim):
             output_shape += (tensor_list[0].shape[k],)
 
-        out = tensor.zeros(output_shape)
+        out = T.zeros(output_shape)
         offset = 0
         for tt in tensor_list:
             indices = ()
@@ -111,7 +146,7 @@ class utils:
             for k in range(axis + 1, tensor_list[0].ndim):
                 indices += (slice(None),)
 
-            out = tensor.set_subtensor(out[indices], tt)
+            out = T.set_subtensor(out[indices], tt)
             offset += tt.shape[axis]
 
         return out
@@ -138,27 +173,118 @@ zeros=utils.zeros
 
 
 class baselayer:
-    ''' base class '''
+    '''
+     base class of layer
+    '''
     def __init__(self,**kwargs):
+        '''
+        initiate the layer class to an instance
+        :param kwargs: 
+        '''
         self.kwargs=kwargs
-        self.setattr('rng',config.rng)
-        self.setattr('name','None')
+        self.rng=config.rng
+        self.name='None'
+        self.input=None
+        self.output=None
+        self.children=OrderedDict()
+        self.params=OrderedDict()
+        self.roles=OrderedDict()
+        self.updates=OrderedDict()
+        self.ops=OrderedDict()
+        self.debug_stream=[]
+        self.setattr('rng')
+        self.setattr('name')
         self.setattr('input')
         self.setattr('output')
-        self.setattr('children',OrderedDict())
-        self.setattr('params', OrderedDict())
-        self.setattr('roles', OrderedDict())
-        self.setattr('updates', OrderedDict())
-        self.setattr('debug_stream', OrderedDict())
+        self.setattr('children')
+        self.setattr('params')
+        self.setattr('roles')
+        self.setattr('updates')
+        self.setattr('ops')
+        self.setattr('debug_stream')
     def set_name(self,name):
+        '''
+        set the name of layer
+        :param name: str
+            name of layer
+        :return: None
+        '''
         self.name=name
     def set_input(self,X):
+        '''
+        set the input of layer
+        :param X: tensor variable
+            input tensor
+        :return: None
+        '''
         self.input=X
     def get_output(self):
+        '''
+        get the output of layer
+        :return: tensor variable
+            output of layer
+        '''
         self.apply()
+        self.public_ops()
+    def public_ops(self):
+        '''
+        public ops on tensor variable
+        such like dropout batch normalization etc.
+        if want to change the sequence of ops
+        please overwrite this function
+        :return: None
+        '''
+        self.output=self.addops('output',self.output,ops.batch_normalization)
+        self.output=self.addops('output',self.output,ops.dropout)
+        self.output=self.addops('output',self.output,ops.residual)
+    def addops(self,name,tvar,ops,switch=True):
+        '''
+        add operation on tensor variable
+        which realize training tricks
+        such as dropout residual etc.
+        :param name: str
+            name of operation
+        :param tvar: tensor variable
+            tensor variable on which the operation add
+        :param ops: class ops
+            kind of operation
+        :param switch: bool
+            open or close the operation for default 
+        :return: callable
+            the operation function
+        '''
+        name=name+'_'+ops.name+'_'+self.name
+        if name not in self.ops:self.ops[name]=switch
+        if not self.ops[name]:return tvar
+        if name in self.op_dict:
+            dict=self.op_dict[name]
+        else:
+            dict=self.op_dict[ops.name]
+        if self.op_dict['mode']=='train':
+            return ops.op(tvar,**dict)
+        if self.op_dict['mode']=='use':
+            return ops.op_(tvar,**dict)
     def apply(self):
+        '''
+        build the graph of layer
+        :return: tensor variable
+            the computational graph of this layer
+        '''
         return self.input
     def _allocate(self,role,name,rndfn,*args):
+        '''
+        allocate the param to the ram of gpu(cpu)
+        :param role: roles
+            sub class of roles
+        :param name: str
+            name of param
+        :param rndfn: 
+            initiate function of param
+        :param args: 
+            the shape of param
+        :return: theano shared variable
+            the allocated param
+        '''
         if name in self.kwargs:
             if callable(self.kwargs[name]):rndfn=self.kwargs[name]
             else:
@@ -169,36 +295,67 @@ class baselayer:
             self.params[name] = theano.shared(value=rndfn(*args), name=name + '_' + self.name, borrow=True)
             self.roles[name]=role
         return self.params[name]
-
     def init_params(self):
+        '''
+        initiate the params
+        :return: None
+        '''
         pass
-    def build(self,X,name):
+    def build(self,X,name,**op_dict):
+        '''
+        build the layer
+        :param X: tensor variable
+            input of layer
+        :param name: 
+            name of layer
+        :return: tensor variable
+            output of layer
+        '''
+        self.op_dict=op_dict
         self.set_name(name)
         self.init_params()
         self.set_input(X)
         self.merge()
         self.get_output()
+        return self.output
     def merge(self):
+        '''
+        merge the children to the layer
+        :return: None
+        '''
         for name,child in self.children:
             inp=self.input
             chd=child
             if isinstance(child,list):
                 chd=child[0]
                 inp=child[1]
-            chd.build(inp,self.name+'_'+name)
+            chd.build(inp,self.name+'_'+name,self.op_dict)
             self.params.update(child.params)
             self.roles.update(child.roles)
-    def setattr(self,name,value=None):
+    def setattr(self,name):
+        '''
+        set the attribute of the layer class
+        :param name: str
+            name of attribute
+        :return: None
+        '''
         if name in self.kwargs:
             setattr(self,name,self.kwargs[name])
-        else:
-            setattr(self, name, value)
     def add_debug(self,*additem):
+        '''
+        add tensor variable to debug stream
+        :param additem: tensor variable
+            tensor variable which want to be debug in debug mode
+        :return: None
+        '''
         self.debug_stream.extend(list(additem))
 
 
 
 class layer(baselayer):
+    '''
+    abstract layer
+    '''
     def __init__(self,**kwargs):
         baselayer.__init__(self,**kwargs)
     def apply(self):
@@ -209,6 +366,9 @@ class layer(baselayer):
 
 
 class linear(layer):
+    '''
+    linear layer
+    '''
     def __init__(self, in_dim, unit_dim, activation=None,**kwargs):
         layer.__init__(self,**kwargs)
         self.in_dim=in_dim
@@ -223,6 +383,9 @@ class linear(layer):
             self.output=T.dot(self.input,self.wt)
 
 class linear_bias(linear):
+    '''
+    linear layer with bias
+    '''
     def __init__(self, in_dim, unit_dim, activation=None, **kwargs):
         linear.__init__(self, in_dim, unit_dim, activation, **kwargs)
     def init_params(self):
@@ -236,29 +399,55 @@ class linear_bias(linear):
 
 
 class hidden_layer(layer):
-    ''' setup base hidden layer '''
+    '''
+    setup base hidden layer
+    '''
     def __init__(self,in_dim, unit_dim, activation=T.tanh,**kwargs):
         layer.__init__(self, **kwargs)
         self.children['lb']=linear_bias(in_dim, unit_dim, activation)
 
 class output_layer(layer):
-    ''' setup base output layer '''
-    def __init__(self, in_dim, unit_dim,Activation=T.nnet.sigmoid,**kwargs):
+    ''' 
+    setup base output layer 
+    '''
+    def __init__(self, in_dim, unit_dim,activation=T.nnet.sigmoid,**kwargs):
         layer.__init__(self, **kwargs)
+        self.children['lb'] = linear_bias(in_dim, unit_dim, activation)
         self.cost_func=utils.square_cost
         self.cost=None
         self.predict = None
         self.error = None
-        if 'cost_func' in kwargs:
-            self.cost_func = kwargs['cost_func']
+        self.setattr('cost_func')
+        self.setattr('cost')
+        self.setattr('predict')
+        self.setattr('error')
     def get_output(self):
-        layer.get_output()
+        layer.get_output(self)
         self.predict()
     def get_predict(self):
+        '''
+        get the predict of the model
+        :return: tensor variable
+            the predict of model
+        '''
         self.predict=T.round(self.output)
     def get_cost(self,Y):
-        self.cost=self.cost_fn(Y,self.output)
+        '''
+        get the cost of the model
+        :param Y: 
+            the label of the model which used to evaluate the cost function(loss function)
+        :return: tensor variable
+            the cost of the model
+        '''
+        self.cost=self.cost_func(Y,self.output)
     def get_error(self,Y):
+        '''
+        get the error of the model
+        :param Y: 
+            the label of the model which used to caculate the error
+        :return: tensor variable
+            the error (1-accruate%) of the model
+        '''
         self.error=T.mean(T.neq(Y,self.predict))
 
 
