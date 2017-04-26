@@ -8,31 +8,40 @@ Created on  Feb 14 1:05 PM 2017
 import theano
 import numpy as np
 import theano.tensor as T
+from collections import OrderedDict
 
 class algrithm:
     def __init__(self):
-        self.params=[]
+        self.params=None
         self.configuration={}
         self.cost=None
         self.learning_rate=0.01
         self.if_clip=False
         self.grad_clip_norm=1.
-    def init(self,wt_packs,cost):
-        self.params = [theta for param in wt_packs for theta in param]
+    def init(self, params, cost):
+        self.params = params
         self.cost = cost
-    def set_params(self,wt_packs):
-        self.params = [theta for param in wt_packs for theta in param]
+        self.learning_rate = theano.shared(self.numpy_floatX(self.learning_rate), name='Learning_Rate', borrow=True)
+        self.gparams=OrderedDict()
+        self.updates2output = OrderedDict()
+        self.updates = OrderedDict()
+    def get_grad(self):
+        self.iter_dict(lambda x:T.grad(self.cost,x),self.params,self.gparams)
+        if self.if_clip:
+            self.iter_dict(lambda x:self.grad_clip(x),self.gparams,self.gparams)
     def get_updates(self):
-        self.gparams = T.grad(self.cost, self.params)
-        learning_rate = theano.shared(self.numpy_floatX(self.learning_rate), name='Learning_Rate', borrow=True)
-        self.updates2output = [learning_rate * gparam for
-                               gparam in self.gparams]
-        if self.if_clip:self.updates2output=[self.grad_clip(update2output) for update2output in self.updates2output]
-        self.updates=[(param, param - lrgp)
-               for param, lrgp in zip(self.params, self.updates2output)]
+        self.get_grad()
+        self.iter_dict(lambda x: self.learning_rate*x, self.gparams, self.updates2output)
+        self.iter_updates()
         return self.updates
     def grad_clip(self,grad):
         return T.clip(grad,-self.grad_clip_norm,self.grad_clip_norm)
     def numpy_floatX(self,data):
         return np.asarray(data, dtype=theano.config.floatX)
+    def iter_dict(self,fn,dict1,dict2):
+        for name, elem in dict1.items():
+            dict2[name] = fn(elem)
+    def iter_updates(self):
+        for name,delta in self.updates2output.items():
+            self.updates[self.params[name]]=self.params[name]-delta
 config=algrithm()

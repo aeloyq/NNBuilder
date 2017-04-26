@@ -77,7 +77,7 @@ class ex(base):
 
                 self.logger('☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆', 3)
                 self.logger('params' + ':', 3)
-                for param in layer.params:
+                for name,param in layer.params.items():
                     self.logger('%s' % param + ' : ' + str(param.get_value().shape), 3)
                     self.logger(str(param.get_value()) + '    id : %s' % len(values), 4)
                     values.append(param.get_value())
@@ -96,7 +96,7 @@ class ex(base):
 
 
             self.logger("\r\n\r\nOutput Debug Info:\r\n\r\n", 1)
-            debug_stream=[model.output.output,model.pred_Y,model.cost,model.error]
+            debug_stream=[model.output.output,model.predict,model.cost,model.raw_cost,model.error]
             fn = self.get_func(debug_stream)
             debug_result = fn(*data)
             self.logger('%sth output' % (time + 1), 2, 1)
@@ -113,9 +113,13 @@ class ex(base):
             self.logger(str(debug_result[2]) + '    id : %s' % len(values), 3)
             values.append(debug_result[2])
             self.logger('☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆', 3)
-            self.logger('Error : ' + str(debug_result[3].shape), 2)
+            self.logger('Raw Cost : ' + str(debug_result[2].shape), 2)
             self.logger(str(debug_result[3]) + '    id : %s' % len(values), 3)
             values.append(debug_result[3])
+            self.logger('☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆', 3)
+            self.logger('Error : ' + str(debug_result[3].shape), 2)
+            self.logger(str(debug_result[4]) + '    id : %s' % len(values), 3)
+            values.append(debug_result[4])
             self.logger('★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★', 2, 1)
 
             self.logger("\r\n\r\nUpdate Debug Info:\r\n\r\n", 1)

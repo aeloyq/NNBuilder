@@ -80,8 +80,8 @@ def train(datastream, model, algrithm, extension):
         for idx,index in train_minibatches:
             data = prepare_data(train_X, train_Y, index)
             train_result=train_model(*data)
-            dict_param['train_result'] = train_result[0]
-            train_cost=train_result[0]
+            dict_param['train_result'] = train_result
+            train_cost=train_result
             dict_param['iteration_total'] += 1
             if(idx==train_minibatches[-1][0]):
                 # After epoch
@@ -90,9 +90,10 @@ def train(datastream, model, algrithm, extension):
                 for _, index in test_minibatches:
                     data = prepare_data(test_X, test_Y, index)
                     testdatas.append(data)
-                dict_param['train_error'] = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
+                test_result=np.array([test_model(*tuple(testdata)) for testdata in testdatas])
+                dict_param['train_error'] = np.mean(test_result[:,1])
                 dict_param['errors'].append(dict_param['train_error'])
-                dict_param['costs'].append(train_cost)
+                dict_param['costs'].append(np.mean(test_result[:,0]))
                 for ex in extension_instance:   ex.after_epoch()
             for ex in extension_instance:   ex.after_iteration()
             if dict_param['stop']:
@@ -121,10 +122,9 @@ def train(datastream, model, algrithm, extension):
 
 
 def prepare_data(data_x,data_y,index):
-    if not config.transpose_x:
-        x = [data_x[t] for t in index]
-    else:
-        x = [data_x[t] for t in index]
+    x = copy.deepcopy([data_x[t] for t in index])
+    y = copy.deepcopy([data_y[t] for t in index])
+    if config.transpose_x:
         maxlen = max([len(d) for d in x])
         x = np.array(x)
         mask_x = np.ones([len(index), maxlen]).astype(theano.config.floatX)
@@ -138,10 +138,7 @@ def prepare_data(data_x,data_y,index):
         x = x_new
         mask_x = mask_x.transpose()
 
-    if not config.transpose_y:
-        y = [data_y[t] for t in index]
-    else:
-        y = [data_y[t] for t in index]
+    if config.transpose_y:
         maxlen = max([len(d) for d in y])
         y = np.array(y)
         mask_y = np.ones([len(index), maxlen]).astype(theano.config.floatX)
@@ -164,7 +161,7 @@ def prepare_data(data_x,data_y,index):
     data = tuple(data)
     return data
 
-def get_minibatches_idx(datastream, shuffle=False):
+def get_minibatches_idx(datastream, shuffle=False,window=None):
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
     minibatch_size=config.batch_size
     valid_minibatch_size=config.valid_batch_size
@@ -177,11 +174,20 @@ def get_minibatches_idx(datastream, shuffle=False):
         n_valid = len(valid_X)
         n_test = len(test_X)
 
-    def get_(n,minibatch_size,shuffle=None):
-        idx_list = np.arange(n, dtype="int32")
-
+    def get_(n,minibatch_size,shuffle=False,window=None):
+        idx_list=np.arange(n, dtype="int32")
         if shuffle:
-            np.random.shuffle(idx_list)
+            id_list=[]
+            if not window:window=(n//minibatch_size+1)*100
+            n_block=(n-1)//window+1
+            idx_l = np.arange(n_block, dtype="int32")
+            np.random.shuffle(idx_l)
+            for i in idx_l:
+                nd=window
+                if i==n_block-1:nd=n-(n_block-1)*window
+                idxs=np.arange(nd,dtype="int32")+i*window
+                np.random.shuffle(idxs)
+                id_list.extend(idxs)
 
         minibatches = []
         minibatch_start = 0
@@ -195,7 +201,7 @@ def get_minibatches_idx(datastream, shuffle=False):
             minibatches.append(idx_list[minibatch_start:])
 
         return zip(range(len(minibatches)), minibatches)
-    train_minibatches=get_(n_train,minibatch_size)
+    train_minibatches=get_(n_train,minibatch_size,shuffle,window)
     valid_minibatches = get_(n_valid, valid_minibatch_size)
     test_minibatches = get_(n_test, valid_minibatch_size)
     return train_minibatches,valid_minibatches,test_minibatches
@@ -206,32 +212,17 @@ def get_sample_data(datastream):
         n_train = train_X.get_value().shape[0]
     except:
         n_train = len(train_X)
-    index = [config.rng.randint(0, n_train)]
+    index = config.rng.randint(0, n_train)
     data_x=train_X
     data_y=train_Y
-    if not config.transpose_x:
-        x = [data_x[t] for t in index]
-    else:
-        x = [data_x[t] for t in index]
-        x = np.array(x)
-        mask_x = np.ones([len(index), len(x[0])]).astype(theano.config.floatX)
-        x_new = []
-        for idx in range(len(x[0])):
-            x_new.append([x[i][idx] for i in range(len(x))])
-        x = x_new
-        mask_x=mask_x.transpose()
-    if not config.transpose_y:
-        y = [data_y[t] for t in index]
-    else:
-        y = [data_y[t] for t in index]
-        y = np.array(y)
-
-        mask_y = np.ones([len(index), len(y[0])]).astype(theano.config.floatX)
-        y_new = []
-        for idx in range(len(y[0])):
-            y_new.append([y[i][idx] for i in range(len(y))])
-        y = y_new
-        mask_y=mask_y.transpose()
+    x = [data_x[index]]
+    if config.transpose_x:
+        mask_x = np.ones(len(x)).astype(theano.config.floatX)[:,None]
+        x = np.array(x)[:,None]
+    y = [data_y[index]]
+    if config.transpose_y:
+        mask_y = np.ones(len(y)).astype(theano.config.floatX)[:, None]
+        y = np.array(y)[:, None]
     if config.int_x:x=np.asarray(x).astype('int64').tolist()
     if config.int_y:y=np.asarray(y).astype('int64').tolist()
     data=[x,y]
@@ -273,39 +264,43 @@ def print_config(model, algrithm, extension):
 def get_modelstream(model,algrithm,get_fn=True):
     logger("Building Model:",0,1)
     NNB_model = model
-    train_inputs=NNB_model.train_inputs
-    NNB_model.get_cost_pred_error()
+    inputs=NNB_model.train_inputs
     params = NNB_model.params
     cost = NNB_model.cost
+    raw_cost=NNB_model.raw_cost
     error=NNB_model.error
-    pred_Y=NNB_model.pred_Y
+    predict=NNB_model.predict
     optimizer = algrithm.config
     optimizer.init(params,cost)
     train_updates=optimizer.get_updates()
-    model.updates=train_updates
+    model_updates=NNB_model.updates
     debug_output=[]
     for key in NNB_model.layers:
         debug_output.extend(NNB_model.layers[key].debug_stream)
     train_output=[cost]
+    updates=model_updates.items()+train_updates.items()
     if get_fn:
         logger('Compiling Training Model',1)
-        train_model = theano.function(inputs=train_inputs,
-                                      outputs=train_output,
-                                      updates=train_updates)
-        update_model=theano.function(inputs=train_inputs,updates=train_updates)
+        train_model = theano.function(inputs=inputs,
+                                      outputs=cost,
+                                      updates=updates)
         logger('Compiling Validing Model',1)
-        valid_model = theano.function(inputs=train_inputs,
-                                      outputs=error)
+        valid_model = theano.function(inputs=inputs,
+                                      outputs=error,
+                                      updates=model_updates)
         logger('Compiling Test Model',1)
-        test_model = theano.function(inputs=train_inputs,
-                                     outputs=error)
+        test_model = theano.function(inputs=inputs,
+                                     outputs=[raw_cost,error],
+                                      updates=model_updates)
         logger('Compiling Sampling Model',1)
-        sample_model = theano.function(inputs=train_inputs,
-                                     outputs=[pred_Y,cost,error])
+        sample_model = theano.function(inputs=inputs,
+                                     outputs=[predict,raw_cost,error],
+                                      updates=model_updates)
         logger('Compiling Model',1)
-        model = theano.function(inputs=train_inputs,
-                                outputs=pred_Y,on_unused_input='ignore')
-        return [train_model, valid_model, test_model, sample_model,model, [],update_model]
+        model = theano.function(inputs=inputs,
+                                outputs=predict,on_unused_input='ignore',
+                                      updates=model_updates)
+        return [train_model, valid_model, test_model, sample_model,model, [],optimizer]
     else:
         return [None, None, None, None,None, [],optimizer]
 

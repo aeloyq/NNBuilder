@@ -36,7 +36,7 @@ class ex(base):
                     sp_pred, sp_cost, sp_error = sample_model(*sample_data)
                     s2p,sp_y=self.sample_func(sample_data[0], sp_pred,sample_data[1])
                     self.logger( s2p,2)
-                    self.logger( "Expect Result:    %s"%sp_y,2)
+                    self.logger( "Expect Result:%s"%sp_y,2)
                     self.logger('____________________________________________',2)
                 self.logger( "Sample Cost:%.4f  Sample Error:%.4f%%  " % (sp_cost, (sp_error * 100)),2)
                 self.logger( "☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",2)

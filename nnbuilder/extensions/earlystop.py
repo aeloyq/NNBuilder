@@ -50,8 +50,8 @@ class ex(base):
                     self.patience = max(self.patience, kwargs['iteration_total'] * self.patience_increase)
                 kwargs['best_valid_error'] = valid_error
                 kwargs['best_iter'] = kwargs['iteration_total']
-                self.logger("★Better Model Detected at Epoches:%d  Iterations:%d  Cost:%.4f  Valid error:%.4f%%★" % (
-                    kwargs['epoches'], kwargs['iteration_total'], kwargs['train_result'], valid_error * 100),2,1)
+                self.logger("★Better Model Detected at Epoches:%d  Iterations:%d  Valid error:%.4f%%★" % (
+                    kwargs['epoches'], kwargs['iteration_total'], valid_error * 100),2,1)
             if self.patience < kwargs['iteration_total']:
                 self.logger( "▲NO Trainning Patience      Early Stopped▲",1,1)
                 kwargs['stop']=True

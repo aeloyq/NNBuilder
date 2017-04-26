@@ -107,7 +107,7 @@ file_name=source_language+'-'+target_language
 #tokenize_text_files(data_path +'tmp/dev/'+ file_name+'-dev'+"."+source_language, tokenizer_file, data_path)
 #tokenize_text_files(data_path +'tmp/dev/'+ file_name+'-dev'+"."+target_language, tokenizer_file, data_path)
 
-#create_vocabularies(preprocess_file,data_path,40000,40000)
+create_vocabularies(preprocess_file,data_path,30000,30000)
 config.source='en'
 config.target='fr'
 datastream=get_data_stream()

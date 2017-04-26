@@ -6,194 +6,556 @@ Created on Sat Dec 17 13:55:42 2016
 """
 
 from nnbuilder import config
+from collections import OrderedDict
 import numpy as np
 import theano
 import theano.tensor as T
 
 
-''' base class '''
-
-class baselayer:
-    def __init__(self):
-        self.rng=config.rng
-        self.name='unnamed'
-        self.input=None
-        self.output=None
-        self.ops_on_output = []
-        self.debug_stream=[]
-        self.param_init_functions=paraminitfunctions()
-        self.params=[]
-        self.ops=None
-    def add_debug(self,additem):
-        self.debug_stream.append(additem)
-    def set_input(self,X):
-        self.input=X
-    def get_output(self):
-        self.output=self.input
-    def build(self):
-        for op in self.ops_on_output:
-            self.output = op(self.output)
-    def set_name(self,name):
-        self.name=name
-
-    def init_layer_params(self):
+class roles:
+    class weight:
         pass
 
-class paraminitfunctions:
+    class bias:
+        pass
+
+
+weight = roles.weight
+bias = roles.bias
+
+
+class ops:
+    '''
+    operations of layer's inner graph or model's cost function
+    such as dropout\weight decay etc.
+    '''
+
+    class dropout:
+        '''
+        dropout
+        '''
+        name = 'dropout'
+        use_noise = 'use_noise'
+
+        def __init__(self):
+            self.name = 'dropout'
+
+        @staticmethod
+        def op(tvar, **kwargs):
+            return tvar * config.trng.binomial(tvar.shape,
+                                               p=kwargs['use_noise'], n=1,
+                                               dtype=tvar.dtype)
+
+        @staticmethod
+        def op_(tvar, **kwargs):
+            return tvar * (1 - kwargs['use_noise'])
+
+    class residual:
+        '''
+        residual
+        '''
+        name = 'residual'
+
+        def __init__(self):
+            self.name = 'residual'
+
+        @staticmethod
+        def op(tvar, **kwargs):
+            return tvar + kwargs['pre_tvar']
+
+        @staticmethod
+        def op_(tvar, **kwargs):
+            return ops.residual.op(tvar, **kwargs)
+
+    class batch_normalization:
+        '''
+        batch normalization
+        '''
+        name = 'batch_normalization'
+
+        def __init__(self):
+            self.name = 'batch_normalization'
+
+        @staticmethod
+        def op(tvar, **kwargs):
+            return T.nnet.batch_normalization(tvar, kwargs['gamma'], kwargs['beta'], kwargs['mean'], kwargs['std'])
+
+        @staticmethod
+        def op_(tvar, **kwargs):
+            return ops.batch_normalization.op(tvar, **kwargs)
+
+
+class utils:
+    ''' tools for building layers '''
+
     def __init__(self):
-        self.uniform=layer_tools.uniform
-        self.zeros=layer_tools.zeros
-        self.randn=layer_tools.randn
-        self.orthogonal=layer_tools.orthogonal
+        pass
 
-class costfunctions:
-    def __init__(self):
-        self.square = layer_tools.square_cost
-        self.cross_entropy = layer_tools.cross_entropy_cost
-        self.neglog = layer_tools.neglog_cost
-
-
-class layer(baselayer):
-    def __init__(self, in_dim, unit_dim, activation=None, **kwargs):
-        baselayer.__init__(self)
-        self.in_dim=in_dim
-        self.unit_dim=unit_dim
-        self.param_init_function={'wt':self.param_init_functions.uniform,'bi':self.param_init_functions.zeros}
-        if 'name' in kwargs:
-            self.name = kwargs['name']
-        if 'param_init_function' in kwargs:
-            self.param_init_function = kwargs['param_init_function']
-        self.activation=activation
-        self.wt='wt'
-        self.bi='bi'
-        self.params=[self.wt,self.bi]
-    def init_layer_params(self):
-        wt_values = self.param_init_function['wt'](self.in_dim,self.unit_dim)
-        bi_values = self.param_init_function['bi'](self.unit_dim)
-        self.wt = theano.shared(value=wt_values, name='Wt'+'_'+self.name, borrow=True)
-        self.bi = theano.shared(value=bi_values, name='Bi'+'_'+self.name, borrow=True)
-        self.params = [self.wt, self.bi]
-    def load_weights(self,*args):
-        self.wt=args[0]
-        self.bi=args[1]
-        self.params = [self.wt, self.bi]
-    def set_weight_init_function(self,*args):
-        self.param_init_function=args
-    def get_output(self):
-        if self.activation is not None:
-            self.output=self.activation(T.dot(self.input,self.wt)+self.bi)
-        else:
-            self.output=T.dot(self.input,self.wt)+self.bi
-    def set_activation(self,method):
-        self.activation=method
-
-
-''' setup base hidden layer '''
-
-class hidden_layer(layer):
-    def __init__(self,in_dim, unit_dim, activation=T.tanh,**kwargs):
-        layer.__init__(self, in_dim, unit_dim, activation, **kwargs)
-    
-''' setup base output layer '''
-
-class output_layer(layer):
-    def __init__(self, in_dim, unit_dim,Activation=T.nnet.sigmoid,**kwargs):
-        layer.__init__(self, in_dim, unit_dim, Activation, **kwargs)
-        self.cost_functions=costfunctions()
-        self.cost_function=self.cost_functions.square
-    def get_output(self):
-
-        if self.activation is not None:
-            if self.input.ndim == 2:
-                self.output=self.activation(T.dot(self.input,self.wt)+self.bi)
-            elif self.input.ndim == 3:
-                out, up = theano.scan(lambda i: self.activation(T.dot(i, self.wt) + self.bi),
-                                      sequences=[self.input], n_steps=self.input.shape[0])
-                self.output = out
-        else:
-            self.output=T.dot(self.input,self.wt)+self.bi
-
-        self.predict()
-    def predict(self):
-        self.pred_Y=T.round(self.output)
-    def cost(self,Y):
-        if Y.ndim==2:
-            return self.cost_function(Y, self.output)
-        if Y.ndim==1:
-            return self.cost_function(T.reshape(Y, [Y.shape[0], 1]),  self.output)
-    def error(self,Y):
-        if Y.ndim == 1:
-            return layer_tools.errors(T.reshape(Y, [Y.shape[0], 1]), self.pred_Y)
-        if Y.ndim==2:
-            return layer_tools.errors(Y, self.pred_Y)
-
-    def add_Y_mask(self,tvar):
-        self.Y_mask=tvar
-
-''' tools for building layers '''
-
-class layer_tools:
-    def __init__(self):
-        pass    
     # weights init function
 
     @staticmethod
     def numpy_asarray_floatx(data):
-        data2return=np.asarray(data,dtype=theano.config.floatX)
+        data2return = np.asarray(data, dtype=theano.config.floatX)
         return data2return
 
     @staticmethod
     def randn(*args):
-        param=config.rng.randn(*args)
-        return layer_tools.numpy_asarray_floatx(param)
+        param = config.rng.randn(*args)
+        return utils.numpy_asarray_floatx(param)
 
     @staticmethod
     def uniform(*args):
-        param = config.rng.uniform(low=-np.sqrt(6. / sum(args)),high=np.sqrt(6. / sum(args)),size=args)
-        return layer_tools.numpy_asarray_floatx(param)
+        param = config.rng.uniform(low=-np.sqrt(6. / sum(args)), high=np.sqrt(6. / sum(args)), size=args)
+        return utils.numpy_asarray_floatx(param)
 
     @staticmethod
     def zeros(*args):
-        shape=[]
+        shape = []
         for dim in args:
             shape.append(dim)
         param = np.zeros(shape)
-        return layer_tools.numpy_asarray_floatx(param)
+        return utils.numpy_asarray_floatx(param)
 
     @staticmethod
     def orthogonal(*args):
-        param = layer_tools.uniform(args[0],args[0])
+        param = utils.uniform(args[0], args[0])
         param = np.linalg.svd(param)[0]
-        for _ in range(args[1]/args[0]-1):
-            param_ = layer_tools.uniform(args[0], args[0])
-            param=np.concatenate((param,np.linalg.svd(param_)[0]),1)
-        return layer_tools.numpy_asarray_floatx(param)
+        for _ in range(args[1] / args[0] - 1):
+            param_ = utils.uniform(args[0], args[0])
+            param = np.concatenate((param, np.linalg.svd(param_)[0]), 1)
+        return utils.numpy_asarray_floatx(param)
 
     # recurrent output
     @staticmethod
-    def final(outputs,mask):
+    def final(outputs, mask):
         return outputs[-1]
 
     @staticmethod
-    def all(outputs,mask):
+    def all(outputs, mask):
         return outputs
 
     @staticmethod
-    def mean_pooling(outputs,mask):
-        return ((outputs * mask[:, :, None]).sum(axis=0))/mask.sum(axis=0)[:, None]
+    def mean_pooling(outputs, mask):
+        return ((outputs * mask[:, :, None]).sum(axis=0)) / mask.sum(axis=0)[:, None]
 
+    @staticmethod
+    def concatenate(tensor_list, axis=0):
+        """
+        Alternative implementation of `theano.tensor.concatenate`.
+        This function does exactly the same thing, but contrary to Theano's own
+        implementation, the gradient is implemented on the GPU.
+        Backpropagating through `theano.tensor.concatenate` yields slowdowns
+        because the inverse operation (splitting) needs to be done on the CPU.
+        This implementation does not have that problem.
+        :usage:
+            >>> x, y = T.matrices('x', 'y')
+            >>> c = utils.concatenate([x, y], axis=1)
+        :parameters:
+            - tensor_list : list
+                list of Theano tensor expressions that should be concatenated.
+            - axis : int
+                the tensors will be joined along this axis.
+        :returns:
+            - out : tensor
+                the concatenated tensor expression.
+        """
+        concat_size = sum(tt.shape[axis] for tt in tensor_list)
+
+        output_shape = ()
+        for k in range(axis):
+            output_shape += (tensor_list[0].shape[k],)
+        output_shape += (concat_size,)
+        for k in range(axis + 1, tensor_list[0].ndim):
+            output_shape += (tensor_list[0].shape[k],)
+
+        out = T.zeros(output_shape)
+        offset = 0
+        for tt in tensor_list:
+            indices = ()
+            for k in range(axis):
+                indices += (slice(None),)
+            indices += (slice(offset, offset + tt.shape[axis]),)
+            for k in range(axis + 1, tensor_list[0].ndim):
+                indices += (slice(None),)
+
+            out = T.set_subtensor(out[indices], tt)
+            offset += tt.shape[axis]
+
+        return out
 
     # cost function
     @staticmethod
-    def square_cost(Y_reshaped,outputs_reshaped):
-        return T.sum(T.square(Y_reshaped -outputs_reshaped))/2
+    def square_cost(Y_reshaped, outputs_reshaped):
+        return T.sum(T.square(Y_reshaped - outputs_reshaped)) / 2
+
     @staticmethod
-    def neglog_cost(Y_reshaped,outputs_reshaped):
-        return -T.mean(T.log(outputs_reshaped)[T.arange(Y_reshaped.shape[0]),Y_reshaped])
+    def neglog_cost(Y_reshaped, outputs_reshaped):
+        return -T.mean(T.log(outputs_reshaped)[T.arange(Y_reshaped.shape[0]), Y_reshaped])
+
     @staticmethod
-    def cross_entropy_cost(Y_reshaped,outputs_reshaped):
-        return -T.mean(Y_reshaped*T.log(outputs_reshaped)+(1-Y_reshaped)*T.log(1-outputs_reshaped))
+    def cross_entropy_cost(Y_reshaped, outputs_reshaped):
+        return -T.mean(Y_reshaped * T.log(outputs_reshaped) + (1 - Y_reshaped) * T.log(1 - outputs_reshaped))
+
     # calculate the error rates
-    @staticmethod    
-    def errors(Y_reshaped,pred_Y):
+    @staticmethod
+    def errors(Y_reshaped, pred_Y):
         return T.mean(T.neq(pred_Y, Y_reshaped))
+
+
+uniform = utils.uniform
+zeros = utils.zeros
+
+
+class baselayer:
+    '''
+     base class of layer
+    '''
+
+    def __init__(self, **kwargs):
+        '''
+        initiate the layer class to an instance
+        :param kwargs: 
+        '''
+        self.kwargs = kwargs
+        self.rng = config.rng
+        self.name = 'None'
+        self.input = None
+        self.output = None
+        self.children = OrderedDict()
+        self.params = OrderedDict()
+        self.inited_param = False
+        self.roles = OrderedDict()
+        self.updates = OrderedDict()
+        self.ops = OrderedDict()
+        self.debug_stream = []
+        self.setattr('rng')
+        self.setattr('name')
+        self.setattr('input')
+        self.setattr('output')
+        self.setattr('children')
+        self.setattr('params')
+        self.setattr('roles')
+        self.setattr('updates')
+        self.setattr('ops')
+        self.setattr('debug_stream')
+
+    def set_name(self, name):
+        '''
+        set the name of layer
+        :param name: str
+            name of layer
+        :return: None
+        '''
+        self.name = name
+
+    def set_input(self, X):
+        '''
+        set the input of layer
+        :param X: tensor variable
+            input tensor
+        :return: None
+        '''
+        self.input = X
+
+    def get_output(self):
+        '''
+        get the output of layer
+        :return: tensor variable
+            output of layer
+        '''
+        self.output = self.apply()
+        self.public_ops()
+
+    def public_ops(self):
+        '''
+        public ops on tensor variable
+        such like dropout batch normalization etc.
+        if want to change the sequence of ops
+        please overwrite this function
+        :return: None
+        '''
+        self.output = self.addops('output', self.output, ops.dropout)
+
+    def addops(self, name, tvar, ops, switch=True):
+        '''
+        add operation on tensor variable
+        which realize training tricks
+        such as dropout residual etc.
+        :param name: str
+            name of operation
+        :param tvar: tensor variable
+            tensor variable on which the operation add
+        :param ops: class ops
+            kind of operation
+        :param switch: bool
+            open or close the operation for default 
+        :return: callable
+            the operation function
+        '''
+        name = name + '_' + ops.name + '_' + self.name
+        if name not in self.ops: self.ops[name] = switch
+        if not self.ops[name]: return tvar
+        if name in self.op_dict:
+            dict = self.op_dict[name]
+        else:
+            if ops.name not in self.op_dict: return tvar
+            dict = self.op_dict[ops.name]
+        if self.op_dict['mode'] == 'train':
+            return ops.op(tvar, **dict)
+        elif self.op_dict['mode'] == 'use':
+            return ops.op_(tvar, **dict)
+
+    def apply(self):
+        '''
+        build the graph of layer
+        :return: tensor variable
+            the computational graph of this layer
+        '''
+        return self.input
+
+    def _allocate(self, rndfn, name, role, *args):
+        '''
+        allocate the param to the ram of gpu(cpu)
+        :param role: roles
+            sub class of roles
+        :param name: str
+            name of param
+        :param rndfn: 
+            initiate function of param
+        :param args: 
+            the shape of param
+        :return: theano shared variable
+            the allocated param
+        '''
+        if name in self.kwargs:
+            if callable(self.kwargs[name]):
+                rndfn = self.kwargs[name]
+            else:
+                name = name + '_' + self.name
+                self.params[name] = theano.shared(value=self.kwargs[name], name=name, borrow=True)
+                self.roles[name] = role
+                return self.params[name]
+        name = name + '_' + self.name
+        self.params[name] = theano.shared(value=rndfn(*args), name=name, borrow=True)
+        self.roles[name] = role
+        return self.params[name]
+
+    def init_params(self):
+        '''
+        initiate the params
+        :return: None
+        '''
+        pass
+
+    def init(self, name, **op_dict):
+        '''
+        initiate the layer
+        :return: None
+        '''
+        self.op_dict = op_dict
+        self.set_name(name)
+        if not self.inited_param:
+            self.init_params()
+            self.inited_param = True
+
+    def feed(self, X):
+        '''
+        feed forward to get the graph
+        :return: tensor variable
+            get the graph
+        '''
+        self.set_input(X)
+        self.get_output()
+        return self.output
+
+    def build(self, X, name, **op_dict):
+        '''
+        build the layer
+        :param X: tensor variable
+            input of layer
+        :param name: 
+            name of layer
+        :return: tensor variable
+            output of layer
+        '''
+        self.init(name, **op_dict)
+        self.init_children()
+        self.feed(X)
+        self.merge()
+        return self.output
+
+    def init_children(self):
+        '''
+        initiate the children to the layer
+        :return: None
+        '''
+        for name, child in self.children.items():
+            chd = child
+            if isinstance(child, list):
+                chd = child[0]
+            chd.ops['output'] = False
+            chd.init(self.name + '_' + name, **self.op_dict)
+
+    def merge(self):
+        '''
+        merge the children to the layer
+        :return: None
+        '''
+        for name, child in self.children.items():
+            chd = child
+            if isinstance(child, list):
+                chd = child[0]
+            self.params.update(chd.params)
+            self.roles.update(chd.roles)
+
+    def setattr(self, name):
+        '''
+        set the attribute of the layer class
+        :param name: str
+            name of attribute
+        :return: None
+        '''
+        if name in self.kwargs:
+            setattr(self, name, self.kwargs[name])
+
+    def add_debug(self, *additem):
+        '''
+        add tensor variable to debug stream
+        :param additem: tensor variable
+            tensor variable which want to be debug in debug mode
+        :return: None
+        '''
+        self.debug_stream.extend(list(additem))
+
+
+class layer(baselayer):
+    '''
+    abstract layer
+    '''
+
+    def __init__(self, **kwargs):
+        baselayer.__init__(self, **kwargs)
+
+    def apply(self):
+        if len(self.children) > 1:
+            feedlist = []
+            for child in self.children:
+                chd = child
+                inp = self.input
+                if isinstance(child, list):
+                    chd = child[0]
+                    inp = child[1]
+                feedlist.append(chd.feed(inp))
+            return utils.concatenate(feedlist, axis=feedlist[0].ndim - 1)
+        elif len(self.children) == 1:
+            child = self.children.items()[0][1]
+            chd = child
+            inp = self.input
+            if isinstance(child, list):
+                chd = child[0]
+                inp = child[1]
+            return chd.feed(inp)
+        else:
+            return self.input
+
+
+class linear(layer):
+    '''
+    linear layer
+    '''
+
+    def __init__(self, in_dim, unit_dim, activation=None, **kwargs):
+        layer.__init__(self, **kwargs)
+        self.in_dim = in_dim
+        self.unit_dim = unit_dim
+        self.activation = activation
+
+    def init_params(self):
+        self.wt = self._allocate(uniform, 'Wt', weight, self.in_dim, self.unit_dim)
+
+    def apply(self):
+        if self.activation is not None:
+            return self.activation(T.dot(self.input, self.wt))
+        else:
+            return T.dot(self.input, self.wt)
+
+    def public_ops(self):
+        pass
+
+
+class linear_bias(linear):
+    '''
+    linear layer with bias
+    '''
+
+    def __init__(self, in_dim, unit_dim, activation=None, **kwargs):
+        linear.__init__(self, in_dim, unit_dim, activation, **kwargs)
+
+    def init_params(self):
+        linear.init_params(self)
+        self.bi = self._allocate(zeros, 'Bi', bias, self.unit_dim)
+
+    def apply(self):
+        if self.activation is not None:
+            return self.activation(T.dot(self.input, self.wt) + self.bi)
+        else:
+            return T.dot(self.input, self.wt) + self.bi
+
+
+class hidden_layer(layer):
+    '''
+    setup base hidden layer
+    '''
+
+    def __init__(self, in_dim, unit_dim, activation=T.tanh, **kwargs):
+        layer.__init__(self, **kwargs)
+        self.children['linear_bias'] = linear_bias(in_dim, unit_dim, activation)
+
+
+class output_layer(layer):
+    ''' 
+    setup base output layer 
+    '''
+
+    def __init__(self, in_dim, unit_dim, activation=T.nnet.sigmoid, **kwargs):
+        layer.__init__(self, **kwargs)
+        self.children['linear_bias'] = linear_bias(in_dim, unit_dim, activation)
+        self.cost_func = utils.square_cost
+        self.cost = None
+        self.predict = None
+        self.error = None
+        self.setattr('cost_func')
+        self.setattr('cost')
+        self.setattr('predict')
+        self.setattr('error')
+
+    def get_output(self):
+        layer.get_output(self)
+
+    def get_predict(self):
+        '''
+        get the predict of the model
+        :return: tensor variable
+            the predict of model
+        '''
+        self.predict = T.round(self.output)
+
+    def get_cost(self, Y):
+        '''
+        get the cost of the model
+        :param Y: 
+            the label of the model which used to evaluate the cost function(loss function)
+        :return: tensor variable
+            the cost of the model
+        '''
+        self.cost = self.cost_func(Y, self.output)
+
+    def get_error(self, Y):
+        '''
+        get the error of the model
+        :param Y: 
+            the label of the model which used to caculate the error
+        :return: tensor variable
+            the error (1-accruate%) of the model
+        '''
+        self.error = T.mean(T.neq(Y, self.predict))
