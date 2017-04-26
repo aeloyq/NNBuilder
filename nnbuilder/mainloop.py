@@ -80,8 +80,8 @@ def train(datastream, model, algrithm, extension):
         for idx,index in train_minibatches:
             data = prepare_data(train_X, train_Y, index)
             train_result=train_model(*data)
-            dict_param['train_result'] = train_result[0]
-            train_cost=train_result[0]
+            dict_param['train_result'] = train_result
+            train_cost=train_result
             dict_param['iteration_total'] += 1
             if(idx==train_minibatches[-1][0]):
                 # After epoch
@@ -90,9 +90,10 @@ def train(datastream, model, algrithm, extension):
                 for _, index in test_minibatches:
                     data = prepare_data(test_X, test_Y, index)
                     testdatas.append(data)
-                dict_param['train_error'] = np.mean([test_model(*tuple(testdata)) for testdata in testdatas])
+                test_result=np.array([test_model(*tuple(testdata)) for testdata in testdatas])
+                dict_param['train_error'] = np.mean(test_result[:,1])
                 dict_param['errors'].append(dict_param['train_error'])
-                dict_param['costs'].append(train_cost)
+                dict_param['costs'].append(np.mean(test_result[:,0]))
                 for ex in extension_instance:   ex.after_epoch()
             for ex in extension_instance:   ex.after_iteration()
             if dict_param['stop']:
@@ -160,7 +161,7 @@ def prepare_data(data_x,data_y,index):
     data = tuple(data)
     return data
 
-def get_minibatches_idx(datastream, shuffle=False):
+def get_minibatches_idx(datastream, shuffle=False,window=None):
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
     minibatch_size=config.batch_size
     valid_minibatch_size=config.valid_batch_size
@@ -173,7 +174,7 @@ def get_minibatches_idx(datastream, shuffle=False):
         n_valid = len(valid_X)
         n_test = len(test_X)
 
-    def get_(n,minibatch_size,shuffle=None,window=None):
+    def get_(n,minibatch_size,shuffle=False,window=None):
         idx_list=np.arange(n, dtype="int32")
         if shuffle:
             id_list=[]
@@ -200,7 +201,7 @@ def get_minibatches_idx(datastream, shuffle=False):
             minibatches.append(idx_list[minibatch_start:])
 
         return zip(range(len(minibatches)), minibatches)
-    train_minibatches=get_(n_train,minibatch_size)
+    train_minibatches=get_(n_train,minibatch_size,shuffle,window)
     valid_minibatches = get_(n_valid, valid_minibatch_size)
     test_minibatches = get_(n_test, valid_minibatch_size)
     return train_minibatches,valid_minibatches,test_minibatches
@@ -214,11 +215,11 @@ def get_sample_data(datastream):
     index = config.rng.randint(0, n_train)
     data_x=train_X
     data_y=train_Y
-    x = data_x[index]
+    x = [data_x[index]]
     if config.transpose_x:
         mask_x = np.ones(len(x)).astype(theano.config.floatX)[:,None]
         x = np.array(x)[:,None]
-    y = data_y[index]
+    y = [data_y[index]]
     if config.transpose_y:
         mask_y = np.ones(len(y)).astype(theano.config.floatX)[:, None]
         y = np.array(y)[:, None]
@@ -263,12 +264,12 @@ def print_config(model, algrithm, extension):
 def get_modelstream(model,algrithm,get_fn=True):
     logger("Building Model:",0,1)
     NNB_model = model
-    train_inputs=NNB_model.train_inputs
-    NNB_model.get_cost_pred_error()
+    inputs=NNB_model.train_inputs
     params = NNB_model.params
     cost = NNB_model.cost
+    raw_cost=NNB_model.raw_cost
     error=NNB_model.error
-    pred_Y=NNB_model.pred_Y
+    predict=NNB_model.predict
     optimizer = algrithm.config
     optimizer.init(params,cost)
     train_updates=optimizer.get_updates()
@@ -277,26 +278,27 @@ def get_modelstream(model,algrithm,get_fn=True):
     for key in NNB_model.layers:
         debug_output.extend(NNB_model.layers[key].debug_stream)
     train_output=[cost]
+    updates=model_updates.items()+train_updates.items()
     if get_fn:
         logger('Compiling Training Model',1)
-        train_model = theano.function(inputs=train_inputs,
-                                      outputs=train_output,
-                                      updates=model_updates+train_updates)
+        train_model = theano.function(inputs=inputs,
+                                      outputs=cost,
+                                      updates=updates)
         logger('Compiling Validing Model',1)
-        valid_model = theano.function(inputs=train_inputs,
+        valid_model = theano.function(inputs=inputs,
                                       outputs=error,
                                       updates=model_updates)
         logger('Compiling Test Model',1)
-        test_model = theano.function(inputs=train_inputs,
-                                     outputs=error,
+        test_model = theano.function(inputs=inputs,
+                                     outputs=[raw_cost,error],
                                       updates=model_updates)
         logger('Compiling Sampling Model',1)
-        sample_model = theano.function(inputs=train_inputs,
-                                     outputs=[pred_Y,cost,error],
+        sample_model = theano.function(inputs=inputs,
+                                     outputs=[predict,raw_cost,error],
                                       updates=model_updates)
         logger('Compiling Model',1)
-        model = theano.function(inputs=train_inputs,
-                                outputs=pred_Y,on_unused_input='ignore',
+        model = theano.function(inputs=inputs,
+                                outputs=predict,on_unused_input='ignore',
                                       updates=model_updates)
         return [train_model, valid_model, test_model, sample_model,model, [],optimizer]
     else:
