@@ -8,7 +8,7 @@ Created on  Feb 16 1:28 AM 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from layers import utils
+from basic import utils
 import recurrent
 
 base = recurrent.get

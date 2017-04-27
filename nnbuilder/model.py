@@ -5,31 +5,22 @@ Created on  Feb 13 10:24 PM 2017
 @author: aeloyq
 """
 import config
-import layers.layers as layers
+import layers.basic as basic
 import theano
 import theano.tensor as T
 import numpy as np
-from collections import OrderedDict
 import logger
-
-
-class layer_():
-    def __init__(self, layer, input, name=None):
-        self.layer = layer
-        self.input = input
-        self.name = name
-
-    def evaluate(self, op_dict):
-        if isinstance(self.input, layers.baselayer):
-            inp = self.input.output
-        elif isinstance(self.input, node_):
-            inp = self.input.output
-        else:
-            inp = self.input
-        self.layer.build(inp, self.name, **op_dict)
+from collections import OrderedDict
+from layers.roles import *
+from layers.utils import *
+from layers.ops import *
 
 
 class node_:
+    '''
+    deprecated
+    '''
+
     def __init__(self, operation, id1=None, id2=None, name=None):
         self.operation = operation
         self.id1 = id1
@@ -56,75 +47,41 @@ class node_:
             self.output = T.concatenate([self.id1, self.id2, self.id1.ndim - 1])
 
 
-from layers.layers import ops
-
-
-class dropout_:
-    def __init__(self, layer, dp_name=None, noise=0.5):
-        self.layer = layer
-        # if dp_name != None and use_noise#Todo:multi setting of noise
-        self.noise = theano.shared(value=noise, name='dropout_noise%s' % layer.name, borrow=True)
-        if dp_name != None:
-            self.dp_name = [name[0] + '_' + ops.dropout.name + '_' + self.layer.name for name in self.dp_name]
-        else:
-            self.dp_name = None
-
-    def evaluate(self):
-        if self.dp_name == None:
-            self.op_dict = {ops.dropout.name: {ops.dropout.use_noise: self.noise}}
-        else:
-            self.op_dict = {ops.dropout.name: {ops.dropout.use_noise: self.noise}}
-            for name in self.layer.ops:
-                self.layer.ops[name] = False
-            for name in self.dp_name:
-                self.layer.ops[name] = True
-                self.op_dict[name] = {ops.dropout.use_noise: self.noise}
-
-
-class weight_decay_:
-    def __init__(self, layers, params, noise=0.0001):
-        self.layers = layers
-        self.l2 = noise
-        self.params = params
-
-    def evaluate(self, cost):
-        reg = 0
-        params=[]
-        if self.params == None:
-            for name,layer in self.layers.items():
-                for pname, param in layer.params.items():
-                    if layer.roles[pname] is layers.roles.weight:
-                        params.append(param)
-        else:
-            for layer in self.layers:
-                for name, param in self.params.items():
-                    if name in layer.params:
-                        if layer.roles[name] == layers.roles.weight:
-                            params.append(param)
-        for param in params:
-            reg += (param ** 2).sum()
-        return cost + self.l2 * reg
-
-
-class residual_:
-    def __init__(self, layer, pre_layer):
-        self.layer = layer
-        self.pre_layer = pre_layer
-        self.op_dict = {}
-
-    def evaluate(self):
-        self.op_dict['pre_tvar'] = self.pre_layer.output
+X = T.matrix
+Y = T.ivector
+Int4dX = T.itensor4
+Int4dY = T.itensor4
+Int3dX = T.itensor3
+Int3dY = T.itensor3
+Int2dX = T.imatrix
+Int2dY = T.imatrix
+IntX=T.ivector
+IntY=T.ivector
+Float4dX = T.ftensor4
+Float4dY = T.ftensor4
+Float3dX = T.ftensor3
+Float3dY = T.ftensor3
+Float2dX = T.fmatrix
+Float2dY = T.fmatrix
+FloatX=T.fvector
+FloatY=T.fvector
 
 
 class model():
-    def __init__(self):
-        self.X = T.matrix('X')
-        self.Y = T.ivector('Y')
+    def __init__(self,dim,X=X,Y=Y,**kwargs):
+        self.X = X('X')
+        self.Y = Y('Y')
+        for name in kwargs:
+            setattr(self, name, kwargs[name](name))
+        self.X_dim=dim
+        self.pre_dim=dim
+        self.pre_layer=None
         self.inputs = [self.X, self.Y]
         self.train_inputs = [self.X, self.Y]
         self.model_inputs = [self.X, self.Y]
         self.rng = config.rng
         self.layers = OrderedDict()
+        self.layers_in_dim_dict=OrderedDict()
         self.n_layers = 0
         self.nodes = OrderedDict()
         self.n_nodes = 0
@@ -140,9 +97,8 @@ class model():
         self.params = OrderedDict()
         self.roles = OrderedDict()
         self.user_debug_stream = []
-        self.trng = config.trng
-        self.X_mask = None
-        self.Y_mask = None
+        self.X_mask = X('X_mask')
+        self.Y_mask = Y('Y_mask')
         self.updates = OrderedDict()
 
     def set_inputs(self, inputs):
@@ -166,18 +122,15 @@ class model():
     def build(self):
         def raw():
             for node in self.graph:
-                if isinstance(node, layer_):
-                    op_dict = {}
-                    for op in self.ops[node.layer]:
-                        op.evaluate()
-                        op_dict.update(op.op_dict)
-                    op_dict['mode'] = 'use'
-                    node.evaluate(op_dict)
-                    self.params.update(node.layer.params)
-                    self.roles.update(node.layer.roles)
-                    self.raw_output = node.layer
-                if isinstance(node, node_):
-                    node.evaluate()
+                op_dict = {}
+                for op in self.ops[node.layer]:
+                    op.evaluate()
+                    op_dict.update(op.op_dict)
+                op_dict['mode'] = 'use'
+                node.evaluate(op_dict)
+                self.params.update(node.layer.params)
+                self.roles.update(node.layer.roles)
+                self.raw_output = node.layer
             self.raw_output.get_cost(self.Y)
             self.raw_output.get_predict()
             self.raw_output.get_error(self.Y)
@@ -187,16 +140,13 @@ class model():
 
         def train():
             for node in self.graph:
-                if isinstance(node, layer_):
-                    op_dict = {}
-                    for op in self.ops[node.layer]:
-                        op.evaluate()
-                        op_dict.update(op.op_dict)
-                    op_dict['mode'] = 'train'
-                    node.evaluate(op_dict)
-                    self.output = node.layer
-                if isinstance(node, node_):
-                    node.evaluate()
+                op_dict = {}
+                for op in self.ops[node.layer]:
+                    op.evaluate()
+                    op_dict.update(op.op_dict)
+                op_dict['mode'] = 'train'
+                node.evaluate(op_dict)
+                self.output = node.layer
             self.output.get_cost(self.Y)
             self.cost = self.output.cost
 
@@ -208,30 +158,14 @@ class model():
             self.user_debug_stream.extend(self.layers[key].debug_stream)
             self.updates.update(self.layers[key].updates)
 
-    def addlayer(self, layer, input, name=None):
-        self.n_layers += 1
-        if name == None: name = 'layer{}'.format(self.n_layers)
-        layer_instance = layer_(layer, input, name)
-        self.layers[name] = layer
-        self.ops[layer] = []
-        self.graph.append(layer_instance)
-
-    def addnode(self, operation, layer1, layer2, name=None):
-        self.n_nodes += 1
-        if name == None: name = 'layer{}'.format(self.n_nodes)
-        node_instance = node_(operation, layer1, layer2, name)
-        self.nodes[name] = node_instance
-        self.graph.append(node_instance)
-
-    def add_dropout(self, layer, dp_name=None, use_noise=0.5):
-        drop_out_instance = dropout_(layer, dp_name, use_noise)
-        self.ops[layer].append(drop_out_instance)
-
-    def add_weight_decay(self, l2=0.0001, layers=None, params=None):
-        if layers == None: layers = self.layers
-        weight_decay_instance = weight_decay_(layers, params, l2)
-        self.ops['cost'].append(weight_decay_instance)
-
-    def add_residual(self, layer, pre_layer):
-        residual_instance = residual_(layer, pre_layer)
-        self.ops[layer].append(residual_instance)
+    def add(self,element,name=None):
+        if isinstance(element,basic.baselayer):
+            self.n_layers += 1
+            if name == None: name = 'layer{}'.format(self.n_layers)
+            self.layers[name] = element
+            self.pre_layer=element
+            self.layers_in_dim_dict=self.pre_dim
+            self.ops[element] = []
+            self.graph.append(element)
+        else:
+            element.init(self.pre_layer,self.ops)

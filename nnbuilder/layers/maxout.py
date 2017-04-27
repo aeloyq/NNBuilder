@@ -8,7 +8,7 @@ Created on  Feb 16 1:27 AM 2017
 
 import numpy as np
 import theano.tensor as T
-from layers import hidden_layer
+from basic import hidden_layer
 import direct
 base=direct.get
 

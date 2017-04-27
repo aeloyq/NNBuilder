@@ -15,7 +15,7 @@ trng=config.trng
 baselayer_lstm = nnbuilder.layers.lstm.get
 baselayer_rnn = nnbuilder.layers.recurrent.get
 baselayer_gru = nnbuilder.layers.gru.get
-from nnbuilder.layers.layers import utils,baselayer
+from nnbuilder.layers.basic import utils,baselayer
 
 
 class get_rnn(baselayer_rnn):

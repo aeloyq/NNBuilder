@@ -8,7 +8,7 @@ Created on Thu Feb 09 14:30:08 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from nnbuilder.layers.layers import hidden_layer, utils, baselayer
+from nnbuilder.layers.basic import hidden_layer, utils, baselayer
 import nnbuilder.layers.lstm, nnbuilder.layers.gru
 from nnbuilder.layers import recurrent
 

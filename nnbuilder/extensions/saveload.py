@@ -42,11 +42,12 @@ class ex(base):
         #file.close()
             for key in layers:
                 for param,sparam in zip(layers[key].params,params[key]):
-                    param.set_value(sparam)
+                    layers[key].params[param].set_value(params[key][sparam])
             kwargs['epoches']=params['epoches']#TODO:may smaller than real number
             kwargs['iteration_total']= params['iteration_total']
             kwargs['best_iter'] = params['best_iter']
             kwargs['best_valid_error'] =params['best_valid_error']
+            kwargs['idx'] = params['idx']+1
             for i in params['errors']:
                 kwargs['errors'].append(i)
             for i in params['costs']:
@@ -80,15 +81,16 @@ class ex(base):
         for key in layers:
             params[key] = layers[key].params
         for key in params:
-            params2save[key] = []
-            for idx, param in enumerate(params[key]):
-                params2save[key].append(param.get_value())
+            params2save[key] = OrderedDict()
+            for pname, param in params[key].items():
+                params2save[key][pname]=param.get_value()
         params2save['epoches'] = kwargs['epoches']
         params2save['iteration_total'] = kwargs['iteration_total']
         params2save['best_iter'] = kwargs['best_iter']
         params2save['best_valid_error'] = kwargs['best_valid_error']
         params2save['errors'] = kwargs['errors']
         params2save['costs'] = kwargs['costs']
+        params2save['idx'] = kwargs['idx']
         for ex in kwargs['extension']:
             ex.save_(params2save)
         savename = name

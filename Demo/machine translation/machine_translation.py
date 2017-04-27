@@ -16,7 +16,7 @@ from nnbuilder.algrithms import sgd,adadelta,rmsprop
 from nnbuilder.dataprepares import Load_mt
 from nnbuilder.model import model
 from nnbuilder.extensions import monitor ,debugmode,saveload,earlystop,sample
-from nnbuilder.mainloop import train
+from nnbuilder.main import train
 import dictionary
 
 #theano.config.profile=True

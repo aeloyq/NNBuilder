@@ -11,7 +11,7 @@ from nnbuilder.layers import recurrent,direct,logistic,lstm
 from nnbuilder.algrithms import adadelta,sgd
 from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode,saveload
 from nnbuilder.model import model
-from nnbuilder.mainloop import train
+from nnbuilder.main import train
 from nnbuilder.visions.Visualization import get_result
 import theano
 import theano.tensor as T
@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     global data_stream, model_stream, result_stream, vision_return
     theano.config.NanGuardMode.nan_is_error = True
-    nnbuilder.config.name='rnn_additive'
+    nnbuilder.config.name='adder'
     nnbuilder.config.max_epoches=2500
     nnbuilder.config.valid_batch_size=64
     nnbuilder.config.batch_size=64

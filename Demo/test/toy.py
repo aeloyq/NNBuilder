@@ -11,7 +11,7 @@ from nnbuilder.models import encoder,decoder
 from nnbuilder.algrithms import adadelta,sgd
 from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode,saveload
 from nnbuilder.model import model
-from nnbuilder.mainloop import train
+from nnbuilder.main import train
 from nnbuilder.visions.Visualization import get_result
 
 import theano.tensor as T

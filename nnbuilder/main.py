@@ -42,6 +42,7 @@ def train(datastream, model, algrithm, extension):
     dict_param['logger'] = logger
     dict_param['prepare_data']=prepare_data
     dict_param['get_sample_data']=get_sample_data
+    dict_param['get_minibatches_idx'] = get_minibatches_idx
     dict_param['conf'] = config
     dict_param['batch_size']=config.batch_size
     dict_param['train_model']=train_model
@@ -62,9 +63,10 @@ def train(datastream, model, algrithm, extension):
     dict_param['epoches'] = 0
     dict_param['errors'] = []
     dict_param['costs'] = []
+    dict_param['idx'] = 0
     dict_param['stop']=False
     extension_instance=[]
-    for ex in extension:ex.config.kwargs=dict_param;ex.config.init();extension_instance.append(ex.config)
+    for ex in extension:ex.config.kwargs=dict_param;ex.config.initiate();extension_instance.append(ex.config)
     dict_param['extension']=extension_instance
     # Main Loop
     logger('Training Start',1)
@@ -77,7 +79,9 @@ def train(datastream, model, algrithm, extension):
             logger("⊙Trainning Time Out⊙", 1, 1)
             break
         # Train model iter by iter
-        for idx,index in train_minibatches:
+        minibatches=dict_param['minibatches'][0][dict_param['idx']:]
+        for idx,index in minibatches:
+            dict_param['idx']=idx
             data = prepare_data(train_X, train_Y, index)
             train_result=train_model(*data)
             dict_param['train_result'] = train_result
@@ -109,6 +113,7 @@ def train(datastream, model, algrithm, extension):
                     dict_param['best_iter'] = dict_param['iteration_total']
                     logger( "●Trainning Sucess●",1,1)
                     break
+        dict_param['idx'] = 0
 
 
     for ex in extension_instance:   ex.after_train()
@@ -271,7 +276,7 @@ def get_modelstream(model,algrithm,get_fn=True):
     error=NNB_model.error
     predict=NNB_model.predict
     optimizer = algrithm.config
-    optimizer.init(params,cost)
+    optimizer.initiate(params, cost)
     train_updates=optimizer.get_updates()
     model_updates=NNB_model.updates
     debug_output=[]

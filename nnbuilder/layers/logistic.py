@@ -7,7 +7,7 @@ Created on Thu Feb 09 14:30:08 2017
 
 import numpy as np
 import theano.tensor as T
-from layers import output_layer
+from basic import output_layer
 
 ''' setup logistic output layer inherited from base output layer '''
 

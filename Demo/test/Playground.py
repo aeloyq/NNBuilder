@@ -7,7 +7,7 @@ Created on Thu Dec 15 18:44:11 2016
 import sys
 sys.path.append('..')
 import nnbuilder as nnb
-from Demo import conf
+from demo import conf
 import theano
 
 if __name__ == '__main__':
@@ -15,7 +15,7 @@ if __name__ == '__main__':
     conf = conf.get_conf_xor()
     data_stream = conf['data_pre'](conf)
     model_stream = nnb.model.Get_Model_Stream(conf, data_stream, conf['algrithm'])
-    result_stream = nnb.mainloop.train(conf, model_stream, data_stream, [nnb.extensions.monitor, nnb.extensions.earlystop])
+    result_stream = nnb.main.train(conf, model_stream, data_stream, [nnb.extensions.monitor, nnb.extensions.earlystop])
     vision_return = nnb.visions.Visualization.get_result(result_stream, model_stream)
     '''
     conf = conf.get_conf_xor()

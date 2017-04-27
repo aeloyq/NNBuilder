@@ -11,9 +11,12 @@ base=extension.extension
 class ex(base):
     def __init__(self,kwargs):
         base.__init__(self,kwargs)
-        self.shuffle_window=-1
-    def init(self):
-        base.init()
-    def after_epoch(self):
-        pass
+        self.shuffle_window=None
+    def before_train(self):
+        self.kwargs['minibatch']=self.kwargs['get_minibatches_idx'](self.kwargs['data_stream'],True,self.shuffle_window)
 
+    def after_epoch(self):
+        self.kwargs['minibatch'] = self.kwargs['get_minibatches_idx'](self.kwargs['data_stream'], True,
+                                                                      self.shuffle_window)
+
+config=ex({})

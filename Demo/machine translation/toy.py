@@ -249,7 +249,7 @@ def t(f, args):
 
 from nnbuilder import config
 
-config.name = 'mt'
+config.name = 'machine translation'
 config.data_path = './data/datasets.npz'
 config.batch_size = 40
 config.valid_batch_size = 64
@@ -264,5 +264,5 @@ config.int_y = True
 data = Load_mt(maxlen=50, sort_by_len=True,sort_by_asc=False)
 import nnbuilder
 
-d = nnbuilder.mainloop.prepare_data(data[0], data[3], range(80))
+d = nnbuilder.main.prepare_data(data[0], data[3], range(80))
 t(f,d)
