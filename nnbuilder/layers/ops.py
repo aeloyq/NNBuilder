@@ -8,7 +8,6 @@ Created on  四月 26 21:10 2017
 from nnbuilder import config
 from roles import *
 from collections import OrderedDict
-from basic import baselayer
 import numpy as np
 import theano
 import theano.tensor as T
@@ -110,10 +109,10 @@ class regularization(ops):
         self.layer=layer
         ops_dict['cost'].append(self)
 
-    def evaluate(self, cost ,graph):
+    def evaluate(self, cost ,layers):
         reg = 0
         params=[]
-        for node in graph:
+        for lname,node in layers.items():
             for name, param in node.params.items():
                 if node.roles[name] == weight:
                     params.append(param)

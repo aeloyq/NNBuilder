@@ -9,7 +9,7 @@ import theano.tensor as T
 import numpy as np
 import nnbuilder.layers.lstm, nnbuilder.layers.recurrent
 import nnbuilder.config as config
-
+'''
 trng=config.trng
 
 baselayer_lstm = nnbuilder.layers.lstm.get
@@ -356,11 +356,6 @@ class get_gru_attention_maxout_readout_feedback(baselayer):
         e_ys = T.reshape(self.dec_e[self.y.flatten()], [out_length, batch_size, self.emb_dim])
         emb_shifted = T.zeros_like(e_ys)
         e_ys = T.set_subtensor(emb_shifted[1:], e_ys[:-1])
-        '''
-        e_y_r=T.dot(e_ys,self.dec_wr)+self.dec_bir
-        e_y_z=T.dot(e_ys,self.dec_wz)+self.dec_biz
-        e_y_x=T.dot(e_ys,self.dec_w)+self.dec_bi
-        e_y_o=T.dot(e_ys,self.dec_vo)+self.dec_bio'''
 
         def step(y_t, y_m, e_y, s_, x_m, att_pre,att_in):
 
@@ -1116,3 +1111,4 @@ class get_lstm_attention_maxout_readout_feedback(get_lstm_maxout_readout_feedbac
         cost=T.nnet.categorical_crossentropy(y,y_true)
         #cost=-T.log(y[T.arange(y_true.shape[0]),y_true])*y_m
         return r, h, c, y,cost
+'''

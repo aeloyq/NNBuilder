@@ -250,7 +250,7 @@ class baselayer:
                 etc.
         :return: 
         '''
-        if isinstance(self.input, baselayer):
+        if isinstance(input, baselayer):
             input = input.output
         else:
             input = input
@@ -346,6 +346,7 @@ class hidden_layer(layer):
 
     def __init__(self, unit, activation=T.tanh, **kwargs):
         layer.__init__(self, **kwargs)
+        self.unit_dim=unit
         self.children['linear_bias'] = linear_bias(unit, activation)
 
 
@@ -356,8 +357,9 @@ class output_layer(layer):
 
     def __init__(self, unit, activation=T.nnet.sigmoid, **kwargs):
         layer.__init__(self, **kwargs)
+        self.unit_dim=unit
         self.children['linear_bias'] = linear_bias(unit, activation)
-        self.cost_function = square_cost
+        self.cost_function = mean_square
         self.cost = None
         self.predict = None
         self.error = None

@@ -8,12 +8,9 @@ Created on  Feb 16 1:28 AM 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from basic import utils
 import recurrent
-
+'''
 base = recurrent.get
-
-''' setup hidden layer of feedforward network inherited from Hidden_Layer '''
 
 
 class get(base):
@@ -103,3 +100,4 @@ class get(base):
             if self.ops is not None:
                 h = self.ops(h)
         return h
+'''

@@ -8,11 +8,10 @@ Created on Thu Feb 09 14:30:08 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from nnbuilder.layers.basic import hidden_layer, utils, baselayer
+from nnbuilder.layers.basic import hidden_layer,  baselayer
 import nnbuilder.layers.lstm, nnbuilder.layers.gru
 from nnbuilder.layers import recurrent
-
-''' setup softmax output layer inherited from base output layer '''
+'''
 
 
 class get_bi_lstm(baselayer):
@@ -197,3 +196,4 @@ class get_bi_gru_(base):
 
         return h,bh
 
+'''

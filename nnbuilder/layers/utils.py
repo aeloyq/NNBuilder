@@ -108,19 +108,23 @@ def concatenate(tensor_list, axis=0):
 
 # cost function
 
-def square_cost(Y_reshaped, outputs_reshaped):
-    return T.sum(T.square(Y_reshaped - outputs_reshaped)) / 2
+def mean_square(Y, output):
+    return T.mean(T.square(Y - output))/2
 
 
-def neglog_cost(Y_reshaped, outputs_reshaped):
-    return -T.mean(T.log(outputs_reshaped)[T.arange(Y_reshaped.shape[0]), Y_reshaped])
+def neg_log(Y, output):
+    return T.mean(T.nnet.categorical_crossentropy(Y,output))
 
 
-def cross_entropy_cost(Y_reshaped, outputs_reshaped):
-    return -T.mean(Y_reshaped * T.log(outputs_reshaped) + (1 - Y_reshaped) * T.log(1 - outputs_reshaped))
+def cross_entropy(Y, output):
+    return T.mean(T.nnet.categorical_crossentropy(Y,output))
 
-
-# calculate the error rates
 
 def errors(Y_reshaped, pred_Y):
+    '''
+    calculate the error rates
+    :param Y_reshaped: 
+    :param pred_Y: 
+    :return: 
+    '''
     return T.mean(T.neq(pred_Y, Y_reshaped))

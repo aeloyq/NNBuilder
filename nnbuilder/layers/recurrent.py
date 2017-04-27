@@ -9,11 +9,10 @@ Created on  Feb 16 1:28 AM 2017
 import numpy as np
 import theano
 import theano.tensor as T
-from basic import hidden_layer,utils
 
 ''' setup hidden layer of feedforward network inherited from Hidden_Layer '''
 
-
+'''
 class output_ways:
     def __init__(self):
         self.final = utils.final
@@ -105,3 +104,4 @@ class get(hidden_layer):
                 h=self.ops(h)
         return h
 
+'''

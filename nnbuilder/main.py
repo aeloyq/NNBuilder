@@ -66,7 +66,7 @@ def train(datastream, model, algrithm, extension):
     dict_param['idx'] = 0
     dict_param['stop']=False
     extension_instance=[]
-    for ex in extension:ex.config.kwargs=dict_param;ex.config.initiate();extension_instance.append(ex.config)
+    for ex in extension:ex.config.kwargs=dict_param;ex.config.init();extension_instance.append(ex.config)
     dict_param['extension']=extension_instance
     # Main Loop
     logger('Training Start',1)
@@ -276,7 +276,7 @@ def get_modelstream(model,algrithm,get_fn=True):
     error=NNB_model.error
     predict=NNB_model.predict
     optimizer = algrithm.config
-    optimizer.initiate(params, cost)
+    optimizer.init(params, cost)
     train_updates=optimizer.get_updates()
     model_updates=NNB_model.updates
     debug_output=[]

@@ -9,4 +9,4 @@ import model
 import models
 import preparation
 import visions
-__all__=['algrithms','config','dataprepares','extensions','layers','logger', 'main.py', 'model', 'models', 'preparation', 'visions']
+__all__=['algrithms','config','dataprepares','extensions','layers','logger','main','model','models','preparation','visions']

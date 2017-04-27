@@ -75,13 +75,14 @@ class model():
             setattr(self, name, kwargs[name](name))
         self.X_dim=dim
         self.pre_dim=dim
-        self.pre_layer=None
+        self.pre_layer=self.X
         self.inputs = [self.X, self.Y]
         self.train_inputs = [self.X, self.Y]
         self.model_inputs = [self.X, self.Y]
         self.rng = config.rng
         self.layers = OrderedDict()
         self.layers_in_dim_dict=OrderedDict()
+        self.layers_input_dict = OrderedDict()
         self.n_layers = 0
         self.nodes = OrderedDict()
         self.n_nodes = 0
@@ -93,7 +94,6 @@ class model():
         self.cost = None
         self.raw_cost = None
         self.error = None
-        self.graph = []
         self.params = OrderedDict()
         self.roles = OrderedDict()
         self.user_debug_stream = []
@@ -121,16 +121,16 @@ class model():
 
     def build(self):
         def raw():
-            for node in self.graph:
+            for name,node in self.layers.items():
                 op_dict = {}
-                for op in self.ops[node.layer]:
+                for op in self.ops[node]:
                     op.evaluate()
                     op_dict.update(op.op_dict)
                 op_dict['mode'] = 'use'
-                node.evaluate(op_dict)
-                self.params.update(node.layer.params)
-                self.roles.update(node.layer.roles)
-                self.raw_output = node.layer
+                node.evaluate(self.layers_input_dict[name],self.layers_in_dim_dict[name],name,**op_dict)
+                self.params.update(node.params)
+                self.roles.update(node.roles)
+                self.raw_output = node
             self.raw_output.get_cost(self.Y)
             self.raw_output.get_predict()
             self.raw_output.get_error(self.Y)
@@ -139,21 +139,21 @@ class model():
             self.error = self.raw_output.error
 
         def train():
-            for node in self.graph:
+            for name, node in self.layers.items():
                 op_dict = {}
-                for op in self.ops[node.layer]:
+                for op in self.ops[node]:
                     op.evaluate()
                     op_dict.update(op.op_dict)
                 op_dict['mode'] = 'train'
-                node.evaluate(op_dict)
-                self.output = node.layer
+                node.evaluate(self.layers_input_dict[name],self.layers_in_dim_dict[name],name,**op_dict)
+                self.output = node
             self.output.get_cost(self.Y)
             self.cost = self.output.cost
 
         raw()
         train()
         for ops in self.ops['cost']:
-            self.cost = ops.evaluate(self.cost)
+            self.cost = ops.evaluate(self.cost,self.layers)
         for key in self.layers:
             self.user_debug_stream.extend(self.layers[key].debug_stream)
             self.updates.update(self.layers[key].updates)
@@ -163,9 +163,11 @@ class model():
             self.n_layers += 1
             if name == None: name = 'layer{}'.format(self.n_layers)
             self.layers[name] = element
-            self.pre_layer=element
-            self.layers_in_dim_dict=self.pre_dim
+            self.layers_in_dim_dict[name]=self.pre_dim
+            self.layers_input_dict[name]=self.pre_layer
             self.ops[element] = []
-            self.graph.append(element)
+            self.pre_layer=element
+            if hasattr(element,'unit_dim'):
+                self.pre_dim=element.unit_dim
         else:
             element.init(self.pre_layer,self.ops)
