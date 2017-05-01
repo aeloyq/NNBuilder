@@ -65,7 +65,10 @@ Float2dX = T.fmatrix
 Float2dY = T.fmatrix
 FloatX=T.fvector
 FloatY=T.fvector
-
+Int4dMask=T.wtensor4
+Int3dMask=T.wtensor3
+Int2dMask=T.wmatrix
+IntMask=T.wvector
 
 class model():
     def __init__(self,dim,X=X,Y=Y,**kwargs):
@@ -77,8 +80,6 @@ class model():
         self.pre_dim=dim
         self.pre_layer=self.X
         self.inputs = [self.X, self.Y]
-        self.train_inputs = [self.X, self.Y]
-        self.model_inputs = [self.X, self.Y]
         self.rng = config.rng
         self.layers = OrderedDict()
         self.layers_in_dim_dict=OrderedDict()
@@ -167,7 +168,14 @@ class model():
             self.layers_input_dict[name]=self.pre_layer
             self.ops[element] = []
             self.pre_layer=element
+            if self.X_mask in self.inputs:element.x_mask=self.X_mask
+            if self.Y_mask in self.inputs:element.y_mask=self.Y_mask;element.y=self.Y
             if hasattr(element,'unit_dim'):
                 self.pre_dim=element.unit_dim
         else:
             element.init(self.pre_layer,self.ops)
+
+    def sequential(self,X=Int2dMask,Y=None):
+        if X is not None: self.X_mask=X('X_mask');self.inputs.append(self.X_mask)
+        if Y is not None: self.Y_mask=Y('Y_mask');self.inputs.append(self.Y_mask)
+

@@ -8,7 +8,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 from collections import OrderedDict
-from nnbuilder.dataprepares import Load_mt
+from nnbuilder.data import Load_mt
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 lr = 0.5

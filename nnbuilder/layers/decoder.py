@@ -4,11 +4,6 @@ Created on  三月 19 2:29 2017
 
 @author: aeloyq
 """
-import theano
-import theano.tensor as T
-import numpy as np
-import nnbuilder.layers.lstm, nnbuilder.layers.recurrent
-import nnbuilder.config as config
 '''
 trng=config.trng
 

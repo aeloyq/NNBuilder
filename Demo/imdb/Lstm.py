@@ -5,51 +5,38 @@ Created on Thu Dec 15 18:44:11 2016
 @author: aeloyq
 """
 import nnbuilder
-from nnbuilder.dataprepares import Load_imdb
-from nnbuilder.layers import embedding,lstm,direct,logistic,softmax,recurrent
-from nnbuilder.algrithms import adadelta
-from nnbuilder.extensions import earlystop, monitor ,sample,samples,debugmode,saveload
-from nnbuilder.model import model
-from nnbuilder.main import train
-from nnbuilder.visions.Visualization import get_result
+from nnbuilder.data import *
+from nnbuilder.layers.simple import *
+from nnbuilder.layers.sequential import *
+from nnbuilder.algrithms import *
+from nnbuilder.extensions import *
+from nnbuilder.model import *
+from nnbuilder.main import *
 
-import theano.tensor as T
-import theano
 
 nnbuilder.config.name='imdb'
 nnbuilder.config.max_epoches=10
 nnbuilder.config.valid_batch_size=64
 nnbuilder.config.batch_size=64
 nnbuilder.config.transpose_x=True
+nnbuilder.config.int_x=True
 nnbuilder.config.mask_x=True
-nnbuilder.config.data_path='./Datasets/imdb.pkl'
+nnbuilder.config.data_path='../Datasets/imdb.pkl'
 
 earlystop.config.patience=10000
 earlystop.config.valid_freq=2500
 sample.config.sample_func=samples.add_sample
 saveload.config.save_freq=2500
-saveload.config.load=False
 monitor.config.report_iter=True
 monitor.config.report_iter_frequence=2
 
 
-adadelta.config.if_clip=True
-
 datastream  = Load_imdb(n_words=100000,maxlen=100)
-X_mask=T.matrix('X_mask')
 
-emblayer=embedding.get(in_dim=100000,emb_dim=10)
-lstm_hiddenlayer=lstm.get(in_dim=10,unit_dim=128,h_0_init=True)
-lstm_hiddenlayer.set_x_mask(X_mask)
-lstm_hiddenlayer.output_way=lstm_hiddenlayer.output_ways.mean_pooling
-outputlayer=softmax.get(in_dim=128,unit_dim=2)
+model = model(100000,Int2dX)
+model.sequential()
+model.add(embedding(10))
+model.add(gru(128,out='final'))
+model.add(softmax(2))
 
-model = model()
-model.X_mask=X_mask
-model.set_inputs([model.X,model.Y,X_mask])
-model.addlayer(layer=emblayer,input=model.X,name='emb')
-model.addlayer(layer=lstm_hiddenlayer,input=emblayer,name='hidden')
-model.addlayer(layer=outputlayer,input=lstm_hiddenlayer,name='output')
-
-result_stream = train( datastream=datastream,model=model,algrithm=adadelta, extension=[monitor])
-vision_return = get_result(result_stream=result_stream,model_stream=model)
+result_stream = train(datastream=datastream,model=model,algrithm=sgd, extension=[monitor])

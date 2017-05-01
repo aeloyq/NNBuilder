@@ -5,12 +5,6 @@ Created on Thu Feb 09 14:30:08 2017
 @author: aeloyq
 """
 
-import numpy as np
-import theano
-import theano.tensor as T
-from nnbuilder.layers.basic import hidden_layer,  baselayer
-import nnbuilder.layers.lstm, nnbuilder.layers.gru
-from nnbuilder.layers import recurrent
 '''
 
 

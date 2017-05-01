@@ -71,7 +71,7 @@ def concatenate(tensor_list, axis=0):
     This implementation does not have that problem.
     :usage:
         >>> x, y = T.matrices('x', 'y')
-        >>> c = utils.concatenate([x, y], axis=1)
+        >>> c = concatenate([x, y], axis=1)
     :parameters:
         - tensor_list : list
             list of Theano tensor expressions that should be concatenated.

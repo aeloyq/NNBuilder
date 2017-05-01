@@ -24,19 +24,23 @@ class hiddenlayer(hidden_layer):
 
 class embedding(layer):
     def __init__(self,unit,**kwargs):
-        layer.__init__(self,**kwargs)
+        layer.__init__(self,unit,**kwargs)
         self.emb_dim = unit
     def init_params(self):
-        self.wemb=self._allocate(uniform, 'Wemb', randn, self.in_dim, self.emb_dim)
+        self.wemb=self.allocate(randn, 'Wemb', weight, self.in_dim, self.emb_dim)
     def apply(self):
         n_timesteps = self.input.shape[0]
         n_samples =   self.input.shape[1]
         return T.reshape(self.wemb[self.input.flatten()] ,[n_timesteps,
                                                     n_samples,self.emb_dim])
 
-class maxout(layer):
+class lookuptable(embedding):
+    def __init__(self,unit,**kwargs):
+        embedding.__init__(self,unit,**kwargs)
+
+class maxout(baselayer):
     def __init__(self,num_pieces):
-        layer.__init__(self)
+        baselayer.__init__(self)
         self.num_pieces=num_pieces
 
     def apply(self):
@@ -47,18 +51,32 @@ class maxout(layer):
         return T.max(self.input.reshape(new_shape, ndim=self.input.ndim + 1),
                             axis=self.input.ndim)
 
-class direct(layer):
+class direct(baselayer):
     ''' setup direct output layer inherited from base output layer '''
     def __init__(self,**kwargs):
-        layer.__init__(self)
+        baselayer.__init__(self)
         self.cost_function = mean_square
         self.cost = None
         self.predict = None
         self.error = None
+        self.mask=False
+        self.out='all'
+        self.setattr('out')
         self.setattr('cost_function')
         self.setattr('cost')
         self.setattr('predict')
         self.setattr('error')
+    def apply(self):
+        if self.out=='final':
+            return self.input[-1]
+        elif self.out=='all':
+            return self.input
+        elif self.out=='mean':
+            if not self.mask:
+                return self.input.mean(self.input.ndim-1)
+            else:
+                return (self.input*self.x_mask[:,:,None]).mean(0)
+
     def get_predict(self):
         self.predict=T.round(self.output)
     def get_cost(self,Y):

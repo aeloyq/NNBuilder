@@ -120,7 +120,6 @@ class regularization(ops):
             reg += (param ** 2).sum()
         return cost + self.l2 * reg
 
-
 class residual(ops):
     def __init__(self, pre_layer):
         ops.__init__(self)

@@ -1,6 +1,6 @@
 import algrithms
 import config
-import dataprepares
+import data
 import extensions
 import layers
 import logger
@@ -9,4 +9,4 @@ import model
 import models
 import preparation
 import visions
-__all__=['algrithms','config','dataprepares','extensions','layers','logger','main','model','models','preparation','visions']
+__all__=['algrithms','config', 'data.py', 'extensions', 'layers', 'logger', 'main', 'model', 'models', 'preparation', 'visions']

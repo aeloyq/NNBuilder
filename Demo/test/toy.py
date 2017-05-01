@@ -5,7 +5,7 @@ Created on Thu Dec 15 18:44:11 2016
 @author: aeloyq
 """
 import nnbuilder
-from nnbuilder.dataprepares import Load_imdb
+from nnbuilder.data import Load_imdb
 from nnbuilder.layers import embedding,lstm,direct,logistic,softmax,readout
 from nnbuilder.models import encoder,decoder
 from nnbuilder.algrithms import adadelta,sgd

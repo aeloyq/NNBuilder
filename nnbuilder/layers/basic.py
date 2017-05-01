@@ -26,16 +26,22 @@ class baselayer:
         '''
         self.kwargs = kwargs
         self.rng = config.rng
+        self.trng = config.trng
         self.name = 'None'
         self.input = None
         self.output = None
         self.children = OrderedDict()
         self.params = OrderedDict()
         self.inited_param = False
+        self.input_set = False
         self.roles = OrderedDict()
         self.updates = OrderedDict()
         self.ops = OrderedDict()
         self.debug_stream = []
+        self.x_mask=None
+        self.y_mask=None
+        self.y=None
+        self.data=OrderedDict()
         self.setattr('name')
         self.setattr('input')
         self.setattr('output')
@@ -45,6 +51,10 @@ class baselayer:
         self.setattr('updates')
         self.setattr('ops')
         self.setattr('debug_stream')
+        self.setattr('data')
+        self.in_dim_set = False
+        self.setattr('in_dim')
+        if 'in_dim' in kwargs:self.in_dim_set=True
 
     def set_name(self, name):
         '''
@@ -63,6 +73,16 @@ class baselayer:
         :return: None
         '''
         self.input = X
+
+    def set_mask(self, x_mask,y_mask):
+        '''
+        set the input of layer
+        :param X: tensor variable
+            input tensor
+        :return: None
+        '''
+        self.x_mask=x_mask
+        self.y_mask=y_mask
 
     def get_output(self):
         '''
@@ -120,7 +140,7 @@ class baselayer:
         '''
         return self.input
 
-    def _allocate(self, rndfn, name, role, *args):
+    def allocate(self, rndfn, name, role, *args):
         '''
         allocate the param to the ram of gpu(cpu)
         :param role: roles
@@ -154,7 +174,7 @@ class baselayer:
         '''
         pass
 
-    def initiate(self,dim, name, **op_dict):
+    def initiate(self,input,dim, name, **op_dict):
         '''
         initiate the layer
         :param dim: int
@@ -163,22 +183,28 @@ class baselayer:
             name of the layer    
         :return: None
         '''
-        self.in_dim=dim
+        if not self.in_dim_set:
+            self.in_dim=dim
+        self.set_input(input)
         self.op_dict = op_dict
         self.set_name(name)
         if not self.inited_param:
             self.init_params()
             self.inited_param = True
+        self.init_children()
 
-    def feedforward(self, X):
+    def feedforward(self, X=None):
         '''
         feed forward to get the graph
         :return: tensor variable
             get the graph
         '''
+        if X is None:
+            X=self.input
         self.set_input(X)
         self.get_output()
-        return self.output
+        self.merge()
+        return self.apply()
 
     def build(self, input, dim, name, **op_dict):
         '''
@@ -192,10 +218,8 @@ class baselayer:
         :return: tensor variable
             output of layer
         '''
-        self.initiate(dim,name, **op_dict)
-        self.init_children()
+        self.initiate(input,dim,name, **op_dict)
         self.feedforward(input)
-        self.merge()
         return self.output
 
     def init_children(self):
@@ -205,10 +229,15 @@ class baselayer:
         '''
         for name, child in self.children.items():
             chd = child
+            in_dim=self.in_dim
             if isinstance(child, list):
-                chd = child[0]
-            chd.ops['output'] = False
-            chd.initiate(self.in_dim,self.name + '_' + name, **self.op_dict)
+                chd = child[1]
+                in_dim = child[0]
+            chd.initiate(self.input,in_dim,self.name + '_' + name, **self.op_dict)
+            chd.data=self.data
+            chd.x_mask=self.x_mask
+            chd.y_mask=self.y_mask
+            chd.y=self.y
 
     def merge(self):
         '''
@@ -221,6 +250,7 @@ class baselayer:
                 chd = child[0]
             self.params.update(chd.params)
             self.roles.update(chd.roles)
+            self.updates.update(chd.updates)
 
     def setattr(self, name):
         '''
@@ -271,8 +301,9 @@ class layer(baselayer):
     abstract layer
     '''
 
-    def __init__(self, **kwargs):
+    def __init__(self,unit, **kwargs):
         baselayer.__init__(self, **kwargs)
+        self.unit_dim=unit
 
     def apply(self):
         if len(self.children) > 1:
@@ -303,12 +334,32 @@ class linear(layer):
     '''
 
     def __init__(self, unit, activation=None, **kwargs):
-        layer.__init__(self, **kwargs)
-        self.unit_dim = unit
+        layer.__init__(self,unit, **kwargs)
         self.activation = activation
 
     def init_params(self):
-        self.wt = self._allocate(uniform, 'Wt', weight, self.in_dim, self.unit_dim)
+        self.wt = self.allocate(uniform, 'Wt', weight, self.in_dim, self.unit_dim)
+
+    def apply(self):
+        if self.activation is not None:
+            return self.activation(T.dot(self.input, self.wt))
+        else:
+            return T.dot(self.input, self.wt)
+
+    def public_ops(self):
+        pass
+
+class std(layer):
+    '''
+    linear layer
+    '''
+
+    def __init__(self, unit, activation=None, **kwargs):
+        layer.__init__(self,unit, **kwargs)
+        self.activation = activation
+
+    def init_params(self):
+        self.wt = self.allocate(randn, 'Wt', weight, self.in_dim, self.unit_dim)
 
     def apply(self):
         if self.activation is not None:
@@ -330,7 +381,7 @@ class linear_bias(linear):
 
     def init_params(self):
         linear.init_params(self)
-        self.bi = self._allocate(zeros, 'Bi', bias, self.unit_dim)
+        self.bi = self.allocate(zeros, 'Bi', bias, self.unit_dim)
 
     def apply(self):
         if self.activation is not None:
@@ -345,9 +396,8 @@ class hidden_layer(layer):
     '''
 
     def __init__(self, unit, activation=T.tanh, **kwargs):
-        layer.__init__(self, **kwargs)
-        self.unit_dim=unit
-        self.children['linear_bias'] = linear_bias(unit, activation)
+        layer.__init__(self,unit, **kwargs)
+        self.children['lb'] = linear_bias(unit, activation)
 
 
 class output_layer(layer):
@@ -356,9 +406,8 @@ class output_layer(layer):
     '''
 
     def __init__(self, unit, activation=T.nnet.sigmoid, **kwargs):
-        layer.__init__(self, **kwargs)
-        self.unit_dim=unit
-        self.children['linear_bias'] = linear_bias(unit, activation)
+        layer.__init__(self,unit, **kwargs)
+        self.children['lb'] = linear_bias(unit, activation)
         self.cost_function = mean_square
         self.cost = None
         self.predict = None
