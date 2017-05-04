@@ -41,6 +41,15 @@ class algrithm:
     def iter_dict(self,fn,dict1,dict2):
         for name, elem in dict1.items():
             dict2[name] = fn(elem)
+    def iter_dict_(self,fn,dict1,dict2,dict3):
+        for name, elem1 in dict1.items():
+            elem2=dict2[name]
+            dict3[name] = fn(elem1,elem2)
+    def iter_dict__(self,fn,dict1,dict2,dict3,dict4):
+        for name, elem1  in dict1.items():
+            elem2=dict2[name]
+            elem3=dict3[name]
+            dict4[name] = fn(elem1,elem2,elem3)
     def iter_updates(self):
         for name,delta in self.updates2output.items():
             self.updates[self.params[name]]=self.params[name]-delta

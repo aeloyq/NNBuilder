@@ -18,7 +18,7 @@ import dictionary
 #theano.config.profile=True
 #theano.config.profile_memory=True
 #theano.config.optimizer='fast_compile'
-debugmode.config.debug_time=3
+debugmode.config.debug_time=1
 debugmode.config.debug_batch=5
 
 sample.config.sample_freq=20
@@ -39,7 +39,7 @@ dec_dim=1000
 config.vocab_source='./data/vocab.en-fr.en.pkl'
 config.vocab_target='./data/vocab.en-fr.fr.pkl'
 
-sgd.config.learning_rate=0.0001
+sgd.config.learning_rate=0.000001
 sgd.config.grad_clip_norm=1.
 sgd.config.if_clip=True
 
@@ -47,7 +47,7 @@ adadelta.config.if_clip=True
 sgd.config.grad_clip_norm=1.
 
 config.name='mt_demo'
-config.data_path='./data/datasets.npz'
+config.data_path='./data/devsets.npz'
 config.batch_size=80
 config.valid_batch_size=64
 config.max_epoches=1000
@@ -65,14 +65,14 @@ monitor.config.report_iter=True
 
 
 model=model(source_vocab_size,Int2dX,Int2dY)
-model.sequential(Int2dMask,Int2dMask)
+model.sequential(Float2dMask,Float2dMask)
 model.add(embedding(source_emb_dim))
 model.add(encoder(enc_dim))
-model.add(decoder(dec_dim,target_emb_dim,target_vocab_size,in_dim=enc_dim))
+model.add(decoder(dec_dim,target_emb_dim,target_vocab_size))
 
 
 data=Load_mt(maxlen=50,sort_by_asc=False)
 
 
-result=train(datastream=data,model=model,algrithm=sgd,extension=[monitor])
+#result=train(datastream=data,model=model,algrithm=sgd,extension=[monitor])
 

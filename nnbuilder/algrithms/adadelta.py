@@ -9,39 +9,49 @@ import theano
 import theano.tensor as T
 import numpy as np
 import sgd
+from collections import OrderedDict
 
 base=sgd.algrithm
 class algrithm(base):
     def __init__(self):
         base.__init__(self)
+        self.rou=0.95
+        self.epsilon = 1e-6
 
     def init(self,wt_packs,cost):
         base.init(self,wt_packs, cost)
-        self.pro_rms_g2 = [theano.shared(param.get_value() * self.numpy_floatX(0.),
-                                         name='adadelta_pro_rms_g2_%s' % param.name, borrow=True)
-                           for param in self.params]
-        self.pro_rms_delta_x = [theano.shared(param.get_value() * self.numpy_floatX(0.),
-                                              name='adadelta_pro_rms_delta_x_%s' % param.name, borrow=True)
-                                for param in self.params]
+        self.rou = theano.shared(self.numpy_floatX(self.rou)
+                                                    , name='rou')
+        self.epsilon = theano.shared(self.numpy_floatX(self.epsilon)
+                                 , name='epsilon')
+        self.pEg2 =OrderedDict()
+        self.pEdx2=OrderedDict()
+        self.cEg2 =OrderedDict()
+        self.cEdx2=OrderedDict()
+        self.train_updates=OrderedDict()
+        self.updates_1=OrderedDict()
+        self.updates_2=OrderedDict()
+        self.iter_dict(lambda x:theano.shared(x.get_value() * self.numpy_floatX(0.),
+                                         name='adadelta_pro_g2_%s' % x.name, borrow=True), self.params, self.pEg2)
+        self.iter_dict(lambda x: theano.shared(x.get_value() * self.numpy_floatX(0.),
+                                               name='adadelta_pro_delta_x_%s' % x.name, borrow=True), self.params,
+                       self.pEdx2)
+        self.updates = OrderedDict()
 
     def get_updates(self):
-        self.gparams = T.grad(self.cost, self.params)
-        self.rou=0.95
-        self.epsilon = 1e-6
-        self.current_g2 = [(self.rou*p_g2+(1-self.rou)* (gparam**2))
-                           for gparam, p_g2 in zip(self.gparams, self.pro_rms_g2)]
-        self.current_delta_x = [((T.sqrt(prp_dlt_x + self.epsilon) / (T.sqrt(curnt_g2 + self.epsilon))) * gparam)
-                                for gparam, curnt_g2,prp_dlt_x in zip(self.gparams, self.current_g2, self.pro_rms_delta_x)]
-        if self.if_clip: self.current_delta_x = [self.grad_clip(update2output) for update2output in
-                                                               self.current_delta_x]
-        self.train_updates=[(param, param - curnt_updt)
-                            for param, curnt_updt in zip(self.params, self.current_delta_x)]
-        self.updates_1=[(p_g2, curnt_g2)
-                      for p_g2, curnt_g2 in zip(self.pro_rms_g2, self.current_g2)]
-        self.updates_2 = [(p_g2, self.rou*p_g2+(1-self.rou)*(curnt_dlt_x**2))
-                          for p_g2, curnt_dlt_x in zip(self.pro_rms_delta_x, self.current_delta_x)]
-        self.updates=self.updates_1+self.updates_2
-        return self.train_updates+self.updates
+        self.get_grad()
+        self.iter_dict_(lambda x,y: self.rou*y+(1-self.rou)* (x**2), self.gparams, self.pEg2, self.cEg2)
+        self.iter_dict__(lambda x, y, z: (T.sqrt(z + self.epsilon) / T.sqrt(y + self.epsilon))*x, self.gparams,
+                         self.cEg2, self.pEdx2, self.updates2output)
+        self.iter_dict_(lambda x,y : self.rou*y+(1-self.rou)*(x**2), self.updates2output, self.pEdx2, self.cEdx2)
+        self.iter_updates()
+        for name,pnew in self.cEg2.items():
+            self.updates_1[self.pEg2[name]]=pnew
+        for name,pnew in self.cEdx2.items():
+            self.updates_2[self.pEdx2[name]]=pnew
+        self.updates.update(self.updates_1)
+        self.updates.update(self.updates_2)
+        return self.updates
 
 config=algrithm()
 

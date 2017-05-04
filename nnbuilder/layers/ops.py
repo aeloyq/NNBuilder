@@ -110,7 +110,7 @@ class regularization(ops):
         ops_dict['cost'].append(self)
 
     def evaluate(self, cost ,layers):
-        reg = 0
+        reg = 0.
         params=[]
         for lname,node in layers.items():
             for name, param in node.params.items():

@@ -9,7 +9,6 @@ import gzip
 import theano
 import theano.tensor as T
 import numpy as np
-from preparation import *
 import config
 
 ''' define a function of xor '''

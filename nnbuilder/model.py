@@ -16,36 +16,6 @@ from layers.utils import *
 from layers.ops import *
 
 
-class node_:
-    '''
-    deprecated
-    '''
-
-    def __init__(self, operation, id1=None, id2=None, name=None):
-        self.operation = operation
-        self.id1 = id1
-        self.id2 = id2
-        self.name = name
-        self.output = None
-
-    def evaluate(self):
-        if isinstance(self.id1, layers.baselayer):
-            self.id1 = self.id1.output
-        else:
-            self.id1 = self.id1
-        if isinstance(self.id2, layers.baselayer):
-            self.id2 = self.id2.output
-        else:
-            self.id2 = self.id2
-        if self.operation == '+':
-            self.output = self.id1 + self.id2
-        elif self.operation == '-':
-            self.output = self.id1 - self.id2
-        elif self.operation == '*':
-            self.output = self.id1 * self.id2
-        elif self.operation == '&':
-            self.output = T.concatenate([self.id1, self.id2, self.id1.ndim - 1])
-
 
 X = T.matrix
 Y = T.ivector
@@ -69,6 +39,10 @@ Int4dMask=T.wtensor4
 Int3dMask=T.wtensor3
 Int2dMask=T.wmatrix
 IntMask=T.wvector
+Float4dMask=T.ftensor4
+Float3dMask=T.ftensor3
+Float2dMask=T.fmatrix
+FloatMask=T.fvector
 
 class model():
     def __init__(self,dim,X=X,Y=Y,**kwargs):
@@ -128,7 +102,7 @@ class model():
                     op.evaluate()
                     op_dict.update(op.op_dict)
                 op_dict['mode'] = 'use'
-                node.evaluate(self.layers_input_dict[name],self.layers_in_dim_dict[name],name,**op_dict)
+                node.evaluate(self.layers_input_dict[name],name,**op_dict)
                 self.params.update(node.params)
                 self.roles.update(node.roles)
                 self.raw_output = node
@@ -146,7 +120,7 @@ class model():
                     op.evaluate()
                     op_dict.update(op.op_dict)
                 op_dict['mode'] = 'train'
-                node.evaluate(self.layers_input_dict[name],self.layers_in_dim_dict[name],name,**op_dict)
+                node.evaluate(self.layers_input_dict[name],name,**op_dict)
                 self.output = node
             self.output.get_cost(self.Y)
             self.cost = self.output.cost
@@ -164,7 +138,8 @@ class model():
             self.n_layers += 1
             if name == None: name = 'layer{}'.format(self.n_layers)
             self.layers[name] = element
-            self.layers_in_dim_dict[name]=self.pre_dim
+            element.set_in_dim(self.pre_dim)
+            element.set_children()
             self.layers_input_dict[name]=self.pre_layer
             self.ops[element] = []
             self.pre_layer=element

@@ -28,11 +28,14 @@ class baselayer:
         self.rng = config.rng
         self.trng = config.trng
         self.name = 'None'
+        self.children_name='None'
         self.input = None
         self.output = None
         self.children = OrderedDict()
         self.params = OrderedDict()
+        self.P=OrderedDict()
         self.inited_param = False
+        self.inited_children = False
         self.input_set = False
         self.roles = OrderedDict()
         self.updates = OrderedDict()
@@ -55,6 +58,14 @@ class baselayer:
         self.in_dim_set = False
         self.setattr('in_dim')
         if 'in_dim' in kwargs:self.in_dim_set=True
+
+    def set_children(self):
+        pass
+
+    def set_in_dim(self,dim):
+        if not self.in_dim_set:
+            self.in_dim=dim
+            self.in_dim_set=True
 
     def set_name(self, name):
         '''
@@ -84,13 +95,13 @@ class baselayer:
         self.x_mask=x_mask
         self.y_mask=y_mask
 
-    def get_output(self):
+    def get_output(self, X, P):
         '''
         get the output of layer
         :return: tensor variable
             output of layer
         '''
-        self.output = self.apply()
+        self.output = self.apply(X, P)
         self.public_ops()
 
     def public_ops(self):
@@ -132,13 +143,13 @@ class baselayer:
         elif self.op_dict['mode'] == 'use':
             return ops.op_(tvar, **dict)
 
-    def apply(self):
+    def apply(self,X,P):
         '''
         build the graph of layer
         :return: tensor variable
             the computational graph of this layer
         '''
-        return self.input
+        return X
 
     def allocate(self, rndfn, name, role, *args):
         '''
@@ -158,14 +169,16 @@ class baselayer:
             if callable(self.kwargs[name]):
                 rndfn = self.kwargs[name]
             else:
-                name = name + '_' + self.name
-                self.params[name] = theano.shared(value=self.kwargs[name], name=name, borrow=True)
-                self.roles[name] = role
-                return self.params[name]
-        name = name + '_' + self.name
-        self.params[name] = theano.shared(value=rndfn(*args), name=name, borrow=True)
-        self.roles[name] = role
-        return self.params[name]
+                pname = name + '_' + self.name
+                self.params[pname] = theano.shared(value=self.kwargs[name], name=pname, borrow=True)
+                self.P[name]=self.params[pname]
+                self.roles[pname] = role
+                return self.params[pname]
+        pname = name + '_' + self.name
+        self.params[pname] = theano.shared(value=rndfn(*args), name=pname, borrow=True)
+        self.P[name] = self.params[pname]
+        self.roles[pname] = role
+        return self.params[pname]
 
     def init_params(self):
         '''
@@ -174,7 +187,7 @@ class baselayer:
         '''
         pass
 
-    def initiate(self,input,dim, name, **op_dict):
+    def initiate(self, name,dim=None, **op_dict):
         '''
         initiate the layer
         :param dim: int
@@ -183,17 +196,18 @@ class baselayer:
             name of the layer    
         :return: None
         '''
-        if not self.in_dim_set:
-            self.in_dim=dim
-        self.set_input(input)
+        self.set_in_dim(dim)
         self.op_dict = op_dict
         self.set_name(name)
         if not self.inited_param:
             self.init_params()
             self.inited_param = True
-        self.init_children()
 
-    def feedforward(self, X=None):
+        if not self.inited_children:
+            self.init_children()
+            self.inited_children=True
+
+    def feedforward(self, X=None, P=None):
         '''
         feed forward to get the graph
         :return: tensor variable
@@ -201,12 +215,18 @@ class baselayer:
         '''
         if X is None:
             X=self.input
+        if P == None or P == {}:
+            P=self.P
+        else:
+            if self.children_name in P:
+                dict=self.P
+                P=dict.update(P[self.children_name])
         self.set_input(X)
-        self.get_output()
-        self.merge()
-        return self.apply()
+        self.get_output(X, P)
+        self.merge(1)
+        return self.output
 
-    def build(self, input, dim, name, **op_dict):
+    def build(self, input, name, **op_dict):
         '''
         build the layer
         :param input: tensor variable
@@ -218,7 +238,7 @@ class baselayer:
         :return: tensor variable
             output of layer
         '''
-        self.initiate(input,dim,name, **op_dict)
+        self.initiate(name, **op_dict)
         self.feedforward(input)
         return self.output
 
@@ -228,29 +248,27 @@ class baselayer:
         :return: None
         '''
         for name, child in self.children.items():
-            chd = child
-            in_dim=self.in_dim
-            if isinstance(child, list):
-                chd = child[1]
-                in_dim = child[0]
-            chd.initiate(self.input,in_dim,self.name + '_' + name, **self.op_dict)
-            chd.data=self.data
-            chd.x_mask=self.x_mask
-            chd.y_mask=self.y_mask
-            chd.y=self.y
+            child.set_in_dim(self.in_dim)
+            child.children_name=name
+            child.set_children()
+            child.data=self.data
+            child.x_mask=self.x_mask
+            child.y_mask=self.y_mask
+            child.y=self.y
+            child.initiate(self.name + '_' + name, **self.op_dict)
+        self.merge(0)
 
-    def merge(self):
+    def merge(self,step=0):
         '''
         merge the children to the layer
         :return: None
         '''
         for name, child in self.children.items():
-            chd = child
-            if isinstance(child, list):
-                chd = child[0]
-            self.params.update(chd.params)
-            self.roles.update(chd.roles)
-            self.updates.update(chd.updates)
+            if step==0:
+                self.params.update(child.params)
+                self.roles.update(child.roles)
+            if step == 1:
+                self.updates.update(child.updates)
 
     def setattr(self, name):
         '''
@@ -262,7 +280,7 @@ class baselayer:
         if name in self.kwargs:
             setattr(self, name, self.kwargs[name])
 
-    def evaluate(self,input,dim,name,**op_dict):
+    def evaluate(self,input,name,**op_dict):
         '''
         evaluate for model
         :param input: class on the base of baselayer or tensorvariable
@@ -284,7 +302,7 @@ class baselayer:
             input = input.output
         else:
             input = input
-        self.build(input,dim, name, **op_dict)
+        self.build(input, name, **op_dict)
 
     def debug(self, *variable):
         '''
@@ -305,27 +323,21 @@ class layer(baselayer):
         baselayer.__init__(self, **kwargs)
         self.unit_dim=unit
 
-    def apply(self):
+    def apply(self, X, P):
         if len(self.children) > 1:
             feedlist = []
-            for child in self.children:
+            for name,child in self.children.items():
                 chd = child
-                input = self.input
-                if isinstance(child, list):
-                    chd = child[0]
-                    input = child[1]
-                feedlist.append(chd.feedforward(input))
+                input = X
+                feedlist.append(chd.feedforward(input,P))
             return concatenate(feedlist, axis=feedlist[0].ndim - 1)
         elif len(self.children) == 1:
             child = self.children.items()[0][1]
             chd = child
-            input = self.input
-            if isinstance(child, list):
-                chd = child[0]
-                input = child[1]
-            return chd.feedforward(input)
+            input = X
+            return chd.feedforward(input,P)
         else:
-            return self.input
+            return X
 
 
 class linear(layer):
@@ -340,35 +352,21 @@ class linear(layer):
     def init_params(self):
         self.wt = self.allocate(uniform, 'Wt', weight, self.in_dim, self.unit_dim)
 
-    def apply(self):
-        if self.activation is not None:
-            return self.activation(T.dot(self.input, self.wt))
-        else:
-            return T.dot(self.input, self.wt)
+    def apply(self, X, P):
+        return T.dot(X, P['Wt'])
 
     def public_ops(self):
-        pass
+        if self.activation is not None:
+            self.output= self.activation(self.output)
+        self.output = self.addops('output', self.output, dropout)
 
-class std(layer):
+
+class std(linear):
     '''
-    linear layer
+    std layer
     '''
-
-    def __init__(self, unit, activation=None, **kwargs):
-        layer.__init__(self,unit, **kwargs)
-        self.activation = activation
-
     def init_params(self):
         self.wt = self.allocate(randn, 'Wt', weight, self.in_dim, self.unit_dim)
-
-    def apply(self):
-        if self.activation is not None:
-            return self.activation(T.dot(self.input, self.wt))
-        else:
-            return T.dot(self.input, self.wt)
-
-    def public_ops(self):
-        pass
 
 
 class linear_bias(linear):
@@ -383,11 +381,8 @@ class linear_bias(linear):
         linear.init_params(self)
         self.bi = self.allocate(zeros, 'Bi', bias, self.unit_dim)
 
-    def apply(self):
-        if self.activation is not None:
-            return self.activation(T.dot(self.input, self.wt) + self.bi)
-        else:
-            return T.dot(self.input, self.wt) + self.bi
+    def apply(self, X, P):
+        return T.dot(X, P['Wt']) + P['Bi']
 
 
 class hidden_layer(layer):
@@ -397,7 +392,10 @@ class hidden_layer(layer):
 
     def __init__(self, unit, activation=T.tanh, **kwargs):
         layer.__init__(self,unit, **kwargs)
-        self.children['lb'] = linear_bias(unit, activation)
+        self.activation=activation
+
+    def set_children(self):
+        self.children['lb'] = linear_bias(self.unit_dim, self.activation)
 
 
 class output_layer(layer):
@@ -407,7 +405,7 @@ class output_layer(layer):
 
     def __init__(self, unit, activation=T.nnet.sigmoid, **kwargs):
         layer.__init__(self,unit, **kwargs)
-        self.children['lb'] = linear_bias(unit, activation)
+        self.activation=activation
         self.cost_function = mean_square
         self.cost = None
         self.predict = None
@@ -417,8 +415,9 @@ class output_layer(layer):
         self.setattr('predict')
         self.setattr('error')
 
-    def get_output(self):
-        layer.get_output(self)
+    def set_children(self):
+        self.children['lb'] = linear_bias(self.unit_dim, self.activation)
+
 
     def get_predict(self):
         '''

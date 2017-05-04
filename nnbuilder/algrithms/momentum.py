@@ -9,6 +9,7 @@ import theano
 import theano.tensor as T
 import numpy as np
 import sgd
+from collections import OrderedDict
 
 base=sgd.algrithm
 class algrithm(base):
@@ -18,21 +19,22 @@ class algrithm(base):
         self.momentum_factor=0.9
     def init(self,wt_packs,cost):
         base.init(self, wt_packs, cost)
-        self.pro_update = [theano.shared(param.get_value() * self.numpy_floatX(0.),
-                              name='momentum_pro_update_%s'%param.name,borrow=True)
-                                            for param in self.params]
-    def get_updates(self):
-        self.gparams = T.grad(self.cost, self.params)
         self.momentum_factor_shared=theano.shared(self.numpy_floatX(self.momentum_factor)
                                            ,name='momentum_factor')
-        self.train_updates_current_delta_x = [self.momentum_factor_shared*p_grad+self.learning_rate * gparam for
-                            gparam, p_grad in zip(self.gparams, self.pro_update)]
-        if self.if_clip: self.train_updates_current_delta_x = [self.grad_clip(update2output) for update2output in self.train_updates_current_delta_x]
-        self.train_updates=[(param, param - updt_curnt)
-               for param, updt_curnt in zip(self.params, self.train_updates_current_delta_x)]
-        self.updates=[(pro_updt, updt_curnt)
-               for pro_updt, updt_curnt in zip(self.pro_update, self.train_updates_current_delta_x)]
-        return self.train_updates+self.updates
+        self.pu=OrderedDict()
+        self.iter_dict(lambda x: theano.shared(x.get_value() * self.numpy_floatX(0.),
+                                               name='rmsprop_pro_rms_g2_%s' % x.name, borrow=True), self.params,
+                       self.pu)
+        self.updates_pu=OrderedDict()
+    def get_updates(self):
+        self.get_grad()
+        self.iter_dict_(lambda x, y: self.momentum_factor_shared * y + self.learning_rate * x, self.gparams,
+                        self.pu, self.updates2output)
+        self.iter_updates()
+        for name, pnew in self.updates2output.items():
+            self.updates_pu[self.updates2output[name]] = pnew
+        self.updates.update(self.updates_pu)
+        return self.updates
     #TODO: the grad updated to two differen shared variable is that incline to time-consuming?need for test
 
 config=algrithm()

@@ -70,7 +70,7 @@ class ex(base):
                 self.logger(
                     'input:    %s' % layer.input + '  shape:' + str(debug_result[0].shape), 3)
                 self.logger('pprint:', 3)
-                self.logger(str(theano.pp(layer.input)), 3)
+                self.logger(str(theano.pp(layer.input))[:100], 3)
                 self.logger('value:', 3)
                 self.logger(str(debug_result[0]) + '    id : %s' % len(values), 4)
                 values.append(debug_result[0])
@@ -87,7 +87,7 @@ class ex(base):
                     'output:    %s' % layer.output + '  shape:' + str(debug_result[1].shape), 3)
                 self.logger('pprint:', 3)
                 self.logger('▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲', 3)
-                self.logger(str(theano.pp(layer.output)), 3)
+                self.logger(str(theano.pp(layer.output))[:100], 3)
                 self.logger('▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲', 3)
                 self.logger('value:', 3)
                 self.logger(str(debug_result[1]) + '    id : %s' % len(values), 4)
@@ -125,9 +125,9 @@ class ex(base):
             self.logger("\r\n\r\nUpdate Debug Info:\r\n\r\n", 1)
             debug_stream=[]
             up=[]
-            for update in model.updates:
-                debug_stream.append(update[1])
-                up.append(update[0])
+            for name,update in model.train_updates.items():
+                debug_stream.append(update)
+                up.append(name)
 
             fn = self.get_up_func(debug_stream, model.updates)
             debug_result = fn(*data)

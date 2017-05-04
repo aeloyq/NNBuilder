@@ -77,6 +77,7 @@ def train(datastream, model, algrithm, extension):
     if dict_param['stop']:
         return -1, [], [], dict_param['debug_result'], [train_model, valid_model, test_model, sample_model, model,
                                                         NNB_model, optimizer]
+    import timeit
     while (True):
         # Stop When Timeout
         if dict_param['epoches'] > max_epoches - 1 and max_epoches != -1:
@@ -108,7 +109,7 @@ def train(datastream, model, algrithm, extension):
                 return dict_param['epoches'], dict_param['errors'], dict_param['costs'], dict_param['debug_result'], [
                     train_model, valid_model, test_model, sample_model, model, NNB_model, optimizer]
             # Stop When Sucess
-            if dict_param['train_error'] == 0:
+            if train_result == 0:
                 testdatas = []
                 for _, index in test_minibatches:
                     data = prepare_data(test_X, test_Y, index)
@@ -129,8 +130,17 @@ def train(datastream, model, algrithm, extension):
                                                                                                           optimizer]
 
 
-def use():
-    pass
+def use(model):
+    model.build()
+    NNB_model = model
+    inputs = NNB_model.inputs
+    params = NNB_model.params
+    cost = NNB_model.cost
+    raw_cost = NNB_model.raw_cost
+    error = NNB_model.error
+    predict = NNB_model.predict
+    return theano.function(inputs,predict)
+
 
 
 def prepare_data(data_x, data_y, index):
@@ -163,8 +173,8 @@ def prepare_data(data_x, data_y, index):
             y_new.append([y[i][idx] for i in range(len(y))])
         y = y_new
         mask_y = mask_y.transpose()
-    if config.int_x: x = np.asarray(x).astype('int16').tolist()
-    if config.int_y: y = np.asarray(y).astype('int16').tolist()
+    if config.int_x: x = np.asarray(x).astype('int64').tolist()
+    if config.int_y: y = np.asarray(y).astype('int64').tolist()
     data = [x, y]
     if config.mask_x:
         data.append(mask_x)
@@ -231,15 +241,18 @@ def get_sample_data(datastream):
     data_x = train_X
     data_y = train_Y
     x = [data_x[index]]
+
     if config.transpose_x:
-        mask_x = np.ones(len(x)).astype(theano.config.floatX)[:, None]
-        x = np.array(x)[:, None]
+        x=np.asarray(x)
+        x=x.transpose()
+        mask_x = np.ones(x.shape[0],1).astype(theano.config.floatX)
     y = [data_y[index]]
     if config.transpose_y:
-        mask_y = np.ones(len(y)).astype(theano.config.floatX)[:, None]
-        y = np.array(y)[:, None]
-    if config.int_x: x = np.asarray(x).astype('int16').tolist()
-    if config.int_y: y = np.asarray(y).astype('int16').tolist()
+        y=np.asarray(y)
+        y=y.transpose()
+        mask_y = np.ones(y.shape[0],1).astype(theano.config.floatX)
+    if config.int_x: x = np.asarray(x).astype('int64').tolist()
+    if config.int_y: y = np.asarray(y).astype('int64').tolist()
     data = [x, y]
     if config.mask_x:
         data.append(mask_x)
@@ -291,6 +304,7 @@ def get_modelstream(model, algrithm, get_fn=True):
     optimizer.init(params, cost)
     train_updates = optimizer.get_updates()
     model_updates = NNB_model.updates
+    NNB_model.train_updates=train_updates
     debug_output = []
     for key in NNB_model.layers:
         debug_output.extend(NNB_model.layers[key].debug_stream)
