@@ -37,6 +37,8 @@ model = model(100000,Int2dX)
 model.sequential()
 model.add(embedding(10))
 model.add(gru(128,out='final'))
+model.add(dropout(0.5))
 model.add(softmax(2))
 
-result_stream = train(datastream=datastream,model=model,algrithm=sgd, extension=[monitor])
+
+result_stream = train(datastream=datastream,model=model,algrithm=adam, extension=[monitor])

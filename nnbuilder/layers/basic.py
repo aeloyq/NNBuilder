@@ -28,7 +28,7 @@ class baselayer:
         self.rng = config.rng
         self.trng = config.trng
         self.name = 'None'
-        self.children_name='None'
+        self.children_name=''
         self.input = None
         self.output = None
         self.children = OrderedDict()
@@ -112,7 +112,7 @@ class baselayer:
         please overwrite this function
         :return: None
         '''
-        self.output = self.addops('output', self.output, dropout)
+        self.output = self.addops('output', self.output, dropout,False)
 
     def addops(self, name, tvar, ops, switch=True):
         '''
@@ -130,7 +130,7 @@ class baselayer:
         :return: callable
             the operation function
         '''
-        name = name + '_' + ops.name
+        name = self.name+'_'+name + '_' + ops.name
         if name not in self.ops: self.ops[name] = switch
         if not self.ops[name]: return tvar
         if name in self.op_dict:
@@ -268,6 +268,7 @@ class baselayer:
                 self.params.update(child.params)
                 self.roles.update(child.roles)
             if step == 1:
+                self.ops.update(child.ops)
                 self.updates.update(child.updates)
 
     def setattr(self, name):
@@ -358,7 +359,7 @@ class linear(layer):
     def public_ops(self):
         if self.activation is not None:
             self.output= self.activation(self.output)
-        self.output = self.addops('output', self.output, dropout)
+        self.output = self.addops('output', self.output, dropout,False)
 
 
 class std(linear):

@@ -245,12 +245,12 @@ def get_sample_data(datastream):
     if config.transpose_x:
         x=np.asarray(x)
         x=x.transpose()
-        mask_x = np.ones(x.shape[0],1).astype(theano.config.floatX)
+        mask_x = np.ones([x.shape[0],1]).astype(theano.config.floatX)
     y = [data_y[index]]
     if config.transpose_y:
         y=np.asarray(y)
         y=y.transpose()
-        mask_y = np.ones(y.shape[0],1).astype(theano.config.floatX)
+        mask_y = np.ones([y.shape[0],1]).astype(theano.config.floatX)
     if config.int_x: x = np.asarray(x).astype('int64').tolist()
     if config.int_y: y = np.asarray(y).astype('int64').tolist()
     data = [x, y]

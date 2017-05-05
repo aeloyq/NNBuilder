@@ -15,9 +15,6 @@ from nnbuilder.model import *
 from nnbuilder.main import *
 import dictionary
 
-#theano.config.profile=True
-#theano.config.profile_memory=True
-#theano.config.optimizer='fast_compile'
 debugmode.config.debug_time=1
 debugmode.config.debug_batch=5
 
@@ -68,11 +65,17 @@ model=model(source_vocab_size,Int2dX,Int2dY)
 model.sequential(Float2dMask,Float2dMask)
 model.add(embedding(source_emb_dim))
 model.add(encoder(enc_dim))
+model.add(dropout(0.2))
 model.add(decoder(dec_dim,target_emb_dim,target_vocab_size))
+model.add(dropout(0.2))
 
+model.build()
 
 data=Load_mt(maxlen=50,sort_by_asc=False)
 
+f=theano.function(model.inputs,model.predict,on_unused_input='ignore')
+d=get_sample_data(data)
 
-#result=train(datastream=data,model=model,algrithm=sgd,extension=[monitor])
+
+#result=train(datastream=data,model=model,algrithm=adam,extension=[monitor])
 

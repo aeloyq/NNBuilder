@@ -42,14 +42,13 @@ class dropout(ops):
         # if dp_name != None and use_noise#Todo:multi setting of noise
         self.noise=noise
         self.dp_name=gate
-        self.noise = theano.shared(value=self.noise, name='dropout_noise', borrow=True)
 
 
     @staticmethod
     def op(tvar, **kwargs):
         return tvar * config.trng.binomial(tvar.shape,
                                            p=kwargs['use_noise'], n=1,
-                                           dtype=tvar.dtype)
+                                           dtype='float32')
 
     @staticmethod
     def op_(tvar, **kwargs):
