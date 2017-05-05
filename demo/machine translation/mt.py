@@ -69,13 +69,13 @@ model.add(dropout(0.2))
 model.add(decoder(dec_dim,target_emb_dim,target_vocab_size))
 model.add(dropout(0.2))
 
-model.build()
+#model.build()
 
 data=Load_mt(maxlen=50,sort_by_asc=False)
 
-f=theano.function(model.inputs,model.predict,on_unused_input='ignore')
-d=get_sample_data(data)
+#f=theano.function(model.inputs,model.predict,on_unused_input='ignore')
+#d=get_sample_data(data)
 
 
-#result=train(datastream=data,model=model,algrithm=adam,extension=[monitor])
+result=train(datastream=data,model=model,algrithm=adam,extension=[monitor])
 

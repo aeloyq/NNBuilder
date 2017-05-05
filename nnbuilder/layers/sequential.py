@@ -500,7 +500,6 @@ class decoder(sequential):
         if isinstance(self.core, lstm):
             initiate_state.append(T.zeros([self.beam_size, self.n_samples, self.unit_dim], theano.config.floatX))
         initiate_state.append(None)
-        initiate_state.append(None)
 
         context = [self.children['context'].feedforward(self.input), self.input]
         context.append(self.x_mask)
@@ -528,7 +527,7 @@ class decoder(sequential):
         from theano.ifelse import ifelse
 
         def slice(_x, n, dim):
-            return _x[:, :, n * dim:(n + 1) * dim]
+            return _x[ :, n * dim:(n + 1) * dim]
 
         def step_lstm(y_emb_, s_, c_, y_mm, pctx, ctx, x_m, swt, sbi, su, adwt, acwt, acbi, gwt, gbi, gu, erwt, erbi,
                       epwt, egwt, edwt, edbi, wemb):
@@ -611,10 +610,10 @@ class decoder(sequential):
             else:
                 prob = T.tanh(prob)
             prob = T.nnet.softmax(T.dot(prob, edwt) + edbi)
-            prob = self.trng.binomial(pvals=prob)
+            prob = self.trng.multinomial(pvals=prob)
             pred=prob.argmax(-1)
             y_emb = T.reshape(wemb[pred.flatten()], [self.n_samples,self.emb_dim])
-            return [y_emb, s, pred, y_flat, p_y_flat], theano.scan_module.until(T.all(T.eq(pred, 0)))
+            return [y_emb, s, pred], theano.scan_module.until(T.all(T.eq(pred, 0)))
 
         step = None
         if self.core == lstm:
@@ -626,9 +625,9 @@ class decoder(sequential):
                                      non_sequences=context, strict=True, n_steps=50)
 
         if self.core == lstm:
-            y_emb, s, pred, y_flat, p_y_flat = result
+            y_emb, s, pred = result
         elif self.core == gru:
-            y_emb, s, pred, y_flat, p_y_flat = result
+            y_emb, s, pred = result
 
 
         self.predict = pred
@@ -674,7 +673,7 @@ class decoder(sequential):
         from theano.ifelse import ifelse
 
         def slice(_x, n, dim):
-            return _x[:, n * dim:(n + 1) * dim]
+            return _x[:, :, n * dim:(n + 1) * dim]
 
         def step_lstm(y_emb_, s_, c_, y_mm, pctx, ctx, x_m, swt, sbi, su, adwt, acwt, acbi, gwt, gbi, gu, erwt, erbi,
                       epwt, egwt, edwt, edbi, wemb):
