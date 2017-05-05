@@ -75,6 +75,7 @@ class model():
         self.X_mask = X('X_mask')
         self.Y_mask = Y('Y_mask')
         self.updates = OrderedDict()
+        self.raw_updates = OrderedDict()
 
     def set_inputs(self, inputs):
         self.inputs = inputs
@@ -132,6 +133,7 @@ class model():
         for key in self.layers:
             self.user_debug_stream.extend(self.layers[key].debug_stream)
             self.updates.update(self.layers[key].updates)
+            self.raw_updates.update(self.layers[key].raw_updates)
 
     def add(self,element,name=None):
         if isinstance(element,basic.baselayer):

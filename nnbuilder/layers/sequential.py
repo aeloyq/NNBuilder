@@ -498,7 +498,7 @@ class decoder(sequential):
         s_0 = T.dot(s_0, self.wt_iniate_s)
         initiate_state = [y_0, s_0]
         if isinstance(self.core, lstm):
-            initiate_state.append(T.zeros([self.beam_size, self.n_samples, self.unit_dim], theano.config.floatX))
+            initiate_state.append(T.zeros([self.n_samples, self.unit_dim], theano.config.floatX))
         initiate_state.append(None)
 
         context = [self.children['context'].feedforward(self.input), self.input]
@@ -523,11 +523,6 @@ class decoder(sequential):
             for j in range(1, len(ii)):
                 iii = iii + '_' + ii[j]
             context.append(self.params[iii])
-
-        from theano.ifelse import ifelse
-
-        def slice(_x, n, dim):
-            return _x[ :, n * dim:(n + 1) * dim]
 
         def step_lstm(y_emb_, s_, c_, y_mm, pctx, ctx, x_m, swt, sbi, su, adwt, acwt, acbi, gwt, gbi, gu, erwt, erbi,
                       epwt, egwt, edwt, edbi, wemb):
@@ -569,39 +564,14 @@ class decoder(sequential):
             yi = T.dot(y_emb_, swt) + sbi
             ygi = T.dot(y_emb_, swtg) + sbig
 
-            gate = ygi + T.dot(s_, sug)
-            gate = T.nnet.sigmoid(gate)
-            z_gate = slice(gate, 0, self.unit_dim)
-            self.addops('state_dec_z_gate', z_gate, dropout, False)
-            r_gate = slice(gate, 1, self.unit_dim)
-            self.addops('state_dec_r_gate', r_gate, dropout, False)
-            s_c = T.tanh(yi + T.dot(r_gate * s_, su))
-            s = (1 - z_gate) * s_ + z_gate * s_c
-            self.addops('state_dec_hidden_unit', s, dropout)
-            s1 = s
-
-            ps = T.dot(s1, adwt)
-            att_layer_1 = T.tanh(pctx + ps)
-            self.addops('attention_att_in', att_layer_1, dropout)
-            att_layer_2 = T.dot(att_layer_1, acwt) + acbi
-            att_layer_2 = att_layer_2.reshape([att_layer_2.shape[0], att_layer_2.shape[1]])
-            eij = T.exp(att_layer_2) * x_m
-            eij = eij - eij.max(0, keepdims=True)
-            aij = eij / eij.sum(0, keepdims=True)
-
-            ci = (ctx* aij[:, :, None]).sum(0)
+            s1 = self.children['state_dec'].feedstep()[0](yi, ygi, s_, su, sug)
+            aij = self.children['attention'].feedforward([s1, pctx, x_m], {
+                'attention': {'dec_s': {'Wt': adwt}, 'combine': {'Wt': acwt, 'Bi': acbi}}})
+            ci = (ctx * aij[:, :, None]).sum(0)
             condition = T.dot(ci, gwt) + gbi
             conditiong = T.dot(ci, gwtg) + gbig
-
-            gate = conditiong + T.dot(s1, gug)
-            gate = T.nnet.sigmoid(gate)
-            z_gate = slice(gate, 0, self.unit_dim)
-            self.addops('glimpse_dec_z_gate', z_gate, dropout, False)
-            r_gate = slice(gate, 1, self.unit_dim)
-            self.addops('glimpse_dec_r_gate', r_gate, dropout, False)
-            s_c = T.tanh(condition + T.dot(r_gate * s1, gu))
-            s = (1 - z_gate) * s1 + z_gate * s_c
-            self.addops('glimpse_dec_hidden_unit', s, dropout)
+            s2 = self.children['glimpse_dec'].feedstep()[0](condition, conditiong, s1, gu, gug)
+            s = s2
 
             prob = T.dot(s, erwt) + T.dot(y_emb_, epwt) + T.dot(ci, egwt) + erbi
             self.addops('emitter_emit_gate', prob, dropout)
@@ -613,7 +583,7 @@ class decoder(sequential):
             prob = self.trng.multinomial(pvals=prob)
             pred=prob.argmax(-1)
             y_emb = T.reshape(wemb[pred.flatten()], [self.n_samples,self.emb_dim])
-            return [y_emb, s, pred], theano.scan_module.until(T.all(T.eq(pred, 0)))
+            return [y_emb, s, pred]
 
         step = None
         if self.core == lstm:
@@ -621,8 +591,11 @@ class decoder(sequential):
         elif self.core == gru:
             step = step_gru
 
-        result, update = theano.scan(step, sequences=[], outputs_info=initiate_state,
-                                     non_sequences=context, strict=True, n_steps=50)
+        result, updates = theano.scan(step, sequences=[], outputs_info=initiate_state,
+                                     non_sequences=context, strict=True, n_steps=self.y.shape[0])
+
+        self.updates.update(updates)
+        self.raw_updates=updates
 
         if self.core == lstm:
             y_emb, s, pred = result

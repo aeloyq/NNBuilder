@@ -39,6 +39,7 @@ class baselayer:
         self.input_set = False
         self.roles = OrderedDict()
         self.updates = OrderedDict()
+        self.raw_updates = OrderedDict()
         self.ops = OrderedDict()
         self.debug_stream = []
         self.x_mask=None

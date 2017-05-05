@@ -309,6 +309,7 @@ def get_modelstream(model, algrithm, get_fn=True):
     for key in NNB_model.layers:
         debug_output.extend(NNB_model.layers[key].debug_stream)
     updates = model_updates.items() + train_updates.items()
+    raw_updates=model.raw_updates
     if get_fn:
         logger('Compiling Training Model', 1)
         train_model = theano.function(inputs=inputs,
