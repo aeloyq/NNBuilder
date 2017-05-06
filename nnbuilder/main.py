@@ -318,19 +318,19 @@ def get_modelstream(model, algrithm, get_fn=True):
         logger('Compiling Validing Model', 1)
         valid_model = theano.function(inputs=inputs,
                                       outputs=error,
-                                      updates=model_updates)
+                                      updates=raw_updates)
         logger('Compiling Test Model', 1)
         test_model = theano.function(inputs=inputs,
                                      outputs=[raw_cost, error],
-                                     updates=model_updates)
+                                     updates=raw_updates)
         logger('Compiling Sampling Model', 1)
         sample_model = theano.function(inputs=inputs,
                                        outputs=[predict, raw_cost, error],
-                                       updates=model_updates)
+                                       updates=raw_updates)
         logger('Compiling Model', 1)
         model = theano.function(inputs=inputs,
                                 outputs=predict, on_unused_input='ignore',
-                                updates=model_updates)
+                                updates=raw_updates)
         return [train_model, valid_model, test_model, sample_model, model, [], optimizer]
     else:
         return [None, None, None, None, None, [], optimizer]

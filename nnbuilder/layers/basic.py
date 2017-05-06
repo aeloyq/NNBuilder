@@ -200,6 +200,8 @@ class baselayer:
         self.set_in_dim(dim)
         self.op_dict = op_dict
         self.set_name(name)
+        self.updates=OrderedDict()
+        self.raw_updates=OrderedDict()
         if not self.inited_param:
             self.init_params()
             self.inited_param = True

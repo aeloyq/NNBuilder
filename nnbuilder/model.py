@@ -113,6 +113,8 @@ class model():
             self.raw_cost = self.raw_output.cost
             self.predict = self.raw_output.predict
             self.error = self.raw_output.error
+            for key in self.layers:
+                self.raw_updates.update(self.layers[key].raw_updates)
 
         def train():
             for name, node in self.layers.items():
@@ -125,6 +127,8 @@ class model():
                 self.output = node
             self.output.get_cost(self.Y)
             self.cost = self.output.cost
+            for key in self.layers:
+                self.updates.update(self.layers[key].updates)
 
         raw()
         train()
@@ -132,8 +136,6 @@ class model():
             self.cost = ops.evaluate(self.cost,self.layers)
         for key in self.layers:
             self.user_debug_stream.extend(self.layers[key].debug_stream)
-            self.updates.update(self.layers[key].updates)
-            self.raw_updates.update(self.layers[key].raw_updates)
 
     def add(self,element,name=None):
         if isinstance(element,basic.baselayer):

@@ -18,6 +18,7 @@ class ex(base):
         self.save_len=3
         self.load=True
         self.save=True
+        self.overwrite=True
         self.load_file_name=''
     def init(self):
         base.init(self)
@@ -65,11 +66,11 @@ class ex(base):
         kwargs = self.kwargs
         if kwargs['iteration_total'] % self.save_freq == 0:
             savename=self.path + '/%s.npz' % (time.asctime().replace(' ','-').replace(':','_'))
-            self.save_npz(savename)
+            self.save_npz(savename,self.overwrite)
 
     def after_train(self):
         kwargs = self.kwargs
-        self.save_npz(self.path+'/finall')
+        self.save_npz(self.path+'/finall',self.overwrite)
 
     def save_npz(self,name,delete=True):
         kwargs = self.kwargs

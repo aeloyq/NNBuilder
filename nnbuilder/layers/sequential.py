@@ -593,8 +593,6 @@ class decoder(sequential):
 
         result, updates = theano.scan(step, sequences=[], outputs_info=initiate_state,
                                      non_sequences=context, strict=True, n_steps=self.y.shape[0])
-
-        self.updates.update(updates)
         self.raw_updates=updates
 
         if self.core == lstm:
@@ -753,8 +751,9 @@ class decoder(sequential):
         elif self.core == gru:
             step = step_gru
 
-        result, update = theano.scan(step, sequences=[], outputs_info=initiate_state,
+        result, updates = theano.scan(step, sequences=[], outputs_info=initiate_state,
                                      non_sequences=context, strict=True, n_steps=50)
+        self.raw_updates=updates
 
         if self.core == lstm:
             y_emb, s, y_mm, is_first, y_flat, p_y_flat = result
@@ -766,8 +765,8 @@ class decoder(sequential):
 
     def get_cost(self, Y):
         y_flat = Y.flatten()
-        y_flat_idx = T.arange(y_flat.shape[0]) * self.vocab_size + y_flat
-        cost = -T.log((self.output.flatten() + 1e-8)[y_flat_idx])
+        output_flat=self.output.reshape([Y.shape[0]*self.n_samples,self.vocab_size])
+        cost=T.nnet.categorical_crossentropy(output_flat,Y.flatten())
         cost = cost.reshape([Y.shape[0], Y.shape[1]])
         self.cost = (cost * self.y_mask).sum(0)
         self.cost = T.mean(self.cost)
