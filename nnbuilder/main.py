@@ -91,6 +91,7 @@ def train(datastream, model, algrithm, extension):
             train_result = train_model(*data)
             dict_param['train_result'] = train_result
             dict_param['iteration_total'] += 1
+            for ex in extension_instance:   ex.after_iteration()
             if (idx == train_minibatches[-1][0]):
                 # After epoch
                 dict_param['epoches'] += 1
@@ -103,7 +104,6 @@ def train(datastream, model, algrithm, extension):
                 dict_param['errors'].append(dict_param['train_error'])
                 dict_param['costs'].append(np.mean(test_result[:, 0]))
                 for ex in extension_instance:   ex.after_epoch()
-            for ex in extension_instance:   ex.after_iteration()
             if dict_param['stop']:
                 for ex in extension_instance:   ex.after_train()
                 return dict_param['epoches'], dict_param['errors'], dict_param['costs'], dict_param['debug_result'], [

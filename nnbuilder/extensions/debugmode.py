@@ -101,7 +101,7 @@ class ex(base):
 
             self.logger("\r\n\r\nOutput Debug Info:\r\n\r\n", 1)
             debug_stream=[model.output.output,model.predict,model.cost,model.raw_cost,model.error]
-            updt={}
+            updt=OrderedDict()
             updt.update(self.updates)
             updt.update(model.raw_updates)
             fn = self.get_up_func(debug_stream,updt)
