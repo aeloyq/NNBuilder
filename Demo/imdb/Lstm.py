@@ -15,13 +15,13 @@ from nnbuilder.main import *
 
 
 nnbuilder.config.name='imdb'
-nnbuilder.config.max_epoches=10
+nnbuilder.config.max_epoches=100
 nnbuilder.config.valid_batch_size=64
 nnbuilder.config.batch_size=64
 nnbuilder.config.transpose_x=True
 nnbuilder.config.int_x=True
 nnbuilder.config.mask_x=True
-nnbuilder.config.data_path='../Datasets/imdb.pkl'
+nnbuilder.config.data_path='../datasets/imdb.pkl'
 
 earlystop.config.patience=10000
 earlystop.config.valid_freq=2500

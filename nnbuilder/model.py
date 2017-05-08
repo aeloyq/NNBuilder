@@ -143,7 +143,6 @@ class model():
             if name == None: name = 'layer{}'.format(self.n_layers)
             self.layers[name] = element
             element.set_in_dim(self.pre_dim)
-            element.set_children()
             self.layers_input_dict[name]=self.pre_layer
             self.ops[element] = []
             self.pre_layer=element

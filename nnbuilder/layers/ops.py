@@ -52,7 +52,7 @@ class dropout(ops):
 
     @staticmethod
     def op_(tvar, **kwargs):
-        return tvar * (1 - kwargs['use_noise'])
+        return tvar * kwargs['use_noise']
 
     def evaluate(self):
         if self.dp_name != None:

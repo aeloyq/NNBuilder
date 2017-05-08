@@ -26,13 +26,10 @@ class ex(base):
         self.report_iter_frequence = 5
         self.report_epoch = True
         self.plot = False
-        self.plot_frequence = -1
         self.dotprint = True
-        self.start_iter = -1
 
     def init(self):
         base.init(self)
-        if self.plot_frequence == -1: self.plot_frequence = len(self.kwargs['minibatches'][0])
 
     def before_train(self):
         kwargs = self.kwargs
@@ -46,10 +43,6 @@ class ex(base):
 
         self.params = kwargs['dim_model'].params
         self.roles = kwargs['dim_model'].roles
-        if self.start_iter == -1:
-            self.start_iter = 0
-            self.plot_costs = []
-            self.plot_errors = []
         if self.dotprint: d3v.d3viz(kwargs['dim_model'].output.output, self.path + 'model.html')
 
     def after_iteration(self):
@@ -64,42 +57,26 @@ class ex(base):
                             "Cost:%.4f" % (self.kwargs['epoches'], iter,
                                            iteration_time, self.kwargs['train_result']), 2)
 
-        if self.plot:
 
-            iter = self.kwargs['iteration_total']
-            if iter % (self.plot_frequence) == 0:
-                train_result = self.kwargs['train_result']
-                errors = self.kwargs['errors']
-                t_plot = threading.Thread(target=self.plot_func, name='monitor.plot', args=(iter, train_result, errors))
-                t_plot.start()
 
-    def plot_func(self, iter, train_result, errors):
-        x_axis = range(self.start_iter, iter, self.plot_frequence)
-
-        if len(x_axis) > len(self.plot_costs):
-            self.plot_costs.append(train_result)
-            if len(errors) > 0:
-                self.plot_errors.append(errors[-1])
-            else:
-                self.plot_errors.append(1.)
+    def plot_func(self, costs, errors):
+        x_axis = np.arange(len(costs))+1
 
         plt.figure(1)
         plt.cla()
-        x_axis = range(self.start_iter, iter, self.plot_frequence)
         plt.title(nnbuilder.config.name)
         plt.ylabel('Loss')
         plt.xlabel('Iters')
-        plt.plot(x_axis, self.plot_costs, label='Loss', color='orange')
+        plt.plot(x_axis, costs, label='Loss', color='orange')
         plt.legend()
         plt.savefig(self.path + 'process_cost.png')
 
         plt.figure(2)
         plt.cla()
-        x_axis = range(self.start_iter, iter, self.plot_frequence)
         plt.title(nnbuilder.config.name)
         plt.ylabel('Error')
         plt.xlabel('Iters')
-        plt.plot(x_axis, self.plot_errors, label='Error', color='blue')
+        plt.plot(x_axis, errors, label='Error', color='blue')
         plt.legend()
         plt.savefig(self.path + 'process_error.png')
 
@@ -144,6 +121,11 @@ class ex(base):
             self.logger("  Error:%.4f%%" % (kwargs['train_error'] * 100), 2)
             self.logger("◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆", 2)
             self.logger("", 2)
+        if self.plot:
+            costs = self.kwargs['costs']
+            errors = self.kwargs['errors']
+            t_plot = threading.Thread(target=self.plot_func, name='monitor.plot', args=(costs, errors))
+            t_plot.start()
 
     def after_train(self):
         kwargs = self.kwargs
@@ -169,24 +151,6 @@ class ex(base):
         if kwargs['best_valid_error'] != 1.:
             self.logger("Best valid error:%.4f%%" % (kwargs['best_valid_error'] * 100), 1)
         self.logger("Finall test error:%.4f%%" % (test_error * 100), 1)
-
-    def save_(self, dict):
-        kwargs = self.kwargs
-        x_axis = range(self.start_iter, kwargs['iteration_total'], self.plot_frequence)
-        if len(x_axis) > len(self.plot_costs):
-            self.plot_costs.append(kwargs['train_result'])
-            if len(kwargs['errors']) > 0:
-                self.plot_errors.append(kwargs['errors'][-1])
-            else:
-                self.plot_errors.append(1.)
-        dict['start_iter'] = self.start_iter
-        dict['plot_costs'] = self.plot_costs
-        dict['plot_errors'] = self.plot_errors
-
-    def load_(self, dict):
-        self.start_iter = dict['start_iter']
-        self.plot_costs = dict['plot_costs']
-        self.plot_errors = dict['plot_errors']
 
 
 config = ex({})

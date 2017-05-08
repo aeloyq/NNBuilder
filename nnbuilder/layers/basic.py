@@ -7,12 +7,13 @@ Created on Sat Dec 17 13:55:42 2016
 
 from nnbuilder import config
 from collections import OrderedDict
-from roles import weight,bias
+from roles import weight, bias
 from utils import *
 from ops import *
 import numpy as np
 import theano
 import theano.tensor as T
+
 
 class baselayer:
     '''
@@ -28,12 +29,12 @@ class baselayer:
         self.rng = config.rng
         self.trng = config.trng
         self.name = 'None'
-        self.children_name=''
+        self.children_name = ''
         self.input = None
         self.output = None
         self.children = OrderedDict()
         self.params = OrderedDict()
-        self.P=OrderedDict()
+        self.P = OrderedDict()
         self.inited_param = False
         self.inited_children = False
         self.input_set = False
@@ -42,10 +43,10 @@ class baselayer:
         self.raw_updates = OrderedDict()
         self.ops = OrderedDict()
         self.debug_stream = []
-        self.x_mask=None
-        self.y_mask=None
-        self.y=None
-        self.data=OrderedDict()
+        self.x_mask = None
+        self.y_mask = None
+        self.y = None
+        self.data = OrderedDict()
         self.setattr('name')
         self.setattr('input')
         self.setattr('output')
@@ -58,15 +59,19 @@ class baselayer:
         self.setattr('data')
         self.in_dim_set = False
         self.setattr('in_dim')
-        if 'in_dim' in kwargs:self.in_dim_set=True
+        if 'in_dim' in kwargs: self.in_dim_set = True
 
     def set_children(self):
+        '''
+        set the children of this layer
+        :return: None
+        '''
         pass
 
-    def set_in_dim(self,dim):
+    def set_in_dim(self, dim):
         if not self.in_dim_set:
-            self.in_dim=dim
-            self.in_dim_set=True
+            self.in_dim = dim
+            self.in_dim_set = True
 
     def set_name(self, name):
         '''
@@ -86,24 +91,15 @@ class baselayer:
         '''
         self.input = X
 
-    def set_mask(self, x_mask,y_mask):
+    def set_mask(self, x_mask, y_mask):
         '''
         set the input of layer
         :param X: tensor variable
             input tensor
         :return: None
         '''
-        self.x_mask=x_mask
-        self.y_mask=y_mask
-
-    def get_output(self, X, P):
-        '''
-        get the output of layer
-        :return: tensor variable
-            output of layer
-        '''
-        self.output = self.apply(X, P)
-        self.public_ops()
+        self.x_mask = x_mask
+        self.y_mask = y_mask
 
     def public_ops(self):
         '''
@@ -113,7 +109,7 @@ class baselayer:
         please overwrite this function
         :return: None
         '''
-        self.output = self.addops('output', self.output, dropout,False)
+        self.output = self.addops('output', self.output, dropout, False)
 
     def addops(self, name, tvar, ops, switch=True):
         '''
@@ -131,7 +127,7 @@ class baselayer:
         :return: callable
             the operation function
         '''
-        name = self.name+'_'+name + '_' + ops.name
+        name = self.name + '_' + name + '_' + ops.name
         if name not in self.ops: self.ops[name] = switch
         if not self.ops[name]: return tvar
         if name in self.op_dict:
@@ -144,13 +140,35 @@ class baselayer:
         elif self.op_dict['mode'] == 'use':
             return ops.op_(tvar, **dict)
 
-    def apply(self,X,P):
+    def initiate(self, name, dim=None, **op_dict):
         '''
-        build the graph of layer
-        :return: tensor variable
-            the computational graph of this layer
+        initiate the layer
+        :param dim: int
+            dim of the input
+        :param name: str
+            name of the layer    
+        :return: None
         '''
-        return X
+        self.set_in_dim(dim)
+        self.op_dict = op_dict
+        self.set_name(name)
+        self.updates = OrderedDict()
+        self.raw_updates = OrderedDict()
+        if not self.inited_param:
+            self.init_params()
+            self.inited_param = True
+        if not self.inited_children:
+            self.set_children()
+            self.inited_children = True
+
+        self.init_children()
+
+    def init_params(self):
+        '''
+        initiate the params
+        :return: None
+        '''
+        pass
 
     def allocate(self, rndfn, name, role, *args):
         '''
@@ -172,7 +190,7 @@ class baselayer:
             else:
                 pname = name + '_' + self.name
                 self.params[pname] = theano.shared(value=self.kwargs[name], name=pname, borrow=True)
-                self.P[name]=self.params[pname]
+                self.P[name] = self.params[pname]
                 self.roles[pname] = role
                 return self.params[pname]
         pname = name + '_' + self.name
@@ -181,34 +199,33 @@ class baselayer:
         self.roles[pname] = role
         return self.params[pname]
 
-    def init_params(self):
+    def init_children(self):
         '''
-        initiate the params
+        initiate the children to the layer
         :return: None
         '''
-        pass
+        for name, child in self.children.items():
+            child.set_in_dim(self.in_dim)
+            child.children_name = name
+            child.data = self.data
+            child.x_mask = self.x_mask
+            child.y_mask = self.y_mask
+            child.y = self.y
+            child.initiate(self.name + '_' + name, **self.op_dict)
+        self.merge(0)
 
-    def initiate(self, name,dim=None, **op_dict):
+    def merge(self, step=0):
         '''
-        initiate the layer
-        :param dim: int
-            dim of the input
-        :param name: str
-            name of the layer    
+        merge the children to the layer
         :return: None
         '''
-        self.set_in_dim(dim)
-        self.op_dict = op_dict
-        self.set_name(name)
-        self.updates=OrderedDict()
-        self.raw_updates=OrderedDict()
-        if not self.inited_param:
-            self.init_params()
-            self.inited_param = True
-
-        if not self.inited_children:
-            self.init_children()
-            self.inited_children=True
+        for name, child in self.children.items():
+            if step == 0:
+                self.params.update(child.params)
+                self.roles.update(child.roles)
+            if step == 1:
+                self.ops.update(child.ops)
+                self.updates.update(child.updates)
 
     def feedforward(self, X=None, P=None):
         '''
@@ -217,17 +234,35 @@ class baselayer:
             get the graph
         '''
         if X is None:
-            X=self.input
+            X = self.input
         if P == None or P == {}:
-            P=self.P
+            P = self.P
         else:
             if self.children_name in P:
-                dict=self.P
-                P=dict.update(P[self.children_name])
+                dict = self.P
+                dict.update(P[self.children_name])
+                P = dict
         self.set_input(X)
         self.get_output(X, P)
         self.merge(1)
         return self.output
+
+    def get_output(self, X, P):
+        '''
+        get the output of layer
+        :return: tensor variable
+            output of layer
+        '''
+        self.output = self.apply(X, P)
+        self.public_ops()
+
+    def apply(self, X, P):
+        '''
+        build the graph of layer
+        :return: tensor variable
+            the computational graph of this layer
+        '''
+        return X
 
     def build(self, input, name, **op_dict):
         '''
@@ -245,46 +280,7 @@ class baselayer:
         self.feedforward(input)
         return self.output
 
-    def init_children(self):
-        '''
-        initiate the children to the layer
-        :return: None
-        '''
-        for name, child in self.children.items():
-            child.set_in_dim(self.in_dim)
-            child.children_name=name
-            child.set_children()
-            child.data=self.data
-            child.x_mask=self.x_mask
-            child.y_mask=self.y_mask
-            child.y=self.y
-            child.initiate(self.name + '_' + name, **self.op_dict)
-        self.merge(0)
-
-    def merge(self,step=0):
-        '''
-        merge the children to the layer
-        :return: None
-        '''
-        for name, child in self.children.items():
-            if step==0:
-                self.params.update(child.params)
-                self.roles.update(child.roles)
-            if step == 1:
-                self.ops.update(child.ops)
-                self.updates.update(child.updates)
-
-    def setattr(self, name):
-        '''
-        set the attribute of the layer class
-        :param name: str
-            name of attribute
-        :return: None
-        '''
-        if name in self.kwargs:
-            setattr(self, name, self.kwargs[name])
-
-    def evaluate(self,input,name,**op_dict):
+    def evaluate(self, input, name, **op_dict):
         '''
         evaluate for model
         :param input: class on the base of baselayer or tensorvariable
@@ -308,6 +304,16 @@ class baselayer:
             input = input
         self.build(input, name, **op_dict)
 
+    def setattr(self, name):
+        '''
+        set the attribute of the layer class
+        :param name: str
+            name of attribute
+        :return: None
+        '''
+        if name in self.kwargs:
+            setattr(self, name, self.kwargs[name])
+
     def debug(self, *variable):
         '''
         add tensor variable to debug stream
@@ -323,23 +329,23 @@ class layer(baselayer):
     abstract layer
     '''
 
-    def __init__(self,unit, **kwargs):
+    def __init__(self, unit, **kwargs):
         baselayer.__init__(self, **kwargs)
-        self.unit_dim=unit
+        self.unit_dim = unit
 
     def apply(self, X, P):
         if len(self.children) > 1:
             feedlist = []
-            for name,child in self.children.items():
+            for name, child in self.children.items():
                 chd = child
                 input = X
-                feedlist.append(chd.feedforward(input,P))
+                feedlist.append(chd.feedforward(input, P))
             return concatenate(feedlist, axis=feedlist[0].ndim - 1)
         elif len(self.children) == 1:
             child = self.children.items()[0][1]
             chd = child
             input = X
-            return chd.feedforward(input,P)
+            return chd.feedforward(input, P)
         else:
             return X
 
@@ -350,7 +356,7 @@ class linear(layer):
     '''
 
     def __init__(self, unit, activation=None, **kwargs):
-        layer.__init__(self,unit, **kwargs)
+        layer.__init__(self, unit, **kwargs)
         self.activation = activation
 
     def init_params(self):
@@ -361,14 +367,15 @@ class linear(layer):
 
     def public_ops(self):
         if self.activation is not None:
-            self.output= self.activation(self.output)
-        self.output = self.addops('output', self.output, dropout,False)
+            self.output = self.activation(self.output)
+        self.output = self.addops('output', self.output, dropout, False)
 
 
 class std(linear):
     '''
     std layer
     '''
+
     def init_params(self):
         self.wt = self.allocate(randn, 'Wt', weight, self.in_dim, self.unit_dim)
 
@@ -395,8 +402,8 @@ class hidden_layer(layer):
     '''
 
     def __init__(self, unit, activation=T.tanh, **kwargs):
-        layer.__init__(self,unit, **kwargs)
-        self.activation=activation
+        layer.__init__(self, unit, **kwargs)
+        self.activation = activation
 
     def set_children(self):
         self.children['lb'] = linear_bias(self.unit_dim, self.activation)
@@ -408,8 +415,8 @@ class output_layer(layer):
     '''
 
     def __init__(self, unit, activation=T.nnet.sigmoid, **kwargs):
-        layer.__init__(self,unit, **kwargs)
-        self.activation=activation
+        layer.__init__(self, unit, **kwargs)
+        self.activation = activation
         self.cost_function = mean_square
         self.cost = None
         self.predict = None
@@ -421,7 +428,6 @@ class output_layer(layer):
 
     def set_children(self):
         self.children['lb'] = linear_bias(self.unit_dim, self.activation)
-
 
     def get_predict(self):
         '''

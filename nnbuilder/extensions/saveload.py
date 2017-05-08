@@ -9,6 +9,7 @@ import time
 import numpy as np
 import os
 from collections import OrderedDict
+import nnbuilder
 
 base=extension.extension
 class ex(base):
@@ -71,6 +72,27 @@ class ex(base):
     def after_train(self):
         kwargs = self.kwargs
         self.save_npz(self.path+'/finall',self.overwrite)
+
+    def load_npz(self,model):
+
+        layers=model.layers
+        path = './%s/save' % (nnbuilder.config.name)
+        print('Loading saved model from checkpoint:')
+        if self.load_file_name == '':
+            savelist = [name for name in os.listdir(path) if name.endswith('.npz')]
+            if savelist == []:
+                print('Checkpoint not found, exit loading')
+                return
+            savelist.sort()
+            self.load_file_name = savelist[-1]
+            print('Checkpoint is found:{}...'.format(self.load_file_name))
+        # file=open(path+'/'+self.load_file_name,'rb')
+        params = (np.load(path + '/' + self.load_file_name))['save'].tolist()
+        # file.close()
+        for key in layers:
+            for param, sparam in zip(layers[key].params, params[key]):
+                layers[key].params[param].set_value(params[key][sparam])
+
 
     def save_npz(self,name,delete=True):
         kwargs = self.kwargs

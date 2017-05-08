@@ -18,6 +18,7 @@ class ex(base):
         self.kwargs=kwargs
         self.debug_batch=3
         self.debug_time=1
+        self.start_index=0
     def init(self):
         base.init(self)
     def before_train(self):
@@ -25,14 +26,17 @@ class ex(base):
         self.logger('Compiling Debug Model', 1)
         model=kwargs['dim_model']
         self.inputs=model.inputs
+        self.updates=model.updates
         values = []
         user_values = []
         train_X, valid_X, test_X, train_Y, valid_Y, test_Y = kwargs['data_stream']
         for time in range(self.debug_time):
-            data = kwargs['prepare_data'](train_X, train_Y, (np.arange(self.debug_batch)+self.debug_batch*time).tolist())
+            index=np.arange(self.debug_batch)+self.debug_batch*time+self.start_index
+            data = kwargs['prepare_data'](train_X, train_Y, (index).tolist())
             data = tuple(data)
             self.logger("\r\n\r\nInput Debug Info:\r\n\r\n", 1)
             self.logger('%sth input debug' % (time + 1), 2, 1)
+            self.logger('index from %s to %s' % (index[0],index[-1]), 2, 1)
             self.logger('★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★', 2, 1)
             self.logger('☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆', 3)
             for d, inp in zip(data, model.inputs):
@@ -48,7 +52,7 @@ class ex(base):
             self.logger('★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★', 2, 1)
             self.logger('☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆', 2)
             for ud in model.user_debug_stream:
-                fn = self.get_func(ud)
+                fn = self.get_up_func(ud,self.updates)
                 user_debug_result = fn(*data)
                 self.logger('name : ' + str(ud)+'  with shape:%s'%str(user_debug_result.shape), 2)
                 self.logger(str(user_debug_result) + '    id : %s' % len(user_values), 3)
@@ -61,7 +65,7 @@ class ex(base):
             self.logger('%sth model_debug' % (time + 1), 2, 1)
             for key,layer in model.layers.items():
                 debug_stream=[layer.input,layer.output]
-                fn=self.get_func(debug_stream)
+                fn = self.get_up_func(debug_stream, self.updates)
                 debug_result=fn(*data)
                 self.logger('★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★', 2, 1)
 
@@ -97,7 +101,10 @@ class ex(base):
 
             self.logger("\r\n\r\nOutput Debug Info:\r\n\r\n", 1)
             debug_stream=[model.output.output,model.predict,model.cost,model.raw_cost,model.error]
-            fn = self.get_func(debug_stream)
+            updt={}
+            updt.update(self.updates)
+            updt.update(model.raw_updates)
+            fn = self.get_up_func(debug_stream,updt)
             debug_result = fn(*data)
             self.logger('%sth output' % (time + 1), 2, 1)
             self.logger('★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★', 2, 1)
@@ -129,7 +136,7 @@ class ex(base):
                 debug_stream.append(update)
                 up.append(name)
 
-            fn = self.get_up_func(debug_stream, model.updates)
+            fn = self.get_up_func(debug_stream, updt)
             debug_result = fn(*data)
             self.logger('%sth update'%(time+1), 2, 1)
             self.logger('★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★', 2, 1)

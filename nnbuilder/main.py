@@ -201,7 +201,7 @@ def get_minibatches_idx(datastream, shuffle=False, window=None):
         idx_list = np.arange(n, dtype="int32")
         if shuffle:
             id_list = []
-            if not window: window = (n // minibatch_size + 1) * 100
+            if not window: window = minibatch_size * 100
             n_block = (n - 1) // window + 1
             idx_l = np.arange(n_block, dtype="int32")
             np.random.shuffle(idx_l)
@@ -211,6 +211,7 @@ def get_minibatches_idx(datastream, shuffle=False, window=None):
                 idxs = np.arange(nd, dtype="int32") + i * window
                 np.random.shuffle(idxs)
                 id_list.extend(idxs)
+            idx_list=id_list
 
         minibatches = []
         minibatch_start = 0
