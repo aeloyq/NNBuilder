@@ -352,19 +352,20 @@ class attention(layer):
             for i in range(att_layer_2.ndim-1):
                 shp.append(att_layer_2.shape[i])
             att= att_layer_2.reshape(shp)
-            if att.ndim==3:
-                eij = T.exp(att) * mask[None, :, :]
+            #att=att - att.max(att.ndim - 2, keepdims=True)
+            eij = T.exp(att)
+            if eij.ndim==3:
+                eij = eij * mask[None, :, :]
             else:
-                eij = T.exp(att) * mask
-            #eij = eij - eij.max(eij.ndim-2, keepdims=True)
+                eij = eij * mask
             aij = eij / eij.sum(eij.ndim-2, keepdims=True)
             return aij
         else:
-            if att_layer_2.ndim == 4:
-                eij = T.exp(att_layer_2) * mask[None, :, :,None]
+            att=att_layer_2
+            if att.ndim == 4:
+                eij = T.exp(att) * mask[None, :, :,None]
             else:
-                eij = T.exp(att_layer_2) * mask[ :, :,None]
-            eij = eij - eij.max(eij.ndim - 3, keepdims=True)
+                eij = T.exp(att) * mask[ :, :,None]
             aij = eij / eij.sum(eij.ndim - 3, keepdims=True)
             return aij
 
@@ -482,23 +483,23 @@ class decoder(sequential):
 
     def apply(self, X, P):
         def step_lstm(y_, s_, c_, pctx, ctx, x_m, su, adwt, acwt, acbi, gwt, gbi, gu):
-            s1, c1 = self.children['state_dec'].feedstep()[0](y_, s_, c_, su)
+            s1, c1 = self.children['state_dec'].feedstep()(y_, s_, c_, su)
             aij = self.children['attention'].feedforward([s1, pctx, x_m],
                                                          {'dec_s': {'Wt': adwt}, 'combine': {'Wt': acwt, 'Bi': acbi}})
             ci = (ctx * aij[:, :, None]).sum(0)
             condition = T.dot(gwt, ci) + gbi
-            s2, c2 = self.children['glimpse_dec'].feedstep()[0](condition, s1, c1, gu)
+            s2, c2 = self.children['glimpse_dec'].feedstep()(condition, s1, c1, gu)
             s = s2
             return s, ci
 
         def step_gru(y_, yg_, s_, pctx, ctx, x_m, su, sug, adwt, acwt, acbi, gwt, gbi, gwtg, gbig, gu, gug):
-            s1 = self.children['state_dec'].feedstep()[0](y_, yg_, s_, su, sug)
+            s1 = self.children['state_dec'].feedstep()(y_, yg_, s_, su, sug)
             aij = self.children['attention'].feedforward([s1, pctx, x_m], {
                 'attention': {'dec_s': {'Wt': adwt}, 'combine': {'Wt': acwt, 'Bi': acbi}}})
             ci = (ctx * aij[:, :, None]).sum(0)
             condition = T.dot(ci, gwt) + gbi
             conditiong = T.dot(ci, gwtg) + gbig
-            s2 = self.children['glimpse_dec'].feedstep()[0](condition, conditiong, s1, gu, gug)
+            s2 = self.children['glimpse_dec'].feedstep()(condition, conditiong, s1, gu, gug)
             s = s2
             return s, ci
 
@@ -584,13 +585,13 @@ class decoder(sequential):
             yi = T.dot(y_emb_, swt) + sbi
             ygi = T.dot(y_emb_, swtg) + sbig
 
-            s1 = self.children['state_dec'].feedstep()[0](yi, ygi, s_, su, sug)
+            s1 = self.children['state_dec'].feedstep()(yi, ygi, s_, su, sug)
             aij = self.children['attention'].feedforward([s1, pctx, x_m], {
                 'attention': {'dec_s': {'Wt': adwt}, 'combine': {'Wt': acwt, 'Bi': acbi}}})
             ci = (ctx * aij[:, :, None]).sum(0)
             condition = T.dot(ci, gwt) + gbi
             conditiong = T.dot(ci, gwtg) + gbig
-            s2 = self.children['glimpse_dec'].feedstep()[0](condition, conditiong, s1, gu, gug)
+            s2 = self.children['glimpse_dec'].feedstep()(condition, conditiong, s1, gu, gug)
             s = s2
 
             prob = self.children['emitter'].feedforward([s, y_emb_, ci], {
@@ -745,6 +746,9 @@ class decoder(sequential):
                                       non_sequences=context, strict=True, n_steps=50)
         self.raw_updates = updates
 
+        y_flat=0
+        p_y_flat=0
+
         if self.core == lstm:
             y_emb, s, y_mm, is_first, y_flat, p_y_flat = result
         elif self.core == gru:
@@ -761,4 +765,4 @@ class decoder(sequential):
         self.cost = T.mean(self.cost)
 
     def get_error(self, Y):
-        self.error = T.mean(T.neq(Y, self.predict) * self.y_mask)
+        self.error = T.sum(T.neq(Y, self.predict) * self.y_mask)/T.sum(self.y_mask)
