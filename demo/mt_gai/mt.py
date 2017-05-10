@@ -66,7 +66,7 @@ model=model(source_vocab_size,Int2dX,Int2dY)
 model.sequential(Float2dMask,Float2dMask)
 model.add(embedding(source_emb_dim))
 model.add(hiddenlayer(enc_dim*2))
-model.add(decoder_ma(dec_dim,target_emb_dim,target_vocab_size,be=1))
+model.add(decoder(dec_dim,target_emb_dim,target_vocab_size,be=1,is_ma=True))
 
 
 data=Load_mt(maxlen=50,sort_by_asc=False)

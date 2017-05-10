@@ -31,6 +31,13 @@ class ex(base):
 
     def init(self):
         base.init(self)
+        data = self.kwargs['data_stream'][0]
+        try:
+            n_train = data.get_value().shape[0]
+        except:
+            n_train = len(data)
+        self.patience = n_train
+        self.batches = (n_train - 1) // self.kwargs['conf'].batch_size + 1
 
     def before_train(self):
         kwargs = self.kwargs
@@ -50,10 +57,12 @@ class ex(base):
         if self.report_iter:
 
             iter = self.kwargs['iteration_total']
+            idx=self.kwargs['idx']
+            process=((idx+1)*100)/self.batches
             if iter % self.report_iter_frequence == 0:
-                self.logger("Iteration Report at Epoch:%d   Iteration:%d   Time Used:%.2fs   " \
-                            "Cost:%.4f" % (self.kwargs['epoches'], iter,
-                                           iteration_time, self.kwargs['train_result']), 2)
+                self.logger("Epoch:%d   Iter:%d   Time:%.2fs   " \
+                            "Cost:%.4f      ▉ %d%% ▉" % (self.kwargs['epoches'], iter,
+                                           iteration_time, self.kwargs['train_result'],process), 2)
 
 
 
