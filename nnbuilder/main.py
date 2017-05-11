@@ -233,12 +233,14 @@ def get_minibatches_idx(datastream, shuffle=False, window=None):
 
 
 def get_sample_data(datastream):
+
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
     try:
         n_train = train_X.get_value().shape[0]
     except:
         n_train = len(train_X)
     index = config.rng.randint(0, n_train)
+
     data_x = train_X
     data_y = train_Y
     x = [data_x[index]]

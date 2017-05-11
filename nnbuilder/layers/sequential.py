@@ -372,7 +372,7 @@ class attention(layer):
             patt = self.children['dec_s'].feedforward(s_, P)
             att1 = self.slice(patt, 0, self.unit_dim)
             att2 = self.slice(patt, 1, self.unit_dim)
-            att_layer_1=(pctx1+att1)*T.nnet.sigmoid(pctx2+att2)
+            att_layer_1=T.tanh(pctx1+att1)*T.nnet.sigmoid(pctx2+att2)
             att_layer_2 = self.children['combine'].feedforward(att_layer_1, P)
             att = att_layer_2
             if att.ndim == 4:
@@ -434,7 +434,7 @@ class emitter(layer):
 
 class decoder(sequential):
     def __init__(self, unit, emb_dim, vocab_size, core=gru,
-                 state_initiate='mean', be=2, is_maxout=True, is_ma=True, **kwargs):
+                 state_initiate='mean', be=2, is_maxout=True, is_ma=False, **kwargs):
         sequential.__init__(self, **kwargs)
         self.unit_dim = unit
         self.emb_dim = emb_dim
