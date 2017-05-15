@@ -73,18 +73,21 @@ class ex(base):
         kwargs = self.kwargs
         self.save_npz(self.path+'/finall',self.overwrite)
 
-    def load_npz(self,model):
+    def load_npz(self,model,name=''):
 
         layers=model.layers
         path = './%s/save' % (nnbuilder.config.name)
         print('Loading saved model from checkpoint:')
-        if self.load_file_name == '':
+        if name == '':
             savelist = [name for name in os.listdir(path) if name.endswith('.npz')]
             if savelist == []:
                 print('Checkpoint not found, exit loading')
                 return
             savelist.sort()
             self.load_file_name = savelist[-1]
+            print('Checkpoint is found:{}...'.format(self.load_file_name))
+        else:
+            self.load_file_name=name+'.npz'
             print('Checkpoint is found:{}...'.format(self.load_file_name))
         # file=open(path+'/'+self.load_file_name,'rb')
         params = (np.load(path + '/' + self.load_file_name))['save'].tolist()

@@ -114,7 +114,9 @@ def train(datastream, model, algrithm, extension):
                 for _, index in test_minibatches:
                     data = prepare_data(test_X, test_Y, index)
                     testdatas.append(data)
-                if np.mean([test_model(*tuple(testdata)) for testdata in testdatas]) == 0:
+                test_result = np.array([test_model(*tuple(testdata)) for testdata in testdatas])
+                train_error = np.mean(test_result[:, 1])
+                if np.mean(train_error) == 0:
                     dict_param['best_iter'] = dict_param['iteration_total']
                     logger("●Trainning Sucess●", 1, 1)
                     break
