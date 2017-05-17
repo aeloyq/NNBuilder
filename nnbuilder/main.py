@@ -114,7 +114,9 @@ def train(datastream, model, algrithm, extension):
                 for _, index in test_minibatches:
                     data = prepare_data(test_X, test_Y, index)
                     testdatas.append(data)
-                if np.mean([test_model(*tuple(testdata)) for testdata in testdatas]) == 0:
+                test_result = np.array([test_model(*tuple(testdata)) for testdata in testdatas])
+                train_error = np.mean(test_result[:, 1])
+                if np.mean(train_error) == 0:
                     dict_param['best_iter'] = dict_param['iteration_total']
                     logger("●Trainning Sucess●", 1, 1)
                     break
@@ -233,12 +235,14 @@ def get_minibatches_idx(datastream, shuffle=False, window=None):
 
 
 def get_sample_data(datastream):
+
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
     try:
         n_train = train_X.get_value().shape[0]
     except:
         n_train = len(train_X)
     index = config.rng.randint(0, n_train)
+
     data_x = train_X
     data_y = train_Y
     x = [data_x[index]]

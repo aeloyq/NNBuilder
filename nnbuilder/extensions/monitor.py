@@ -16,6 +16,7 @@ from nnbuilder.layers.roles import *
 
 matplotlib.use('Agg')
 import matplotlib.pylab as plt
+from collections import OrderedDict
 
 base = extension.extension
 
@@ -30,6 +31,13 @@ class ex(base):
 
     def init(self):
         base.init(self)
+        data = self.kwargs['data_stream'][0]
+        try:
+            n_train = data.get_value().shape[0]
+        except:
+            n_train = len(data)
+        self.patience = n_train
+        self.batches = (n_train - 1) // self.kwargs['conf'].batch_size + 1
 
     def before_train(self):
         kwargs = self.kwargs
@@ -40,9 +48,6 @@ class ex(base):
         if not os.path.exists('./{}'.format(nnbuilder.config.name)): os.mkdir('./{}'.format(nnbuilder.config.name))
         if not os.path.exists('./{}/tmp'.format(nnbuilder.config.name)): os.mkdir(
             './{}/tmp'.format(nnbuilder.config.name))
-
-        self.params = kwargs['dim_model'].params
-        self.roles = kwargs['dim_model'].roles
         if self.dotprint: d3v.d3viz(kwargs['dim_model'].output.output, self.path + 'model.html')
 
     def after_iteration(self):
@@ -52,14 +57,16 @@ class ex(base):
         if self.report_iter:
 
             iter = self.kwargs['iteration_total']
+            idx=self.kwargs['idx']
+            process=((idx+1)*100)/self.batches
             if iter % self.report_iter_frequence == 0:
-                self.logger("Iteration Report at Epoch:%d   Iteration:%d   Time Used:%.2fs   " \
-                            "Cost:%.4f" % (self.kwargs['epoches'], iter,
-                                           iteration_time, self.kwargs['train_result']), 2)
+                self.logger("Epoch:%d   Iter:%d   Time:%.2fs   " \
+                            "Cost:%.4f      ▉ %d%% ▉" % (self.kwargs['epoches'], iter,
+                                           iteration_time, self.kwargs['train_result'],process), 2)
 
 
 
-    def plot_func(self, costs, errors):
+    def plot_func(self, costs, errors,params,roles):
         x_axis = np.arange(len(costs))+1
 
         plt.figure(1)
@@ -80,7 +87,7 @@ class ex(base):
         plt.legend()
         plt.savefig(self.path + 'process_error.png')
 
-        n_im = len(self.params)
+        n_im = len(params)
         a = np.int(np.sqrt(n_im))
         b = a
         if a * b < n_im: a += 1
@@ -89,18 +96,18 @@ class ex(base):
         plt.cla()
 
         i = 0
-        for key, param in self.params.items():
+        for key, param in params.items():
             i += 1
-            if self.roles[key] is weight:
+            if roles[key] is weight:
                 plt.subplot(a, b, i)
-                value = param.get_value()
+                value = param
                 plt.title(key + ' ' + str(value.shape))
                 img = np.asarray(value)
                 if img.ndim != 1:
                     plt.imshow(img, cmap='gray')
-            elif self.roles[key] is bias:
+            elif roles[key] is bias:
                 plt.subplot(a, b, i)
-                y = param.get_value()
+                y = param
                 plt.title(key + ' ' + str(y.shape))
                 x_axis_bi = np.arange(y.shape[0])
                 plt.plot(x_axis_bi, y, color='black')
@@ -124,7 +131,10 @@ class ex(base):
         if self.plot:
             costs = self.kwargs['costs']
             errors = self.kwargs['errors']
-            t_plot = threading.Thread(target=self.plot_func, name='monitor.plot', args=(costs, errors))
+            p=OrderedDict()
+            for key,param in kwargs['dim_model'].params.items():
+                p[key]=param.get_value()
+            t_plot = threading.Thread(target=self.plot_func, name='monitor.plot', args=(costs, errors,p,kwargs['dim_model'].roles))
             t_plot.start()
 
     def after_train(self):
