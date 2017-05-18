@@ -73,7 +73,7 @@ class ex(base):
         plt.cla()
         plt.title(nnbuilder.config.name)
         plt.ylabel('Loss')
-        plt.xlabel('Iters')
+        plt.xlabel('Epochs')
         plt.plot(x_axis, costs, label='Loss', color='orange')
         plt.legend()
         plt.savefig(self.path + 'process_cost.png')
@@ -82,7 +82,7 @@ class ex(base):
         plt.cla()
         plt.title(nnbuilder.config.name)
         plt.ylabel('Error')
-        plt.xlabel('Iters')
+        plt.xlabel('Epochs')
         plt.plot(x_axis, errors, label='Error', color='blue')
         plt.legend()
         plt.savefig(self.path + 'process_error.png')
@@ -134,8 +134,7 @@ class ex(base):
             p=OrderedDict()
             for key,param in kwargs['dim_model'].params.items():
                 p[key]=param.get_value()
-            t_plot = threading.Thread(target=self.plot_func, name='monitor.plot', args=(costs, errors,p,kwargs['dim_model'].roles))
-            t_plot.start()
+            self.plot_func(costs, errors,p,kwargs['dim_model'].roles)
 
     def after_train(self):
         kwargs = self.kwargs

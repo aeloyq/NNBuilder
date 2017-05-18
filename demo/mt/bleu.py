@@ -30,7 +30,7 @@ dec_dim=1000
 config.vocab_source='./data/vocab.en-fr.en.pkl'
 config.vocab_target='./data/vocab.en-fr.fr.pkl'
 
-config.name='mt_demo'
+config.name='mt'
 config.data_path='./data/devsets.npz'
 config.batch_size=80
 config.valid_batch_size=64
@@ -44,6 +44,8 @@ config.int_x=True
 config.int_y=True
 
 
+n=1
+
 
 model=model(source_vocab_size,Int2dX,Int2dY)
 model.sequential(Float2dMask,Float2dMask)
@@ -55,37 +57,50 @@ model.add(decoder(dec_dim,target_emb_dim,target_vocab_size))
 
 datas=Load_mt(sort_by_len=False)
 model.build()
-saveload.config.load_npz(model,'dev')
+saveload.config.load_npz(model)
 
 
-n=1
 model.output.gen_sample(n)
 print 'compiling'
 fs=theano.function(model.inputs,model.output.sample, on_unused_input='ignore',
                                 updates=model.raw_updates)
 print 'compile ok'
 
+ss_list=[]
 s_list=[]
 s_text=''
 
 mbs=get_minibatches_idx(datas)
 mbs=mbs[0]
-
 print 'bleuing'
 import progressbar
 bar = progressbar.ProgressBar()
 for idx,index in bar(mbs):
     data = prepare_data(datas[0], datas[3], index)
     ss = fs(*data)
-    for s in ss:
-        st=dictionary.mt_bleu(s)
+    ss_list.append(ss)
+
+for s in bar(ss_list):
+    for s_ in s:
+        st=dictionary.mt_bleu(s_)
         s_list.append(st)
         s_text+=st+'\r\n'
 
 print 'bleu ok'
 
 print 'dumping'
-f=open('./{}.txt'.format(str(n)),'wb')
+f=open('./bleu/{}.txt'.format(str(n)),'wb')
 f.write(s_text+"\r\n")
 f.close()
 print 'dump ok'
+
+
+print'bleu testing'
+import os
+if os.path.exists('bleutmp'):os.remove('bleutmp')
+os.system('perl ./bleu/mb.perl ./bleu/t.txt < ./bleu/{}.txt >> ./bleutmp'.format(str(n)))
+f=open('bleutmp','rb')
+s=f.read()
+print s
+f.close()
+

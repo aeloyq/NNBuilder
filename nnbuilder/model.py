@@ -130,8 +130,8 @@ class model():
             for key in self.layers:
                 self.updates.update(self.layers[key].updates)
 
-        raw()
         train()
+        raw()
         for ops in self.ops['cost']:
             self.cost = ops.evaluate(self.cost,self.layers)
         for key in self.layers:
