@@ -50,6 +50,7 @@ class ex(base):
             kwargs['best_iter'] = params['best_iter']
             kwargs['best_valid_error'] =params['best_valid_error']
             kwargs['idx'] = params['idx']+1
+            kwargs['minibatches'] = params['minibatches']
             for i in params['errors']:
                 kwargs['errors'].append(i)
             for i in params['costs']:
@@ -117,6 +118,7 @@ class ex(base):
         params2save['errors'] = kwargs['errors']
         params2save['costs'] = kwargs['costs']
         params2save['idx'] = kwargs['idx']
+        params2save['minibatches'] = kwargs['minibatches']
         for ex in kwargs['extension']:
             ex.save_(params2save)
         savename = name

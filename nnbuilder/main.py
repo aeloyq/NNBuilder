@@ -216,15 +216,16 @@ def get_minibatches_idx(datastream, shuffle=False, window=None):
             idx_list=id_list
 
         minibatches = []
-        minibatch_start = 0
-        for i in range(n // minibatch_size):
-            minibatches.append(idx_list[minibatch_start:
-            minibatch_start + minibatch_size])
-            minibatch_start += minibatch_size
+        minibatches_shuffle=range((n-1) // minibatch_size)
+        if shuffle:np.random.shuffle(minibatches_shuffle)
+        for i in range((n-1) // minibatch_size):
+            idx=minibatches_shuffle[i]*minibatch_size
+            minibatches.append(idx_list[idx:
+            idx + minibatch_size])
 
-        if (minibatch_start != n):
-            # Make a minibatch out of what is left
-            minibatches.append(idx_list[minibatch_start:])
+
+        # Make a minibatch out of what is left
+        minibatches.append(idx_list[((n-1) // minibatch_size)*minibatch_size:])
 
         return zip(range(len(minibatches)), minibatches)
 
