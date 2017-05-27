@@ -16,54 +16,47 @@ from nnbuilder.main import *
 import dictionary
 
 
-saveload.config.save_freq=500
 
-source_vocab_size=30000
-target_vocab_size=30000
-
-source_emb_dim=620
-target_emb_dim=620
-
-enc_dim=1000
-dec_dim=1000
-
-config.vocab_source='./data/vocab.en-fr.en.pkl'
-config.vocab_target='./data/vocab.en-fr.fr.pkl'
 
 config.name='mt'
 config.data_path='./data/devsets.npz'
-config.batch_size=80
-config.valid_batch_size=64
-config.max_epoches=1000
-config.savelog=True
 config.transpose_x=True
 config.transpose_y=True
 config.mask_x=True
 config.mask_y=True
 config.int_x=True
 config.int_y=True
+config.vocab_source='./data/vocab.en-fr.en.pkl'
+config.vocab_target='./data/vocab.en-fr.fr.pkl'
+config.batch_size=40
 
-
-n=1
-
+source_vocab_size=60000
+target_vocab_size=60000
+source_emb_dim=620
+target_emb_dim=620
+enc_dim=1000
+dec_dim=1000
 
 model=model(source_vocab_size,Int2dX,Int2dY)
 model.sequential(Float2dMask,Float2dMask)
 model.add(embedding(source_emb_dim))
 model.add(encoder(enc_dim))
-#model.add(dropout(0.8))
+model.add(dropout(0.8))
 model.add(decoder(dec_dim,target_emb_dim,target_vocab_size))
-#model.add(dropout(0.8))
+model.add(dropout(0.8))
 
-datas=Load_mt(sort_by_len=False)
+
+n=3
+
 model.build()
-saveload.config.load_npz(model)
-
-
 model.output.gen_sample(n)
+saveload.config.load_npz(model)
+datas=Load_mt(sort_by_len=False)
+
+
 print 'compiling'
 fs=theano.function(model.inputs,model.output.sample, on_unused_input='ignore',
-                                updates=model.raw_updates)
+                                updates=model.output.sample_updates)
 print 'compile ok'
 
 ss_list=[]
@@ -80,7 +73,7 @@ for idx,index in bar(mbs):
     ss = fs(*data)
     ss_list.append(ss)
 
-for s in bar(ss_list):
+for s in ss_list:
     for s_ in s:
         st=dictionary.mt_bleu(s_)
         s_list.append(st)
