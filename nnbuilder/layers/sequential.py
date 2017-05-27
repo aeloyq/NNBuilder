@@ -483,20 +483,20 @@ class decoder(sequential):
 
         self.initiate_state = [s_0]
         self.s_0 = s_0
-        if isinstance(self.core, lstm):
+        if self.core== lstm:
             self.initiate_state.append(T.zeros([self.n_samples, self.unit_dim], theano.config.floatX))
         self.initiate_state.append(None)
 
         self.context = [self.children['context'].feedforward(self.input), self.input]
         self.context.append(self.x_mask)
         plist = []
-        if self.core == gru:
+        if self.core == lstm:
+            plist = ['U_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine', 'Bi_attention_combine',
+                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec']
+        else:
             plist = ['U_state_dec', 'Ug_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine',
                      'Bi_attention_combine', 'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input',
                      'Wt_glimpse_dec_gate', 'Bi_glimpse_dec_gate', 'U_glimpse_dec', 'Ug_glimpse_dec']
-        elif self.core == lstm:
-            plist = ['U_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine', 'Bi_attention_combine',
-                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec']
         for i in plist:
             ii = i.split('_')
             iii = ii[0] + '_' + self.name
@@ -556,7 +556,7 @@ class decoder(sequential):
 
         if self.core == lstm:
             return step_lstm
-        elif self.core == gru:
+        else:
             return step_gru
 
     def scan(self, step):
@@ -567,24 +567,24 @@ class decoder(sequential):
         y_0 = T.zeros([self.n_samples, self.emb_dim])
         s_0 = self.s_0
         initiate_state = [y_0, s_0]
-        if isinstance(self.core, lstm):
+        if self.core==lstm:
             initiate_state.append(T.zeros([self.n_samples, self.unit_dim], theano.config.floatX))
         initiate_state.append(None)
 
         context = [self.children['context'].feedforward(self.input), self.input]
         context.append(self.x_mask)
         plist = []
-        if self.core == gru:
+        if self.core == lstm:
+            plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'U_state_dec', 'Wt_attention_dec_s',
+                     'Wt_attention_combine', 'Bi_attention_combine',
+                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec',
+                     'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
+                     'Wt_emitter_predict', 'Wemb_peek']
+        else:
             plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'Wt_state_dec_gate', 'Bi_state_dec_gate',
                      'U_state_dec', 'Ug_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine',
                      'Bi_attention_combine', 'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input',
                      'Wt_glimpse_dec_gate', 'Bi_glimpse_dec_gate', 'U_glimpse_dec', 'Ug_glimpse_dec',
-                     'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
-                     'Wt_emitter_predict', 'Wemb_peek']
-        elif self.core == lstm:
-            plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'U_state_dec', 'Wt_attention_dec_s',
-                     'Wt_attention_combine', 'Bi_attention_combine',
-                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec',
                      'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
                      'Wt_emitter_predict', 'Wemb_peek']
         for i in plist:
@@ -626,7 +626,7 @@ class decoder(sequential):
         step = None
         if self.core == lstm:
             step = step_lstm
-        elif self.core == gru:
+        else:
             step = step_gru
 
         result, updates = theano.scan(step, sequences=[], outputs_info=initiate_state,
@@ -639,7 +639,7 @@ class decoder(sequential):
 
         if self.core == lstm:
             y_emb, s, c, pred = result
-        elif self.core == gru:
+        else:
             y_emb, s, pred = result
 
         self.predict = pred
@@ -654,7 +654,7 @@ class decoder(sequential):
         s_0 = T.tile(s_0, self.beam_size).reshape([self.beam_size, self.n_samples, self.unit_dim])
         s_0 = s_0.dimshuffle(1, 0, 2)
         initiate_state = [y_0, s_0]
-        if isinstance(self.core, lstm):
+        if self.core==lstm:
             initiate_state.append(T.zeros([self.n_samples, self.beam_size, self.unit_dim], theano.config.floatX))
         i_y_prob = T.zeros([self.n_samples, self.beam_size])
         initiate_state.extend([y_mm_0, T.constant(0), i_y_prob, None, None, None, None])
@@ -663,17 +663,17 @@ class decoder(sequential):
         ctx = self.input
         context = [pctx, ctx, self.x_mask]
         plist = []
-        if self.core == gru:
+        if self.core == lstm:
+            plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'U_state_dec', 'Wt_attention_dec_s',
+                     'Wt_attention_combine', 'Bi_attention_combine',
+                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec',
+                     'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
+                     'Wt_emitter_predict', 'Wemb_peek']
+        else:
             plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'Wt_state_dec_gate', 'Bi_state_dec_gate',
                      'U_state_dec', 'Ug_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine',
                      'Bi_attention_combine', 'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input',
                      'Wt_glimpse_dec_gate', 'Bi_glimpse_dec_gate', 'U_glimpse_dec', 'Ug_glimpse_dec',
-                     'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
-                     'Wt_emitter_predict', 'Wemb_peek']
-        elif self.core == lstm:
-            plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'U_state_dec', 'Wt_attention_dec_s',
-                     'Wt_attention_combine', 'Bi_attention_combine',
-                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec',
                      'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
                      'Wt_emitter_predict', 'Wemb_peek']
         for i in plist:
@@ -776,7 +776,7 @@ class decoder(sequential):
         step = None
         if self.core == lstm:
             step = step_lstm
-        elif self.core == gru:
+        else:
             step = step_gru
 
         result, updates = theano.scan(step, sequences=[], outputs_info=initiate_state,
@@ -788,7 +788,7 @@ class decoder(sequential):
 
         if self.core == lstm:
             y_emb, s, c, self.y_mm, is_first, self.y_mm_shifted, self.y_flat, self.y_mod, self.p_y_flat = result
-        elif self.core == gru:
+        else:
             y_emb, s, self.y_mm, self.idx, self.prob_sum, self.y_mm_shifted, self.y_pred, self.y_mod, self.prob_y = result
 
         def dec(mm,ms, y_pred, y_mod,y_prob, y_idx_,n):
