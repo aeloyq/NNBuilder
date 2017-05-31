@@ -361,7 +361,7 @@ class attention(layer):
 
             eij = T.exp(att)
             if eij.ndim == 3:
-                eij = eij * mask[:, :,None]
+                eij = eij * mask[:, :, None]
             else:
                 eij = eij * mask
             aij = eij / eij.sum(0, keepdims=True)
@@ -372,11 +372,11 @@ class attention(layer):
             patt = self.children['dec_s'].feedforward(s_, P)
             att1 = self.slice(patt, 0, self.unit_dim)
             att2 = self.slice(patt, 1, self.unit_dim)
-            att_layer_1=T.tanh(pctx1+att1)*T.nnet.sigmoid(pctx2+att2)
+            att_layer_1 = T.tanh(pctx1 + att1) * T.nnet.sigmoid(pctx2 + att2)
             att_layer_2 = self.children['combine'].feedforward(att_layer_1, P)
             att = att_layer_2
             if att.ndim == 4:
-                eij = T.exp(att) * mask[:, :,None, None]
+                eij = T.exp(att) * mask[:, :, None, None]
             else:
                 eij = T.exp(att) * mask[:, :, None]
             aij = eij / eij.sum(0, keepdims=True)
@@ -459,7 +459,7 @@ class decoder(sequential):
             self.children['attention'] = attention(self.attention_unit, self.unit_dim)
         else:
             self.children['context'] = linear_bias(self.attention_unit * 2, in_dim=self.in_dim * self.be)
-            self.children['attention'] = attention(self.attention_unit, self.unit_dim,self.in_dim * self.be)
+            self.children['attention'] = attention(self.attention_unit, self.unit_dim, self.in_dim * self.be)
         self.children['peek'] = lookuptable(self.emb_dim, in_dim=self.vocab_size)
 
     def init_params(self):
@@ -482,21 +482,21 @@ class decoder(sequential):
         s_0 = T.tanh(T.dot(s_0, self.wt_iniate_s))
 
         self.initiate_state = [s_0]
-        self.s_0=s_0
-        if isinstance(self.core, lstm):
+        self.s_0 = s_0
+        if self.core== lstm:
             self.initiate_state.append(T.zeros([self.n_samples, self.unit_dim], theano.config.floatX))
         self.initiate_state.append(None)
 
         self.context = [self.children['context'].feedforward(self.input), self.input]
         self.context.append(self.x_mask)
         plist = []
-        if self.core == gru:
+        if self.core == lstm:
+            plist = ['U_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine', 'Bi_attention_combine',
+                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec']
+        else:
             plist = ['U_state_dec', 'Ug_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine',
                      'Bi_attention_combine', 'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input',
                      'Wt_glimpse_dec_gate', 'Bi_glimpse_dec_gate', 'U_glimpse_dec', 'Ug_glimpse_dec']
-        elif self.core == lstm:
-            plist = ['U_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine', 'Bi_attention_combine',
-                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec']
         for i in plist:
             ii = i.split('_')
             iii = ii[0] + '_' + self.name
@@ -522,10 +522,10 @@ class decoder(sequential):
             aij = self.children['attention'].feedforward([s1, pctx, x_m],
                                                          {'dec_s': {'Wt': adwt}, 'combine': {'Wt': acwt, 'Bi': acbi}})
             if not self.ma:
-                if aij.ndim==2:
+                if aij.ndim == 2:
                     ci = (ctx * aij[:, :, None]).sum(0)
-                elif aij.ndim==3:
-                    ci = (ctx[:,:,None,:] * aij[:,:, :, None]).sum(0)
+                elif aij.ndim == 3:
+                    ci = (ctx[:, :, None, :] * aij[:, :, :, None]).sum(0)
             else:
                 ci = (ctx * aij).sum(0)
 
@@ -539,13 +539,12 @@ class decoder(sequential):
             aij = self.children['attention'].feedforward([s1, pctx, x_m], {
                 'attention': {'dec_s': {'Wt': adwt}, 'combine': {'Wt': acwt, 'Bi': acbi}}})
 
-
             if not self.ma:
-                if aij.ndim==2:
+                if aij.ndim == 2:
                     ci = (ctx * aij[:, :, None]).sum(0)
-                elif aij.ndim==3:
+                elif aij.ndim == 3:
 
-                    ci = (ctx[:,:,None,:] * aij[:,:, :, None]).sum(0)
+                    ci = (ctx[:, :, None, :] * aij[:, :, :, None]).sum(0)
             else:
                 ci = (ctx * aij).sum(0)
 
@@ -557,7 +556,7 @@ class decoder(sequential):
 
         if self.core == lstm:
             return step_lstm
-        elif self.core == gru:
+        else:
             return step_gru
 
     def scan(self, step):
@@ -568,24 +567,24 @@ class decoder(sequential):
         y_0 = T.zeros([self.n_samples, self.emb_dim])
         s_0 = self.s_0
         initiate_state = [y_0, s_0]
-        if isinstance(self.core, lstm):
+        if self.core==lstm:
             initiate_state.append(T.zeros([self.n_samples, self.unit_dim], theano.config.floatX))
         initiate_state.append(None)
 
         context = [self.children['context'].feedforward(self.input), self.input]
         context.append(self.x_mask)
         plist = []
-        if self.core == gru:
+        if self.core == lstm:
+            plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'U_state_dec', 'Wt_attention_dec_s',
+                     'Wt_attention_combine', 'Bi_attention_combine',
+                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec',
+                     'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
+                     'Wt_emitter_predict', 'Wemb_peek']
+        else:
             plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'Wt_state_dec_gate', 'Bi_state_dec_gate',
                      'U_state_dec', 'Ug_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine',
                      'Bi_attention_combine', 'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input',
                      'Wt_glimpse_dec_gate', 'Bi_glimpse_dec_gate', 'U_glimpse_dec', 'Ug_glimpse_dec',
-                     'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
-                     'Wt_emitter_predict', 'Wemb_peek']
-        elif self.core == lstm:
-            plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'U_state_dec', 'Wt_attention_dec_s',
-                     'Wt_attention_combine', 'Bi_attention_combine',
-                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec',
                      'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
                      'Wt_emitter_predict', 'Wemb_peek']
         for i in plist:
@@ -595,10 +594,10 @@ class decoder(sequential):
                 iii = iii + '_' + ii[j]
             context.append(self.params[iii])
 
-        def step_lstm(y_emb_, s_,c_, pctx, ctx, x_m, swt, sbi, su, adwt, acwt, acbi, gwt, gbi, gu, erwt, erbi,
+        def step_lstm(y_emb_, s_, c_, pctx, ctx, x_m, swt, sbi, su, adwt, acwt, acbi, gwt, gbi, gu, erwt, erbi,
                       epwt, egwt, edwt, wemb):
             yi = T.dot(y_emb_, swt) + sbi
-            s,c, ci = self.feedstep()(yi, s_,c_, pctx, ctx, x_m, su, adwt, acwt, acbi, gwt, gbi, gu)
+            s, c, ci = self.feedstep()(yi, s_, c_, pctx, ctx, x_m, su, adwt, acwt, acbi, gwt, gbi, gu)
 
             prob = self.children['emitter'].feedforward([s, y_emb_, ci], {
                 'emitter': {'recurent': {'Wt': erwt, 'Bi': erbi}, 'peek': {'Wt': epwt}, 'glimpse': {'Wt': egwt},
@@ -606,7 +605,7 @@ class decoder(sequential):
             prob = self.trng.multinomial(pvals=prob)
             pred = prob.argmax(-1)
             y_emb = T.reshape(wemb[pred], [self.n_samples, self.emb_dim])
-            return [y_emb, s,c, pred]
+            return [y_emb, s, c, pred]
 
         def step_gru(y_emb_, s_, pctx, ctx, x_m, swt, sbi, swtg, sbig, su, sug, adwt, acwt, acbi, gwt,
                      gbi, gwtg,
@@ -619,7 +618,7 @@ class decoder(sequential):
             prob = self.children['emitter'].feedforward([s, y_emb_, ci], {
                 'emitter': {'recurent': {'Wt': erwt, 'Bi': erbi}, 'peek': {'Wt': epwt}, 'glimpse': {'Wt': egwt},
                             'predict': {'Wt': edwt}}})
-            prob = self.trng.multinomial(pvals=prob)
+            #prob = self.trng.multinomial(pvals=prob)
             pred = prob.argmax(-1)
             y_emb = T.reshape(wemb[pred], [self.n_samples, self.emb_dim])
             return [y_emb, s, pred]
@@ -627,7 +626,7 @@ class decoder(sequential):
         step = None
         if self.core == lstm:
             step = step_lstm
-        elif self.core == gru:
+        else:
             step = step_gru
 
         result, updates = theano.scan(step, sequences=[], outputs_info=initiate_state,
@@ -640,40 +639,41 @@ class decoder(sequential):
 
         if self.core == lstm:
             y_emb, s, c, pred = result
-        elif self.core == gru:
+        else:
             y_emb, s, pred = result
 
         self.predict = pred
 
-    def gen_sample(self,beam_size=12):
-        self.beam_size=beam_size
-        y_0 = T.zeros([self.n_samples,self.beam_size,  self.emb_dim])
-        y_mm_0 = T.ones([self.n_samples, self.beam_size])
-        if self.beam_size==1:
-            y_mm_0 = T.unbroadcast(y_mm_0,1)
+    def gen_sample(self, beam_size=12):
+        self.beam_size = beam_size
+        y_0 = T.zeros([self.n_samples, self.beam_size, self.emb_dim])
+        y_mm_0 = T.ones([self.n_samples, self.beam_size],'int8')
+        if self.beam_size == 1:
+            y_mm_0 = T.unbroadcast(y_mm_0, 1)
         s_0 = self.s_0
         s_0 = T.tile(s_0, self.beam_size).reshape([self.beam_size, self.n_samples, self.unit_dim])
-        s_0 =s_0.dimshuffle(1,0,2)
+        s_0 = s_0.dimshuffle(1, 0, 2)
         initiate_state = [y_0, s_0]
-        if isinstance(self.core, lstm):
-            initiate_state.append(T.zeros([self.n_samples,self.beam_size,  self.unit_dim], theano.config.floatX))
-        initiate_state.extend([y_mm_0,T.constant(1),None,None,None,None])
+        if self.core==lstm:
+            initiate_state.append(T.zeros([self.n_samples, self.beam_size, self.unit_dim], theano.config.floatX))
+        i_y_prob = T.zeros([self.n_samples, self.beam_size])
+        initiate_state.extend([y_mm_0, T.constant(0), i_y_prob, None, None, None, None])
 
-        pctx=self.children['context'].feedforward(self.input)[:,:,None,:]
-        ctx=self.input
-        context = [pctx, ctx,self.x_mask]
+        pctx = self.children['context'].feedforward(self.input)[:, :, None, :]
+        ctx = self.input
+        context = [pctx, ctx, self.x_mask]
         plist = []
-        if self.core == gru:
+        if self.core == lstm:
+            plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'U_state_dec', 'Wt_attention_dec_s',
+                     'Wt_attention_combine', 'Bi_attention_combine',
+                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec',
+                     'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
+                     'Wt_emitter_predict', 'Wemb_peek']
+        else:
             plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'Wt_state_dec_gate', 'Bi_state_dec_gate',
                      'U_state_dec', 'Ug_state_dec', 'Wt_attention_dec_s', 'Wt_attention_combine',
                      'Bi_attention_combine', 'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input',
                      'Wt_glimpse_dec_gate', 'Bi_glimpse_dec_gate', 'U_glimpse_dec', 'Ug_glimpse_dec',
-                     'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
-                     'Wt_emitter_predict', 'Wemb_peek']
-        elif self.core == lstm:
-            plist = ['Wt_state_dec_input', 'Bi_state_dec_input', 'U_state_dec', 'Wt_attention_dec_s',
-                     'Wt_attention_combine', 'Bi_attention_combine',
-                     'Wt_glimpse_dec_input', 'Bi_glimpse_dec_input', 'U_glimpse_dec',
                      'Wt_emitter_recurent', 'Bi_emitter_recurent', 'Wt_emitter_peek', 'Wt_emitter_glimpse',
                      'Wt_emitter_predict', 'Wemb_peek']
         for i in plist:
@@ -684,9 +684,6 @@ class decoder(sequential):
             context.append(self.params[iii])
 
         from theano.ifelse import ifelse
-
-        def slice(_x, n, dim):
-            return _x[:, :, n * dim:(n + 1) * dim]
 
         def step_lstm(y_emb_, s_, c_, y_mm, pctx, ctx, x_m, swt, sbi, su, adwt, acwt, acbi, gwt, gbi, gu, erwt, erbi,
                       epwt, egwt, edwt, wemb):
@@ -722,9 +719,25 @@ class decoder(sequential):
             y_emb = y_emb.dimshuffle(1, 0, 2)
             return [y_emb, s, c, y_mm, p_y_flat], theano.scan_module.until(T.all(T.eq(y_mm, 0)))
 
-        def step_gru(y_emb_, s_, y_mm_, is_first, pctx, ctx, x_m, swt, sbi, swtg, sbig, su, sug, adwt, acwt, acbi, gwt,
+        def step_gru(y_emb_, s_, y_mm_b_k_, idx_1_, prob_sum_b_k_, pctx, ctx, x_m, swt, sbi, swtg, sbig, su, sug, adwt,
+                     acwt, acbi, gwt,
                      gbi, gwtg,
                      gbig, gu, gug, erwt, erbi, epwt, egwt, edwt, wemb):
+            '''
+            b:batch_size
+            k:beam_size
+            v:vocabe_size
+            m:context_length(max_length)
+            e:embedding_size
+            u:n_hidden_units
+            :return: 
+            :param y_emb_: (b,e)
+            :param s_: (b,u)
+            :param y_mm_b_k_: (b,k)
+            :param idx_1_: (1)
+            :param prob_sum_b_k_: (b,k)
+            :return: 
+            '''
 
             yi = T.dot(y_emb_, swt) + sbi
             ygi = T.dot(y_emb_, swtg) + sbig
@@ -733,60 +746,87 @@ class decoder(sequential):
             prob = self.children['emitter'].feedforward([s, y_emb_, ci], {
                 'emitter': {'recurent': {'Wt': erwt, 'Bi': erbi}, 'peek': {'Wt': epwt}, 'glimpse': {'Wt': egwt},
                             'predict': {'Wt': edwt}}})
-            prob = prob * y_mm_.flatten()[:,None]
-            prob_flat = ifelse(T.eq(is_first, 1), prob[::self.beam_size, :],
-                               prob.reshape([self.n_samples,self.beam_size*self.vocab_size]))
-            y_flat = T.argsort(prob_flat)[:, -self.beam_size:]
-            y_mod = T.mod(y_flat, self.vocab_size)
+
+            prob_bk_v = prob
+            prob_b_kv = prob.reshape([self.n_samples, self.beam_size * self.vocab_size])
+
+            prob_sum_bk_v = -T.log(prob_bk_v * y_mm_b_k_.flatten()[:, None]) + prob_sum_b_k_.flatten()[:, None]
+            prob_sum_b_kv = ifelse(T.eq(idx_1_, 0), prob_sum_bk_v[::self.beam_size, :],
+                                   prob_sum_bk_v.reshape([self.n_samples, self.beam_size * self.vocab_size]))
+            idx_1 = idx_1_ + 1
+            y_b_k = T.argsort(prob_sum_b_kv)[:, :self.beam_size]
+
+            y_mod = y_b_k % self.vocab_size
             y_emb = T.reshape(wemb[T.cast(y_mod.flatten(), 'int64')], [self.n_samples, self.beam_size, self.emb_dim])
-            y_mm_c = T.switch(T.eq(y_mod, 0), 0., 1.)
-            n_zero=T.cast(self.beam_size-y_mm_.sum(-1),'int32')
-            y_mm_p=T.arange(0,self.beam_size)[None,:]
-            y_mm_shifted=T.switch(y_mm_p<n_zero[:,None],0,1)
-            p_y_flat=-T.log(prob_flat[T.repeat(T.arange(self.n_samples),self.beam_size),y_flat.flatten()].reshape([self.n_samples,self.beam_size]))*y_mm_shifted
-            y_mm=y_mm_c*y_mm_shifted
-            return [y_emb, s, y_mm, T.constant(0),y_mm_shifted , y_flat,y_mod, p_y_flat], theano.scan_module.until(T.eq(y_mm.sum(),0))
+
+            y_mm_c_b_k = T.switch(T.eq(y_mod, 0), 0, 1)
+            n_one = T.cast(y_mm_b_k_.sum(-1), 'int32')
+            y_mm_tmp = T.arange(self.beam_size)[None, :]
+            y_mm_shifted_b_k = T.switch(y_mm_tmp < n_one[:, None], 1, 0)
+            prob_sum_b_k = prob_sum_b_kv[
+                T.repeat(T.arange(self.n_samples), self.beam_size), y_b_k.flatten()].reshape(
+                [self.n_samples, self.beam_size])
+            y_mm = y_mm_c_b_k * y_mm_shifted_b_k
+            prob_raw_b_k=prob_b_kv[
+                T.repeat(T.arange(self.n_samples), self.beam_size), y_b_k.flatten()].reshape(
+                [self.n_samples, self.beam_size])
+            return [y_emb, s, y_mm, idx_1, prob_sum_b_k, y_mm_shifted_b_k, y_b_k, y_mod,
+                    prob_raw_b_k], theano.scan_module.until(T.eq(y_mm.sum(), 0))
 
         step = None
         if self.core == lstm:
             step = step_lstm
-        elif self.core == gru:
+        else:
             step = step_gru
 
         result, updates = theano.scan(step, sequences=[], outputs_info=initiate_state,
                                       non_sequences=context, strict=True, n_steps=50)
+
+        self.result = result
+
         self.gen_updates = updates
 
         if self.core == lstm:
-            y_emb, s, c, self.y_mm, is_first,self.y_mm_shifted, self.y_flat,self.y_mod, self.p_y_flat = result
-        elif self.core == gru:
-            y_emb, s, self.y_mm, is_first,self.y_mm_shifted, self.y_flat,self.y_mod, self.p_y_flat  = result
+            y_emb, s, c, self.y_mm, is_first, self.y_mm_shifted, self.y_flat, self.y_mod, self.p_y_flat = result
+        else:
+            y_emb, s, self.y_mm, self.idx, self.prob_sum, self.y_mm_shifted, self.y_pred, self.y_mod, self.prob_y = result
 
-        def dec(mask, y_flat, y_mod, prob, y_idx_,y_prob_):
-            ax0=T.repeat(T.arange(self.n_samples),self.beam_size)
+        def dec(mm,ms, y_pred, y_mod,y_prob, y_idx_,n):
+            def d(mm,ms,y_idx_,y_prob,n):
+                msm=T.xor(mm,ms)
+                lc = mm.sum()
+                ls = msm.sum()
+                eid=T.argsort(msm)[::-1]
+                y_idx_ = T.set_subtensor(y_idx_[lc:lc + ls], eid[:ls])
+                score=T.switch(T.eq(msm,1),y_prob/n,0)
 
-            mask=mask[ax0,y_idx_.flatten()].reshape([self.n_samples,self.beam_size])
-            y_flat=y_flat[ax0,y_idx_.flatten()].reshape([self.n_samples,self.beam_size])
-            y_mod=y_mod[ax0,y_idx_.flatten()].reshape([self.n_samples,self.beam_size])
-            prob=prob[ax0,y_idx_.flatten()].reshape([self.n_samples,self.beam_size])
+                return y_idx_,score
+            [y_idx_c,score],u=theano.scan(d,[mm,ms,y_idx_,y_prob],non_sequences=[n])
 
-            y_prob=y_prob_+prob
-            y_before= y_flat // self.vocab_size
-            y_out=T.switch(T.eq(mask, 1), y_mod, 0)
-            y_idx=T.switch(T.eq(mask, 1), y_before, T.tile(T.arange(self.beam_size),self.n_samples).reshape([self.n_samples,self.beam_size]))
+            ax0 = T.repeat(T.arange(self.n_samples), self.beam_size)
+            y_pred = y_pred[ax0, y_idx_c.flatten()].reshape([self.n_samples, self.beam_size])
+            y_mod = y_mod[ax0, y_idx_c.flatten()].reshape([self.n_samples, self.beam_size])
 
-            return y_idx,y_prob,y_out,mask
+            y_before = y_pred // self.vocab_size
+            y_out = T.switch(T.eq(ms, 1), y_mod, 0)
+            y_idx = T.switch(T.eq(ms, 1), y_before,0)
 
-        i_y_idx=T.tile(T.arange(self.beam_size), self.n_samples).reshape([self.n_samples, self.beam_size])
-        i_y_prob=T.zeros([self.n_samples, self.beam_size])
-        i_y_prob = T.unbroadcast(i_y_prob, 1)
-        [y_idx,y_prob,y_out,mask], updates = theano.scan(dec, sequences=[self.y_mm_shifted,self.y_flat,self.y_mod,self.p_y_flat], outputs_info=[i_y_idx,i_y_prob,None,None],go_backwards=True)
-        self.sample_updates=OrderedDict()
+
+            return y_idx,n-1, y_out,score,y_idx_c
+
+        mm=self.y_mm
+        idx_list_0=T.zeros([self.n_samples,self.beam_size],'int64')
+        if self.beam_size==1:
+            idx_list_0 =T.unbroadcast(idx_list_0,1)
+        n=mm.shape[0]
+        [self.y_idx, nn,self.y_out,self.score,self.y_idx_c], updates = theano.scan(dec, sequences=[self.y_mm,self.y_mm_shifted, self.y_pred, self.y_mod,self.prob_sum],
+                                                    outputs_info=[idx_list_0,n, None,None,None], go_backwards=True)
+        self.sample_updates = OrderedDict()
         self.sample_updates.update(self.gen_updates)
         self.sample_updates.update(self.updates)
-        idx=(y_prob[-1]/mask.sum(0)).argmin(-1)
-        self.sample=y_out.dimshuffle(1,2,0)[:,:,::-1][T.arange(self.n_samples),idx]
-
+        self.choice=self.score.sum(0).argmin(-1)
+        self.samples=self.y_out.dimshuffle(1, 2, 0)[:, :, ::-1]
+        self.sample = self.samples[T.arange(self.n_samples), self.choice]
 
     def get_cost(self, Y):
         cost = T.nnet.categorical_crossentropy(self.output_cost, Y.flatten())
