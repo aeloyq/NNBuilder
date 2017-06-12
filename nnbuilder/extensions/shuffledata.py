@@ -13,7 +13,8 @@ class ex(base):
         base.__init__(self,kwargs)
         self.shuffle_window=None
     def before_train(self):
-        self.kwargs['minibatch']=self.kwargs['get_minibatches_idx'](self.kwargs['data_stream'],True,self.shuffle_window)
+        if self.kwargs['idx']==0:
+            self.kwargs['minibatch']=self.kwargs['get_minibatches_idx'](self.kwargs['data_stream'],True,self.shuffle_window)
 
     def after_epoch(self):
         self.kwargs['minibatch'] = self.kwargs['get_minibatches_idx'](self.kwargs['data_stream'], True,

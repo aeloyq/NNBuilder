@@ -16,6 +16,7 @@ class ex(base):
         self.kwargs=kwargs
         self.sample_func = None
         self.sample_freq=-1
+        self.sample_from='train'
     def init(self):
         base.init(self)
     def before_train(self):
@@ -34,7 +35,7 @@ class ex(base):
                 cost=0
                 error=0
                 for _ in range(self.sample_times):
-                    sample_data = kwargs['get_sample_data'](datastream)
+                    sample_data = kwargs['get_sample_data'](datastream,sample_from=self.sample_from)
                     sp_pred, sp_cost, sp_error = sample_model(*sample_data)
                     s2p,sp_y=self.sample_func(sample_data[0], sp_pred,sample_data[1])
                     self.logger( s2p,2)

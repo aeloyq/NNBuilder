@@ -61,8 +61,8 @@ class ex(base):
             process=((idx+1)*100)/self.batches
             if iter % self.report_iter_frequence == 0:
                 self.logger("Epoch:%d   Iter:%d   Time:%.2fs   " \
-                            "Cost:%.4f      ▉ %d%% ▉" % (self.kwargs['epoches'], iter,
-                                           iteration_time, self.kwargs['train_result'],process), 2)
+                            "Cost:%.4f      ▉ %d%% ▉ Total:%.2fs" % (self.kwargs['epoches'], iter,
+                                           iteration_time, self.kwargs['train_result'],process,self.kwargs['time_used']), 2)
 
 
 
@@ -139,7 +139,6 @@ class ex(base):
     def after_train(self):
         kwargs = self.kwargs
         test_minibatches = kwargs['minibatches'][2]
-        total_time = timeit.default_timer() - self.start_time
         train_X, valid_X, test_X, train_Y, valid_Y, test_Y = kwargs['data_stream']
         test_model = kwargs['test_model']
         testdatas = []
@@ -155,7 +154,7 @@ class ex(base):
         self.logger("Trainning finished at iteration:%s" % kwargs['iteration_total'], 1)
         if kwargs['best_iter'] != -1:
             self.logger("Best iteration:%s" % kwargs['best_iter'], 1)
-        self.logger("Time used in total:%.2fs" % total_time, 1)
+        self.logger("Time used in total:%.2fs" % kwargs['time_used'], 1)
         self.logger("Finall cost:%.4f" % test_cost, 1)
         if kwargs['best_valid_error'] != 1.:
             self.logger("Best valid error:%.4f%%" % (kwargs['best_valid_error'] * 100), 1)
