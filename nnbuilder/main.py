@@ -67,6 +67,7 @@ def train(datastream, model, algrithm, extension):
     dict_param['errors'] = []
     dict_param['costs'] = []
     dict_param['idx'] = 0
+    dict_param['time_used'] = 0
     dict_param['stop'] = False
     extension_instance = []
     for ex in extension: ex.config.kwargs = dict_param;ex.config.init();extension_instance.append(ex.config)
@@ -78,6 +79,7 @@ def train(datastream, model, algrithm, extension):
         return -1, [], [], dict_param['debug_result'], [train_model, valid_model, test_model, sample_model, model,
                                                         NNB_model, optimizer]
     import timeit
+    start_train_timestamp=timeit.default_timer()
     while (True):
         # Stop When Timeout
         if dict_param['epoches'] > max_epoches - 1 and max_epoches != -1:
@@ -121,7 +123,7 @@ def train(datastream, model, algrithm, extension):
                     logger("●Trainning Sucess●", 1, 1)
                     break
         dict_param['idx'] = 0
-
+    dict_param['time_used']=dict_param['time_used']+(timeit.default_timer()-start_train_timestamp)
     for ex in extension_instance:   ex.after_train()
     return dict_param['epoches'], dict_param['errors'], dict_param['costs'], dict_param['debug_result'], [train_model,
                                                                                                           valid_model,
@@ -235,37 +237,44 @@ def get_minibatches_idx(datastream, shuffle=False, window=None):
     return train_minibatches, valid_minibatches, test_minibatches
 
 
-def get_sample_data(datastream):
+def get_sample_data(datastream,sample_from='train'):
 
     train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
-    try:
-        n_train = train_X.get_value().shape[0]
-    except:
-        n_train = len(train_X)
-    index = config.rng.randint(0, n_train)
+    def g(X,Y):
+        try:
+            n_train = X.get_value().shape[0]
+        except:
+            n_train = len(X)
+        index = config.rng.randint(0, n_train)
 
-    data_x = train_X
-    data_y = train_Y
-    x = [data_x[index]]
+        data_x = X
+        data_y = Y
+        x = [data_x[index]]
 
-    if config.transpose_x:
-        x=np.asarray(x)
-        x=x.transpose()
-        mask_x = np.ones([x.shape[0],1]).astype(theano.config.floatX)
-    y = [data_y[index]]
-    if config.transpose_y:
-        y=np.asarray(y)
-        y=y.transpose()
-        mask_y = np.ones([y.shape[0],1]).astype(theano.config.floatX)
-    if config.int_x: x = np.asarray(x).astype('int64').tolist()
-    if config.int_y: y = np.asarray(y).astype('int64').tolist()
-    data = [x, y]
-    if config.mask_x:
-        data.append(mask_x)
-    if config.mask_y:
-        data.append(mask_y)
-    data = tuple(data)
-    return data
+        if config.transpose_x:
+            x=np.asarray(x)
+            x=x.transpose()
+            mask_x = np.ones([x.shape[0],1]).astype(theano.config.floatX)
+        y = [data_y[index]]
+        if config.transpose_y:
+            y=np.asarray(y)
+            y=y.transpose()
+            mask_y = np.ones([y.shape[0],1]).astype(theano.config.floatX)
+        if config.int_x: x = np.asarray(x).astype('int64').tolist()
+        if config.int_y: y = np.asarray(y).astype('int64').tolist()
+        data = [x, y]
+        if config.mask_x:
+            data.append(mask_x)
+        if config.mask_y:
+            data.append(mask_y)
+        data = tuple(data)
+        return data
+    if sample_from=='train':
+        return g(train_X,train_Y)
+    elif sample_from=='valid':
+        return g(valid_X,valid_Y)
+    elif sample_from=='test':
+        return g(test_X,test_Y)
 
 
 def print_config(model, algrithm, extension):

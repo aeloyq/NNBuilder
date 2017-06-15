@@ -21,6 +21,7 @@ class ex(base):
         self.save=True
         self.overwrite=True
         self.load_file_name=''
+        self.save_epoch=False
     def init(self):
         base.init(self)
     def before_train(self):
@@ -39,9 +40,7 @@ class ex(base):
                 savelist.sort()
                 self.load_file_name=savelist[-1]
             self.logger('Checkpoint is found:{}...'.format(self.load_file_name), 3)
-            #file=open(path+'/'+self.load_file_name,'rb')
             params=(np.load(path+'/'+self.load_file_name))['save'].tolist()
-        #file.close()
             for key in layers:
                 for param,sparam in zip(layers[key].params,params[key]):
                     layers[key].params[param].set_value(params[key][sparam])
@@ -51,6 +50,7 @@ class ex(base):
             kwargs['best_valid_error'] =params['best_valid_error']
             kwargs['idx'] = params['idx']+1
             kwargs['minibatches'] = params['minibatches']
+            kwargs['time_used'] = params['time_used']
             for i in params['errors']:
                 kwargs['errors'].append(i)
             for i in params['costs']:
@@ -69,6 +69,12 @@ class ex(base):
         if kwargs['iteration_total'] % self.save_freq == 0:
             savename=self.path + '/%s.npz' % (time.asctime().replace(' ','-').replace(':','_'))
             self.save_npz(savename,self.overwrite)
+
+    def after_epoch(self):
+        if self.save_epoch:
+            if not os.path.exists('./epoch'):os.mkdir('./epoch')
+            savename = self.path + '/epoch/%s_epoch_%s.npz' % (self.kwargs['epoches'],time.asctime().replace(' ', '-').replace(':', '_'))
+            self.save_npz(savename, self.overwrite)
 
     def after_train(self):
         kwargs = self.kwargs
@@ -90,9 +96,7 @@ class ex(base):
         else:
             self.load_file_name=name+'.npz'
             print('Checkpoint is found:{}...'.format(self.load_file_name))
-        # file=open(path+'/'+self.load_file_name,'rb')
         params = (np.load(path + '/' + self.load_file_name))['save'].tolist()
-        # file.close()
         for key in layers:
             for param, sparam in zip(layers[key].params, params[key]):
                 layers[key].params[param].set_value(params[key][sparam])
@@ -119,10 +123,10 @@ class ex(base):
         params2save['costs'] = kwargs['costs']
         params2save['idx'] = kwargs['idx']
         params2save['minibatches'] = kwargs['minibatches']
+        params2save['time_used'] = kwargs['time_used']
         for ex in kwargs['extension']:
             ex.save_(params2save)
         savename = name
-        self.logger("Prepare to save model", 3)
         np.savez(savename, save=params2save)
         self.logger("Save sucessfully at file:{}".format(savename), 3)
         if delete:

@@ -635,8 +635,6 @@ class decoder(sequential):
 
         self.raw_updates = updates
 
-        pred = 0
-
         if self.core == lstm:
             y_emb, s, c, pred = result
         else:
@@ -836,3 +834,8 @@ class decoder(sequential):
 
     def get_error(self, Y):
         self.error = T.sum(T.neq(Y, self.predict) * self.y_mask) / T.sum(self.y_mask)
+
+class cnn_encoder(sequential):
+    pass
+class cnn_decoder(sequential):
+    pass

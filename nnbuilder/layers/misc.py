@@ -44,9 +44,9 @@ class rgru(sequential):
         def step(x, xg, h_, u, ug):
             gate = xg + T.dot(h_, ug)
             gate = self.conditional(gate)
-            z_gate = T.nnet.relu(self.slice(gate, 0, self.unit_dim))
+            z_gate = T.nnet.relu(self.slice(gate, 0, self.unit_dim))+1e-8
             z_gate = self.addops('z_gate', z_gate, dropout, False)
-            zp_gate = T.nnet.relu(self.slice(gate, 1, self.unit_dim))
+            zp_gate = T.nnet.relu(self.slice(gate, 1, self.unit_dim))+1e-8
             zp_gate = self.addops('zp_gate', zp_gate, dropout, False)
             r_gate = T.nnet.sigmoid(self.slice(gate, 2, self.unit_dim))
             r_gate = self.addops('r_gate', r_gate, dropout, False)
@@ -59,9 +59,9 @@ class rgru(sequential):
         def step_mask(x, xg, m, h_, u, ug):
             gate = xg + T.dot(h_, ug)
             gate = self.conditional(gate)
-            z_gate = T.nnet.relu(self.slice(gate, 0, self.unit_dim))
+            z_gate = T.nnet.relu(self.slice(gate, 0, self.unit_dim))+1e-8
             z_gate = self.addops('z_gate', z_gate, dropout, False)
-            zp_gate = T.nnet.relu(self.slice(gate, 1, self.unit_dim))
+            zp_gate = T.nnet.relu(self.slice(gate, 1, self.unit_dim))+1e-8
             zp_gate = self.addops('zp_gate', zp_gate, dropout, False)
             r_gate = T.nnet.sigmoid(self.slice(gate, 2, self.unit_dim))
             r_gate = self.addops('r_gate', r_gate, dropout, False)

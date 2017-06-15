@@ -8,13 +8,14 @@ import nnbuilder
 from nnbuilder.data import *
 from nnbuilder.layers.simple import *
 from nnbuilder.layers.sequential import *
+from nnbuilder.layers.misc import *
 from nnbuilder.algrithms import *
 from nnbuilder.extensions import *
 from nnbuilder.model import *
 from nnbuilder.main import *
 
 
-nnbuilder.config.name='imdb'
+nnbuilder.config.name='imdb_rgru_e'
 nnbuilder.config.max_epoches=100
 nnbuilder.config.valid_batch_size=64
 nnbuilder.config.batch_size=64
@@ -29,6 +30,7 @@ sample.config.sample_func=samples.add_sample
 saveload.config.save_freq=2500
 monitor.config.report_iter=True
 monitor.config.report_iter_frequence=2
+monitor.config.plot=True
 
 
 datastream  = Load_imdb(n_words=100000,maxlen=100)
@@ -36,7 +38,7 @@ datastream  = Load_imdb(n_words=100000,maxlen=100)
 model = model(100000,Int2dX)
 model.sequential()
 model.add(embedding(10))
-model.add(gru(128,out='final'))
+model.add(rgru(128,out='final'))
 model.add(dropout(0.5))
 model.add(softmax(2))
 
