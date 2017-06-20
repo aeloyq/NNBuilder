@@ -22,6 +22,8 @@ def init():
         os.mkdir('./%s/log' % config.name)
     if not os.path.exists('./%s/save' % config.name):
         os.mkdir('./%s/save' % config.name)
+    if not os.path.exists('./%s/save/epoch' % config.name):
+        os.mkdir('./%s/save/epoch' % config.name)
     if not os.path.exists('./%s/tmp' % config.name):
         os.mkdir('./%s/tmp' % config.name)
 
@@ -39,76 +41,76 @@ def train(datastream, model, algrithm, extension):
     train_minibatches, valid_minibatches, test_minibatches = get_minibatches_idx(datastream)
     sample_data = [datastream[0], datastream[3]]
     max_epoches = config.max_epoches
-    dict_param = {}
-    dict_param['dim_model'] = dim_model
-    dict_param['algrithm'] = algrithm
-    dict_param['logger'] = logger
-    dict_param['prepare_data'] = prepare_data
-    dict_param['get_sample_data'] = get_sample_data
-    dict_param['get_minibatches_idx'] = get_minibatches_idx
-    dict_param['conf'] = config
-    dict_param['batch_size'] = config.batch_size
-    dict_param['train_model'] = train_model
-    dict_param['valid_model'] = valid_model
-    dict_param['test_model'] = test_model
-    dict_param['sample_model'] = sample_model
-    dict_param['model'] = model
-    dict_param['iteration_total'] = 0
-    dict_param['minibatches'] = [train_minibatches, valid_minibatches, test_minibatches]
-    dict_param['data_stream'] = datastream
-    dict_param['sample_data'] = sample_data
-    dict_param['train_error'] = 1
-    dict_param['train_result'] = 1
-    dict_param['test_error'] = 1
-    dict_param['debug_result'] = []
-    dict_param['best_valid_error'] = 1
-    dict_param['best_iter'] = -1
-    dict_param['epoches'] = 0
-    dict_param['errors'] = []
-    dict_param['costs'] = []
-    dict_param['idx'] = 0
-    dict_param['time_used'] = 0
-    dict_param['stop'] = False
+    pwargs = {}
+    pwargs['dim_model'] = dim_model
+    pwargs['algrithm'] = algrithm
+    pwargs['logger'] = logger
+    pwargs['prepare_data'] = prepare_data
+    pwargs['get_sample_data'] = get_sample_data
+    pwargs['get_minibatches_idx'] = get_minibatches_idx
+    pwargs['conf'] = config
+    pwargs['batch_size'] = config.batch_size
+    pwargs['train_model'] = train_model
+    pwargs['valid_model'] = valid_model
+    pwargs['test_model'] = test_model
+    pwargs['sample_model'] = sample_model
+    pwargs['model'] = model
+    pwargs['iteration_total'] = 0
+    pwargs['minibatches'] = [train_minibatches, valid_minibatches, test_minibatches]
+    pwargs['data_stream'] = datastream
+    pwargs['sample_data'] = sample_data
+    pwargs['train_error'] = 1
+    pwargs['train_result'] = 1
+    pwargs['test_error'] = 1
+    pwargs['debug_result'] = []
+    pwargs['best_valid_error'] = 1
+    pwargs['best_iter'] = -1
+    pwargs['epoches'] = 0
+    pwargs['errors'] = []
+    pwargs['costs'] = []
+    pwargs['idx'] = 0
+    pwargs['time_used'] = 0
+    pwargs['stop'] = False
     extension_instance = []
-    for ex in extension: ex.config.kwargs = dict_param;ex.config.init();extension_instance.append(ex.config)
-    dict_param['extension'] = extension_instance
+    for ex in extension: ex.config.kwargs = pwargs;ex.config.init();extension_instance.append(ex.config)
+    pwargs['extension'] = extension_instance
     # Main Loop
     logger('Training Start', 1)
     for ex in extension_instance:   ex.before_train()
-    if dict_param['stop']:
-        return -1, [], [], dict_param['debug_result'], [train_model, valid_model, test_model, sample_model, model,
+    if pwargs['stop']:
+        return -1, [], [], pwargs['debug_result'], [train_model, valid_model, test_model, sample_model, model,
                                                         NNB_model, optimizer]
     import timeit
-    start_train_timestamp=timeit.default_timer()
+    pwargs['start_train_timestamp']=timeit.default_timer()
     while (True):
         # Stop When Timeout
-        if dict_param['epoches'] > max_epoches - 1 and max_epoches != -1:
+        if pwargs['epoches'] > max_epoches - 1 and max_epoches != -1:
             logger("⊙Trainning Time Out⊙", 1, 1)
             break
         # Train model iter by iter
-        minibatches = dict_param['minibatches'][0][dict_param['idx']:]
+        minibatches = pwargs['minibatches'][0][pwargs['idx']:]
         for idx, index in minibatches:
-            dict_param['idx'] = idx
+            pwargs['idx'] = idx
             data = prepare_data(train_X, train_Y, index)
             train_result = train_model(*data)
-            dict_param['train_result'] = train_result
-            dict_param['iteration_total'] += 1
+            pwargs['train_result'] = train_result
+            pwargs['iteration_total'] += 1
             for ex in extension_instance:   ex.after_iteration()
             if (idx == train_minibatches[-1][0]):
                 # After epoch
-                dict_param['epoches'] += 1
+                pwargs['epoches'] += 1
                 testdatas = []
                 for _, index in test_minibatches:
                     data = prepare_data(test_X, test_Y, index)
                     testdatas.append(data)
                 test_result = np.array([test_model(*tuple(testdata)) for testdata in testdatas])
-                dict_param['train_error'] = np.mean(test_result[:, 1])
-                dict_param['errors'].append(dict_param['train_error'])
-                dict_param['costs'].append(np.mean(test_result[:, 0]))
+                pwargs['train_error'] = np.mean(test_result[:, 1])
+                pwargs['errors'].append(pwargs['train_error'])
+                pwargs['costs'].append(np.mean(test_result[:, 0]))
                 for ex in extension_instance:   ex.after_epoch()
-            if dict_param['stop']:
+            if pwargs['stop']:
                 for ex in extension_instance:   ex.after_train()
-                return dict_param['epoches'], dict_param['errors'], dict_param['costs'], dict_param['debug_result'], [
+                return pwargs['epoches'], pwargs['errors'], pwargs['costs'], pwargs['debug_result'], [
                     train_model, valid_model, test_model, sample_model, model, NNB_model, optimizer]
             # Stop When Sucess
             if train_result == 0:
@@ -119,13 +121,13 @@ def train(datastream, model, algrithm, extension):
                 test_result = np.array([test_model(*tuple(testdata)) for testdata in testdatas])
                 train_error = np.mean(test_result[:, 1])
                 if np.mean(train_error) == 0:
-                    dict_param['best_iter'] = dict_param['iteration_total']
+                    pwargs['best_iter'] = pwargs['iteration_total']
                     logger("●Trainning Sucess●", 1, 1)
                     break
-        dict_param['idx'] = 0
-    dict_param['time_used']=dict_param['time_used']+(timeit.default_timer()-start_train_timestamp)
+        pwargs['idx'] = 0
+    pwargs['time_used']=pwargs['time_used']+(timeit.default_timer()-pwargs['start_train_timestamp'])
     for ex in extension_instance:   ex.after_train()
-    return dict_param['epoches'], dict_param['errors'], dict_param['costs'], dict_param['debug_result'], [train_model,
+    return pwargs['epoches'], pwargs['errors'], pwargs['costs'], pwargs['debug_result'], [train_model,
                                                                                                           valid_model,
                                                                                                           test_model,
                                                                                                           sample_model,
@@ -294,13 +296,13 @@ def print_config(model, algrithm, extension):
             if not key.startswith('__'):
                 logger(key + ' : %s' % model.layers[lykey].__dict__[key], 3)
     logger('algrithm:', 1)
-    logger(str(algrithm.config.__class__), 2)
+    logger(str(algrithm.config.__class__.__name__), 2)
     for key in algrithm.config.__dict__:
         if not key.startswith('__'):
             logger(key + ' : %s' % algrithm.config.__dict__[key], 3)
     logger('extension:', 1)
     for ex in extension:
-        logger(str(ex.__class__), 2)
+        logger(str(ex.__class__.__name__), 2)
         for key in ex.config.__dict__:
             if not key.startswith('__'):
                 logger(key + ' : %s' % ex.config.__dict__[key], 3)

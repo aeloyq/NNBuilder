@@ -28,6 +28,7 @@ class ex(base):
         self.report_epoch = True
         self.plot = False
         self.dotprint = True
+        self.size=False
 
     def init(self):
         base.init(self)
@@ -62,7 +63,7 @@ class ex(base):
             if iter % self.report_iter_frequence == 0:
                 self.logger("Epoch:%d   Iter:%d   Time:%.2fs   " \
                             "Cost:%.4f      ▉ %d%% ▉ Total:%.2fs" % (self.kwargs['epoches'], iter,
-                                           iteration_time, self.kwargs['train_result'],process,self.kwargs['time_used']), 2)
+                                           iteration_time, self.kwargs['train_result'],process,(timeit.default_timer()-self.kwargs['start_train_timestamp'])+self.kwargs['time_used']), 2)
 
 
 

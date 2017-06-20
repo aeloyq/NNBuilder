@@ -10,6 +10,7 @@ import numpy as np
 import os
 from collections import OrderedDict
 import nnbuilder
+import timeit
 
 base=extension.extension
 class ex(base):
@@ -72,7 +73,6 @@ class ex(base):
 
     def after_epoch(self):
         if self.save_epoch:
-            if not os.path.exists('./epoch'):os.mkdir('./epoch')
             savename = self.path + '/epoch/%s_epoch_%s.npz' % (self.kwargs['epoches'],time.asctime().replace(' ', '-').replace(':', '_'))
             self.save_npz(savename, self.overwrite)
 
@@ -123,7 +123,7 @@ class ex(base):
         params2save['costs'] = kwargs['costs']
         params2save['idx'] = kwargs['idx']
         params2save['minibatches'] = kwargs['minibatches']
-        params2save['time_used'] = kwargs['time_used']
+        params2save['time_used'] = kwargs['time_used']+(timeit.default_timer()-kwargs['start_train_timestamp'])
         for ex in kwargs['extension']:
             ex.save_(params2save)
         savename = name
