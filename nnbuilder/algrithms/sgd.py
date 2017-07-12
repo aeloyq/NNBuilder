@@ -53,4 +53,8 @@ class algrithm:
     def iter_updates(self):
         for name,delta in self.updates2output.items():
             self.updates[self.params[name]]=self.params[name]-delta
+    def save_(self,dict):
+        pass
+    def load_(self,dict):
+        pass
 config=algrithm()

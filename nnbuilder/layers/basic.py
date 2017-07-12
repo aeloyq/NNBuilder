@@ -197,7 +197,7 @@ class baselayer:
         self.params[pname] = theano.shared(value=rndfn(*args), name=pname, borrow=True)
         self.P[name] = self.params[pname]
         self.roles[pname] = role
-        return self.params[pname]
+        return self.addops(pname,self.params[pname],weightnorm)
 
     def init_children(self):
         '''

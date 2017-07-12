@@ -59,8 +59,6 @@ class model():
         self.layers_in_dim_dict=OrderedDict()
         self.layers_input_dict = OrderedDict()
         self.n_layers = 0
-        self.nodes = OrderedDict()
-        self.n_nodes = 0
         self.ops = OrderedDict()
         self.ops['cost'] = []
         self.n_ops = 0
@@ -151,7 +149,7 @@ class model():
             if hasattr(element,'unit_dim'):
                 self.pre_dim=element.unit_dim
         else:
-            element.init(self.pre_layer,self.ops)
+            pass
 
     def sequential(self,X=Int2dMask,Y=None):
         if X is not None: self.X_mask=X('X_mask');self.inputs.append(self.X_mask)

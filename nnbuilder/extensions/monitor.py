@@ -8,12 +8,12 @@ import extension
 import timeit
 import numpy as np
 import nnbuilder
-import matplotlib
 import os
 import threading
 import theano.d3viz as d3v
 from nnbuilder.layers.roles import *
 
+import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pylab as plt
 from collections import OrderedDict
@@ -52,7 +52,6 @@ class ex(base):
         if self.dotprint: d3v.d3viz(kwargs['dim_model'].output.output, self.path + 'model.html')
 
     def after_iteration(self):
-        pass
         iteration_time = timeit.default_timer() - self.iteration_s_time
         self.iteration_s_time = timeit.default_timer()
         if self.report_iter:
@@ -114,6 +113,8 @@ class ex(base):
                 plt.plot(x_axis_bi, y, color='black')
         plt.savefig(self.path + 'paramsplot.png')
 
+        plt.cla()
+
     def after_epoch(self):
         kwargs = self.kwargs
         epoch_time = timeit.default_timer() - self.epoch_s_time
@@ -130,12 +131,10 @@ class ex(base):
             self.logger("◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆", 2)
             self.logger("", 2)
         if self.plot:
-            costs = self.kwargs['costs']
-            errors = self.kwargs['errors']
             p=OrderedDict()
             for key,param in kwargs['dim_model'].params.items():
                 p[key]=param.get_value()
-            self.plot_func(costs, errors,p,kwargs['dim_model'].roles)
+            self.plot_func(self.kwargs['costs'], self.kwargs['errors'],p,kwargs['dim_model'].roles)
 
     def after_train(self):
         kwargs = self.kwargs

@@ -7,6 +7,7 @@ Created on Mon Dec 19 19:37:12 2016
 # TODO:类化，装饰器加入，处理extension
 import timeit
 import theano
+import types
 import theano.tensor as T
 import numpy as np
 import copy
@@ -280,29 +281,45 @@ def get_sample_data(datastream,sample_from='train'):
 
 
 def print_config(model, algrithm, extension):
+    def get_info(item):
+        if type(item) == types.ObjectType:
+            return 'object'
+        elif type(item) == types.ClassType:
+            return 'class'
+        elif type(item) == types.InstanceType:
+            return 'instanse'
+        elif type(item) == types.FunctionType:
+            return 'function'
+        elif type(item) == types.ModuleType:
+            return 'function'
+        else:
+            return item
     logger('Configurations:', 0, 1)
     logger('config:', 1)
     for key in config.__dict__:
         if not key.startswith('__'):
-            logger(key + ' : %s' % config.__dict__[key], 2)
+            info=get_info(config.__dict__[key])
+            logger(key + ' : %s' % info, 2)
     logger('model:', 1)
     for key in model.__dict__:
         if not key.startswith('__'):
-            logger(key + ' : %s' % model.__dict__[key], 2)
+            info=get_info(model.__dict__[key])
+            logger(key + ' : %s' % info, 2)
     logger('layer:', 1)
     for lykey in model.layers:
         logger(lykey + ":", 2)
         for key in model.layers[lykey].__dict__:
             if not key.startswith('__'):
-                logger(key + ' : %s' % model.layers[lykey].__dict__[key], 3)
+                info=get_info(model.layers[lykey].__dict__[key])
+                logger(key + ' : %s' % info, 3)
     logger('algrithm:', 1)
-    logger(str(algrithm.config.__class__.__name__), 2)
+    logger(str(algrithm.__name__.split('.')[-1]), 2)
     for key in algrithm.config.__dict__:
         if not key.startswith('__'):
             logger(key + ' : %s' % algrithm.config.__dict__[key], 3)
     logger('extension:', 1)
     for ex in extension:
-        logger(str(ex.__class__.__name__), 2)
+        logger(str(ex.__name__.split('.')[-1]), 2)
         for key in ex.config.__dict__:
             if not key.startswith('__'):
                 logger(key + ' : %s' % ex.config.__dict__[key], 3)

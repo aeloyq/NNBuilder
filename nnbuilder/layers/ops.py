@@ -41,7 +41,7 @@ class dropout(ops):
         ops.__init__(self)
         # if dp_name != None and use_noise#Todo:multi setting of noise
         self.noise=noise
-        self.dp_name=gate
+        self.gate=gate
 
 
     @staticmethod
@@ -55,19 +55,16 @@ class dropout(ops):
         return tvar * kwargs['use_noise']
 
     def evaluate(self):
-        if self.dp_name != None:
-            self.dp_name = [name[0] + '_' + name for name in self.dp_name]
-        else:
-            self.dp_name = None
-        if self.dp_name == None:
-            self.op_dict = {'dropout': {'use_noise': self.noise}}
-        else:
+        if self.gate != None:
+            self.gate = [name[0] + '_' + name for name in self.gate]
             self.op_dict = {'dropout': {'use_noise': self.noise}}
             for name in self.layer.ops:
                 self.layer.ops[name] = False
-            for name in self.dp_name:
+            for name in self.gate:
                 self.layer.ops[name] = True
                 self.op_dict[name] = {'use_noise': self.noise}
+        else:
+            self.op_dict = {'dropout': {'use_noise': self.noise}}
 
 
 class weight_decay(ops):
@@ -136,18 +133,45 @@ class residual(ops):
     def op_(tvar, **kwargs):
         return residual.op(tvar, **kwargs)
 
-class batch_normalization(ops):
-    def __init__(self):
+class layernorm(ops):
+    name='layernorm'
+    def __init__(self,beta,gamma):
         ops.__init__(self)
         self.op_dict = {}
+        self.beta = beta
+        self.gamma = gamma
 
     def evaluate(self):
-        self.op_dict['pre_tvar'] = None
+        self.op_dict['beta'] = self.beta
+        self.op_dict['gamma'] = self.gamma
 
     @staticmethod
     def op(tvar, **kwargs):
-        return T.nnet.batch_normalization(tvar, kwargs['gamma'], kwargs['beta'], kwargs['mean'], kwargs['std'])
+        _eps = 1e-5
+        output = (tvar - tvar.mean(-1, keepdims=True)) / T.sqrt((tvar.var(-1, keepdims=True) + _eps))
+        output = kwargs['gamma'] * output + kwargs['beta']
+        return output
+    @staticmethod
+    def op_(tvar, **kwargs):
+        return layernorm.op(tvar, **kwargs)
+
+class weightnorm(ops):
+    name='weightnorm'
+    def __init__(self,gamma):
+        ops.__init__(self)
+        self.op_dict = {}
+        self.gamma=gamma
+
+    def evaluate(self):
+        self.op_dict['gamma'] = self.gamma
+
+    @staticmethod
+    def op(tvar, **kwargs):
+        _eps = 1e-5
+        norm=T.sqrt((tvar * tvar).sum(axis=0, keepdims=True) + _eps)
+        norm_weight =tvar/(norm*kwargs['gamma'])
+        return norm_weight
 
     @staticmethod
     def op_(tvar, **kwargs):
-        return batch_normalization.op(tvar, **kwargs)
+        return weightnorm.op(tvar, **kwargs)

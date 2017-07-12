@@ -12,44 +12,56 @@ from collections import OrderedDict
 import nnbuilder
 import timeit
 
-base=extension.extension
+base = extension.extension
+
+
 class ex(base):
-    def __init__(self,kwargs):
-        base.__init__(self,kwargs)
-        self.save_freq=10000
-        self.save_len=3
-        self.load=True
-        self.save=True
-        self.overwrite=True
-        self.load_file_name=''
-        self.save_epoch=False
+    def __init__(self, kwargs):
+        base.__init__(self, kwargs)
+        self.save_freq = 10000
+        self.save_len = 3
+        self.load = True
+        self.save = True
+        self.overwrite = True
+        self.load_file_name = ''
+        self.save_epoch = False
+
     def init(self):
         base.init(self)
+
     def before_train(self):
         kwargs = self.kwargs
-        model=kwargs['dim_model']
-        layers=model.layers
+        model = kwargs['dim_model']
+        layers = model.layers
         path = './%s/save' % (kwargs['conf'].name)
-        self.path= './%s/save' % (kwargs['conf'].name)
+        self.path = './%s/save' % (kwargs['conf'].name)
         if self.load:
-            self.logger('Loading saved model from checkpoint:',2,1)
-            if self.load_file_name=='':
+            self.logger('Loading saved model from checkpoint:', 2, 1)
+            if self.load_file_name == '':
                 savelist = [name for name in os.listdir(path) if name.endswith('.npz')]
-                if savelist==[]:
+                if savelist == []:
                     self.logger('Checkpoint not found, exit loading', 3)
                     return
-                savelist.sort()
-                self.load_file_name=savelist[-1]
+
+                def cp(x, y):
+                    xt = os.stat(path + '/'+ x)
+                    yt = os.stat(path + '/'+ y)
+                    if xt.st_mtime > yt.st_mtime:
+                        return 1
+                    else:
+                        return -1
+                savelist.sort(cp)
+                self.load_file_name = savelist[-1]
             self.logger('Checkpoint is found:{}...'.format(self.load_file_name), 3)
-            params=(np.load(path+'/'+self.load_file_name))['save'].tolist()
+            params = (np.load(path + '/' + self.load_file_name))['save'].tolist()
             for key in layers:
-                for param,sparam in zip(layers[key].params,params[key]):
+                for param, sparam in zip(layers[key].params, params[key]):
                     layers[key].params[param].set_value(params[key][sparam])
-            kwargs['epoches']=params['epoches']#TODO:may smaller than real number
-            kwargs['iteration_total']= params['iteration_total']
+            kwargs['epoches'] = params['epoches']  # TODO:may smaller than real number
+            kwargs['iteration_total'] = params['iteration_total']
             kwargs['best_iter'] = params['best_iter']
-            kwargs['best_valid_error'] =params['best_valid_error']
-            kwargs['idx'] = params['idx']+1
+            kwargs['best_valid_error'] = params['best_valid_error']
+            kwargs['idx'] = params['idx'] + 1
             kwargs['minibatches'] = params['minibatches']
             kwargs['time_used'] = params['time_used']
             for i in params['errors']:
@@ -59,30 +71,31 @@ class ex(base):
             name = ''
             try:
                 for ex in kwargs['extension']:
-                    name=ex.__class__
+                    name = ex.__class__
                     ex.load_(params)
+                kwargs['algrithm'].config.load_(params)
             except:
                 self.logger('{} Load failed'.format(name), 3)
-            self.logger('Load sucessfully',3)
+            self.logger('Load sucessfully', 3)
 
     def after_iteration(self):
         kwargs = self.kwargs
         if kwargs['iteration_total'] % self.save_freq == 0:
-            savename=self.path + '/%s.npz' % (kwargs['iteration_total'])
-            self.save_npz(savename,self.overwrite)
+            savename = self.path + '/%s.npz' % (kwargs['iteration_total'])
+            self.save_npz(savename, self.overwrite)
 
     def after_epoch(self):
         if self.save_epoch:
-            savename = self.path + '/{}/.npz'.format (self.kwargs['epoches'])
+            savename = self.path + '/{}/.npz'.format(self.kwargs['epoches'])
             self.save_npz(savename, self.overwrite)
 
     def after_train(self):
         kwargs = self.kwargs
-        self.save_npz(self.path+'/finall',self.overwrite)
+        self.save_npz(self.path + '/finall', self.overwrite)
 
-    def load_npz(self,model,name=''):
+    def load_npz(self, model, name=''):
 
-        layers=model.layers
+        layers = model.layers
         path = './%s/save' % (nnbuilder.config.name)
         print('Loading saved model from checkpoint:')
         if name == '':
@@ -90,19 +103,27 @@ class ex(base):
             if savelist == []:
                 print('Checkpoint not found, exit loading')
                 return
-            savelist.sort()
+
+            def cp(x, y):
+                xt = os.stat(path + '/'+ x)
+                yt = os.stat(path + '/'+ y)
+                if xt.st_mtime > yt.st_mtime:
+                    return 1
+                else:
+                    return -1
+
+            savelist.sort(cp)
             self.load_file_name = savelist[-1]
             print('Checkpoint is found:{}...'.format(self.load_file_name))
         else:
-            self.load_file_name=name+'.npz'
+            self.load_file_name = name + '.npz'
             print('Checkpoint is found:{}...'.format(self.load_file_name))
         params = (np.load(path + '/' + self.load_file_name))['save'].tolist()
         for key in layers:
             for param, sparam in zip(layers[key].params, params[key]):
                 layers[key].params[param].set_value(params[key][sparam])
 
-
-    def save_npz(self,name,delete=True):
+    def save_npz(self, name, delete=True):
         kwargs = self.kwargs
         self.logger("Prepare to save model", 2, 1)
         model = kwargs['dim_model']
@@ -114,7 +135,7 @@ class ex(base):
         for key in params:
             params2save[key] = OrderedDict()
             for pname, param in params[key].items():
-                params2save[key][pname]=param.get_value()
+                params2save[key][pname] = param.get_value()
         params2save['epoches'] = kwargs['epoches']
         params2save['iteration_total'] = kwargs['iteration_total']
         params2save['best_iter'] = kwargs['best_iter']
@@ -123,9 +144,10 @@ class ex(base):
         params2save['costs'] = kwargs['costs']
         params2save['idx'] = kwargs['idx']
         params2save['minibatches'] = kwargs['minibatches']
-        params2save['time_used'] = kwargs['time_used']+(timeit.default_timer()-kwargs['start_train_timestamp'])
+        params2save['time_used'] = kwargs['time_used'] + (timeit.default_timer() - kwargs['start_train_timestamp'])
         for ex in kwargs['extension']:
             ex.save_(params2save)
+        kwargs['algrithm'].config.save_(params2save)
         savename = name
         np.savez(savename, save=params2save)
         self.logger("Save sucessfully at file:{}".format(savename), 3)
@@ -135,5 +157,6 @@ class ex(base):
             for i in range(len(savelist) - self.save_len):
                 os.remove(self.path + '/' + savelist[i])
                 self.logger("Deleted old file:{}".format(self.path + '/' + savelist[i]), 3)
-config=ex({})
 
+
+config = ex({})

@@ -5,14 +5,11 @@ Created on  Feb 28 9:47 PM 2017
 @author: aeloyq
 """
 import numpy as np
-import os
-import theano
-import theano.tensor as t
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 name='unamed'
 
-train=theano.shared(value=0,name='Is_Train',borrow=True)
+
 rng=np.random.RandomState(1234)
 trng=RandomStreams(1234)
 
@@ -26,3 +23,4 @@ mask_y=False
 int_x=False
 int_y=False
 savelog=True
+data_path=''
