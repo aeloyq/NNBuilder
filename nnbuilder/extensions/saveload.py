@@ -86,7 +86,7 @@ class ex(base):
 
     def after_epoch(self):
         if self.save_epoch:
-            savename = self.path + '/{}/.npz'.format(self.kwargs['epoches'])
+            savename = self.path + '/epoch/{}.npz'.format(self.kwargs['epoches'])
             self.save_npz(savename, self.overwrite)
 
     def after_train(self):
