@@ -15,7 +15,7 @@ trng=RandomStreams(1234)
 
 batch_size=20
 valid_batch_size=64
-max_epoches=1000
+max_epoch=1000
 transpose_x=False
 transpose_y=False
 mask_x=False
@@ -24,3 +24,4 @@ int_x=False
 int_y=False
 savelog=True
 data_path=''
+n_data=None

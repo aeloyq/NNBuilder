@@ -4,20 +4,17 @@ Created on Sat Dec 24 13:45:34 2016
 
 @author: aeloyq
 """
-import extension
-import time
 import numpy as np
 import os
-from collections import OrderedDict
 import nnbuilder
 import timeit
+from collections import OrderedDict
+from extension import extension
 
-base = extension.extension
 
-
-class ex(base):
-    def __init__(self, kwargs):
-        base.__init__(self, kwargs)
+class ex(extension):
+    def __init__(self,kwargs):
+        extension.__init__(self,kwargs)
         self.save_freq = 10000
         self.save_len = 3
         self.load = True
@@ -25,16 +22,17 @@ class ex(base):
         self.overwrite = True
         self.load_file_name = ''
         self.save_epoch = False
+        self.data_changed=False
 
     def init(self):
-        base.init(self)
+        extension.init(self)
 
     def before_train(self):
         kwargs = self.kwargs
-        model = kwargs['dim_model']
+        model = kwargs['model']
         layers = model.layers
-        path = './%s/save' % (kwargs['conf'].name)
-        self.path = './%s/save' % (kwargs['conf'].name)
+        path = './%s/save' % (nnbuilder.config.name)
+        self.path = path
         if self.load:
             self.logger('Loading saved model from checkpoint:', 2, 1)
             if self.load_file_name == '':
@@ -57,40 +55,40 @@ class ex(base):
             for key in layers:
                 for param, sparam in zip(layers[key].params, params[key]):
                     layers[key].params[param].set_value(params[key][sparam])
-            kwargs['epoches'] = params['epoches']  # TODO:may smaller than real number
-            kwargs['iteration_total'] = params['iteration_total']
-            kwargs['best_iter'] = params['best_iter']
-            kwargs['best_valid_error'] = params['best_valid_error']
-            kwargs['idx'] = params['idx'] + 1
-            kwargs['minibatches'] = params['minibatches']
-            kwargs['time_used'] = params['time_used']
+            kwargs['n_epoch'] = params['n_epoch']
+            kwargs['time'] = params['time']
+            if not self.data_changed:
+                kwargs['n_iter'] = params['n_iter']
+                kwargs['best_iter'] = params['best_iter']
+                kwargs['best_valid_error'] = params['best_valid_error']
+                kwargs['iter'] = params['iter'] + 1
+                kwargs['minibatches'] = params['minibatches']
             for i in params['errors']:
                 kwargs['errors'].append(i)
             for i in params['costs']:
                 kwargs['costs'].append(i)
             name = ''
             try:
-                for ex in kwargs['extension']:
+                for ex in kwargs['extensions']:
                     name = ex.__class__
                     ex.load_(params)
-                kwargs['algrithm'].config.load_(params)
+                kwargs['optimizer'].load_(params)
             except:
                 self.logger('{} Load failed'.format(name), 3)
             self.logger('Load sucessfully', 3)
 
     def after_iteration(self):
         kwargs = self.kwargs
-        if kwargs['iteration_total'] % self.save_freq == 0:
-            savename = self.path + '/%s.npz' % (kwargs['iteration_total'])
+        if kwargs['n_iter'] % self.save_freq == 0:
+            savename = self.path + '/%s.npz' % (kwargs['n_iter'])
             self.save_npz(savename, self.overwrite)
 
     def after_epoch(self):
         if self.save_epoch:
-            savename = self.path + '/epoch/{}.npz'.format(self.kwargs['epoches'])
+            savename = self.path + '/epoch/{}.npz'.format(self.kwargs['n_epoch'])
             self.save_npz(savename, self.overwrite)
 
     def after_train(self):
-        kwargs = self.kwargs
         self.save_npz(self.path + '/finall', self.overwrite)
 
     def load_npz(self, model, name=''):
@@ -126,7 +124,7 @@ class ex(base):
     def save_npz(self, name, delete=True):
         kwargs = self.kwargs
         self.logger("Prepare to save model", 2, 1)
-        model = kwargs['dim_model']
+        model = kwargs['model']
         layers = model.layers
         params = OrderedDict()
         params2save = OrderedDict()
@@ -136,18 +134,18 @@ class ex(base):
             params2save[key] = OrderedDict()
             for pname, param in params[key].items():
                 params2save[key][pname] = param.get_value()
-        params2save['epoches'] = kwargs['epoches']
-        params2save['iteration_total'] = kwargs['iteration_total']
+        params2save['n_epoch'] = kwargs['n_epoch']
+        params2save['n_iter'] = kwargs['n_iter']
         params2save['best_iter'] = kwargs['best_iter']
         params2save['best_valid_error'] = kwargs['best_valid_error']
         params2save['errors'] = kwargs['errors']
         params2save['costs'] = kwargs['costs']
-        params2save['idx'] = kwargs['idx']
+        params2save['iter'] = kwargs['iter']
         params2save['minibatches'] = kwargs['minibatches']
-        params2save['time_used'] = kwargs['time_used'] + (timeit.default_timer() - kwargs['start_train_timestamp'])
-        for ex in kwargs['extension']:
+        params2save['time'] = kwargs['time'] + (timeit.default_timer() - kwargs['start_time'])
+        for ex in kwargs['extensions']:
             ex.save_(params2save)
-        kwargs['algrithm'].config.save_(params2save)
+        kwargs['optimizer'].save_(params2save)
         savename = name
         np.savez(savename, save=params2save)
         self.logger("Save sucessfully at file:{}".format(savename), 3)

@@ -24,12 +24,12 @@ class ex(base):
     def before_train(self):
         kwargs=self.kwargs
         self.logger('Compiling Debug Model', 1)
-        model=kwargs['dim_model']
+        model=kwargs['model']
         self.inputs=model.inputs
         self.updates=model.updates
         values = []
         user_values = []
-        train_X, valid_X, test_X, train_Y, valid_Y, test_Y = kwargs['data_stream']
+        train_X, valid_X, test_X, train_Y, valid_Y, test_Y = kwargs['datas']
         for time in range(self.debug_time):
             index=np.arange(self.debug_batch)+self.debug_batch*time+self.start_index
             data = kwargs['prepare_data'](train_X, train_Y, (index).tolist())

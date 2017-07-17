@@ -4,20 +4,22 @@ Created on  Feb 14 1:22 PM 2017
 
 @author: aeloyq
 """
-import extension
-import timeit
+from extension import extension
+from nnbuilder.main import mainloop
 
-base=extension.extension
-class ex(base):
-    def __init__(self,kwargs):
-        base.__init__(self,kwargs)
-        self.shuffle_window=None
-    def before_train(self):
-        if self.kwargs['idx']==0:
-            self.kwargs['minibatch']=self.kwargs['get_minibatches_idx'](self.kwargs['data_stream'],True,self.shuffle_window)
+
+class ex(extension):
+    def __init__(self, kwargs):
+        extension.__init__(self, kwargs)
+        self.shuffle_window = None
+
+    def before_epoch(self):
+        if self.kwargs['iter'] == 0:
+            self.kwargs['minibatches'] = mainloop.get_minibatches(self.kwargs['datas'], True, self.shuffle_window)
 
     def after_epoch(self):
-        self.kwargs['minibatch'] = self.kwargs['get_minibatches_idx'](self.kwargs['data_stream'], True,
-                                                                      self.shuffle_window)
+        self.kwargs['minibatches'] = mainloop.get_minibatches(self.kwargs['datas'], True,
+                                                            self.shuffle_window)
 
-config=ex({})
+
+config = ex({})
