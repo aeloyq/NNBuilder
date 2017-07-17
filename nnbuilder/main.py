@@ -21,7 +21,7 @@ class mainloop:
 
     @staticmethod
     def train(data, model, algrithm, extensions, stream=None, stream_stdin_func=np.load, prt_conf=False):
-        # Prepare
+        # Prepare train
         mainloop.init_nnb()
         n_data = mainloop.init_datas(data, stream, stream_stdin_func)
         model.build()
