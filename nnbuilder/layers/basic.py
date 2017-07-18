@@ -13,6 +13,7 @@ from ops import *
 import numpy as np
 import theano
 import theano.tensor as T
+import copy
 
 
 class baselayer:
@@ -101,7 +102,7 @@ class baselayer:
         self.x_mask = x_mask
         self.y_mask = y_mask
 
-    def public_ops(self):
+    def output_ops(self):
         '''
         public ops on tensor variable
         such like dropout batch normalization etc.
@@ -109,9 +110,30 @@ class baselayer:
         please overwrite this function
         :return: None
         '''
-        self.output = self.addops('output', self.output, dropout, False)
+        pass
 
-    def addops(self, name, tvar, ops, switch=True):
+    def feedforward_ops(self):
+        '''
+        public ops on tensor variable
+        such like dropout batch normalization etc.
+        if want to change the sequence of ops
+        please overwrite this function
+        :return: None
+        '''
+        pass
+
+    def build_ops(self):
+        '''
+        public ops on tensor variable
+        such like dropout batch normalization etc.
+        if want to change the sequence of ops
+        please overwrite this function
+        :return: None
+        '''
+        self.output = self.addops('output', self.output, layernorm)
+        self.output = self.addops('output', self.output, dropout)
+
+    def addops(self, name, tvar, ops, switch=True, **options):
         '''
         add operation on tensor variable
         which realize training tricks
@@ -135,6 +157,8 @@ class baselayer:
         else:
             if ops.name not in self.op_dict: return tvar
             dict = self.op_dict[ops.name]
+        dict=copy.deepcopy(dict)
+        dict.update(options)
         if self.op_dict['mode'] == 'train':
             return ops.op(tvar, **dict)
         elif self.op_dict['mode'] == 'use':
@@ -195,9 +219,9 @@ class baselayer:
                 return self.params[pname]
         pname = name + '_' + self.name
         self.params[pname] = theano.shared(value=rndfn(*args), name=pname, borrow=True)
-        self.P[name] = self.params[pname]
+        self.P[name] = self.addops(pname, self.params[pname], weightnorm)
         self.roles[pname] = role
-        return self.addops(pname,self.params[pname],weightnorm)
+        return self.P[name]
 
     def init_children(self):
         '''
@@ -244,6 +268,7 @@ class baselayer:
                 P = dict
         self.set_input(X)
         self.get_output(X, P)
+        self.feedforward_ops()
         self.merge(1)
         return self.output
 
@@ -254,7 +279,7 @@ class baselayer:
             output of layer
         '''
         self.output = self.apply(X, P)
-        self.public_ops()
+        self.output_ops()
 
     def apply(self, X, P):
         '''
@@ -278,6 +303,7 @@ class baselayer:
         '''
         self.initiate(name, **op_dict)
         self.feedforward(input)
+        self.build_ops()
         return self.output
 
     def evaluate(self, input, name, **op_dict):
@@ -365,10 +391,10 @@ class linear(layer):
     def apply(self, X, P):
         return T.dot(X, P['Wt'])
 
-    def public_ops(self):
+    def output_ops(self):
         if self.activation is not None:
             self.output = self.activation(self.output)
-        self.output = self.addops('output', self.output, dropout, False)
+
 
 
 class std(linear):

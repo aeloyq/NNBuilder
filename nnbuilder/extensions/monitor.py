@@ -52,11 +52,11 @@ class ex(extension):
     def after_iteration(self):
         if self.report_iter:
             n_iter = self.kwargs['n_iter']
-            iter = float(str(self.kwargs['iter']+np.sum(self.kwargs['n_data'][1][:self.kwargs['bucket']])))
+            iter = self.kwargs['iter']+self.kwargs['pre_iter']
             process = ((iter + 1) * 100) / self.batches
             if n_iter % self.report_iter_frequence == 0:
-                self.logger("Epoch:%d   Iter:%d   Time:%.2fs   " \
-                            "Cost:%.4f      /%d%%/ Total:%ds" % (self.kwargs['n_epoch'], n_iter,
+                self.logger("Epoch:%d   Iter:%d   Bucket:%d   Time:%.2fs   " \
+                            "Cost:%.4f      /%d%%/ Total:%ds" % (self.kwargs['n_epoch'], n_iter,self.kwargs['n_bucket'],
                                                                  timeit.default_timer() - self.iter_start_time,
                                                                  self.kwargs['train_cost'],
                                                                  process,
@@ -118,14 +118,14 @@ class ex(extension):
         self.epoch_s_time = timeit.default_timer()
         if self.report_epoch:
             self.logger("", 2)
-            self.logger("◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆", 2)
-            self.logger("  Single Epoch Done:", 2)
-            self.logger("  Epoches:%d  " % kwargs['n_epoch'], 2)
-            self.logger("  Iterations:%d" % (kwargs['n_iter']), 2)
-            self.logger("  Time Used:%.2fs" % epoch_time, 2)
-            self.logger("  Cost:%.4f   " % kwargs['costs'][-1], 2)
-            self.logger("  Error:%.4f%%" % (kwargs['test_error'] * 100), 2)
-            self.logger("◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆", 2)
+            self.logger("◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆", 1)
+            self.logger("  Single Epoch Done:", 1)
+            self.logger("  Epoches:%d  " % kwargs['n_epoch'], 1)
+            self.logger("  Iterations:%d" % (kwargs['n_iter']), 1)
+            self.logger("  Time Used:%.2fs" % epoch_time, 1)
+            self.logger("  Cost:%.4f   " % kwargs['costs'][-1], 1)
+            self.logger("  Error:%.4f%%" % (kwargs['test_error'] * 100), 1)
+            self.logger("◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆", 1)
             self.logger("", 2)
         if self.plot:
             p = OrderedDict()

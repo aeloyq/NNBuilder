@@ -149,7 +149,7 @@ class model():
             if hasattr(element,'unit_dim'):
                 self.pre_dim=element.unit_dim
         else:
-            pass
+            element.init(self.pre_layer, self.ops)
 
     def sequential(self,X=Int2dMask,Y=None):
         if X is not None: self.X_mask=X('X_mask');self.inputs.append(self.X_mask)

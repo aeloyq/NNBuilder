@@ -48,7 +48,7 @@ class mainloop:
         kwargs['debug_result'] = []
         kwargs['n_epoch'] = 0
         kwargs['n_iter'] = 0
-        kwargs['bucket'] = 0
+        kwargs['n_bucket'] = 0
         kwargs['iter'] = 0
         kwargs['time'] = 0
         kwargs['errors'] = []
@@ -68,7 +68,7 @@ class mainloop:
         kwargs['start_time'] = timeit.default_timer()
         while (True):
             # Prepare data
-            datas = mainloop.get_datas(data, stream, stream_stdin_func, kwargs['bucket'])
+            datas = mainloop.get_datas(data, stream, stream_stdin_func, kwargs['n_bucket'])
             kwargs['datas'] = datas
             train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datas
             kwargs['minibatches'] = mainloop.get_minibatches(datas)
@@ -81,8 +81,10 @@ class mainloop:
             for ex in extension_instance:   ex.before_epoch()
 
             minibatches = kwargs['minibatches'][0][kwargs['iter']:]
+            kwargs['pre_iter']=np.sum(kwargs['n_data'][1][:kwargs['n_bucket']])
+            kwargs['prefix']=kwargs['iter']
             for iter, index in enumerate(minibatches):
-                kwargs['iter'] = iter + 1
+                kwargs['iter'] = iter+kwargs['prefix']
 
                 for ex in extension_instance:   ex.before_iteration()
 
@@ -94,9 +96,9 @@ class mainloop:
                 for ex in extension_instance:   ex.after_iteration()
 
                 # After epoch
-                if (iter + 1 == kwargs['n_data'][1][kwargs['bucket']]):
-                    if kwargs['stream'] == None or kwargs['bucket'] == len(kwargs['stream']) - 1:
-                        kwargs['bucket'] = 0
+                if (kwargs['iter'] + 1 == kwargs['n_data'][1][kwargs['n_bucket']]):
+                    if kwargs['stream'] == None or kwargs['n_bucket'] == len(kwargs['stream']) - 1:
+                        kwargs['n_bucket'] = 0
                         kwargs['n_epoch'] += 1
                         testdatas = []
                         for index in kwargs['minibatches'][2]:
@@ -110,7 +112,7 @@ class mainloop:
                         for ex in extension_instance:   ex.after_epoch()
 
                     else:
-                        kwargs['bucket'] += 1
+                        kwargs['n_bucket'] += 1
 
                 # Stop when needed
                 if kwargs['stop']:
@@ -207,20 +209,12 @@ class mainloop:
                     batches = (num - 1) // config.batch_size + 1
                     n_data[0].append(num)
                     n_data[1].append(batches)
-                    logger("Bucket {}        -          {}          -          {}          -          {}".format(i,num,
-                                                                                                                  v_num,
-                                                                                                                  t_num),
+                    logger("Bucket {}        -      {}/{}={}      -      {}/{}={}      -      {}/{}={}".format(i,num,config.batch_size,batches,
+                                                                                                                  v_num,config.valid_batch_size,v_batches,
+                                                                                                                  t_num,config.valid_batch_size,t_batches),
                            1)
                 except:
                     logger("Broken bucket found in data stream !", 0)
-            logger(
-                "N_Batch         -           {}           -          {}*{}         -          {}*{}".format(
-                    'N/A',
-                    v_batches,
-                    config.valid_batch_size,
-                    t_batches,
-                    config.valid_batch_size),
-                1)
             return n_data
 
     @staticmethod
@@ -270,11 +264,11 @@ class mainloop:
                     logger(key + ' : %s' % ex.config.__dict__[key], 3)
 
     @staticmethod
-    def get_datas(data, stream=None, stream_stdin_func=None, idx_bucket=0):
+    def get_datas(data, stream=None, stream_stdin_func=None, n_bucket=0):
         if stream == None:
             return data
         else:
-            trainning_data = stream_stdin_func(stream[idx_bucket])
+            trainning_data = stream_stdin_func(stream[n_bucket])
             data_ = [trainning_data[0], data[0], data[1], trainning_data[1], data[2], data[3]]
             return data_
 
@@ -373,6 +367,7 @@ class mainloop:
 
     @staticmethod
     def prepare_data(data_x, data_y, index):
+        mask_x=None;mask_y=None
         x = copy.deepcopy([data_x[t] for t in index])
         y = copy.deepcopy([data_y[t] for t in index])
         if config.transpose_x:
@@ -412,46 +407,7 @@ class mainloop:
         data = tuple(data)
         return data
 
-    @staticmethod
-    def get_sample_data(datastream, sample_from='train'):
-        train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datastream
 
-        def g(X, Y):
-            try:
-                n_train = X.get_value().shape[0]
-            except:
-                n_train = len(X)
-            index = config.rng.randint(0, n_train)
-
-            data_x = X
-            data_y = Y
-            x = [data_x[index]]
-
-            if config.transpose_x:
-                x = np.asarray(x)
-                x = x.transpose()
-                mask_x = np.ones([x.shape[0], 1]).astype(theano.config.floatX)
-            y = [data_y[index]]
-            if config.transpose_y:
-                y = np.asarray(y)
-                y = y.transpose()
-                mask_y = np.ones([y.shape[0], 1]).astype(theano.config.floatX)
-            if config.int_x: x = np.asarray(x).astype('int64').tolist()
-            if config.int_y: y = np.asarray(y).astype('int64').tolist()
-            data = [x, y]
-            if config.mask_x:
-                data.append(mask_x)
-            if config.mask_y:
-                data.append(mask_y)
-            data = tuple(data)
-            return data
-
-        if sample_from == 'train':
-            return g(train_X, train_Y)
-        elif sample_from == 'valid':
-            return g(valid_X, valid_Y)
-        elif sample_from == 'test':
-            return g(test_X, test_Y)
 
 
 # Shortcuts

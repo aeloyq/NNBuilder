@@ -23,30 +23,30 @@ class ex(extension):
     def before_train(self):
         kwargs = self.kwargs
         if self.sample_freq==-1:
-            self.sample_freq=kwargs['n_data'][1][kwargs['bucket']]
+            self.sample_freq=kwargs['n_data'][1][kwargs['n_bucket']]
     def after_iteration(self):
         kwargs = self.kwargs
         if kwargs['n_iter'] % self.sample_freq == 0:
             if self.sample_func != None:
                 datastream=kwargs['datas']
                 sample_model=kwargs['sample_fn']
-                self.logger('',2)
-                self.logger("☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",2)
-                self.logger('____________________________________________', 2)
+                self.logger('',1)
+                self.logger("☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",1)
+                self.logger('____________________________________________', 1)
                 cost=0
                 error=0
                 for _ in range(self.sample_times):
                     sample_data = self.get_sample_data()
                     sp_pred, sp_cost, sp_error = sample_model(*sample_data)
                     s2p,sp_y=self.sample_func(sample_data[0], sp_pred,sample_data[1])
-                    self.logger( s2p,2)
-                    self.logger( "Expect Result:%s"%sp_y,2)
-                    self.logger('____________________________________________',2)
+                    self.logger( s2p,1)
+                    self.logger( "Expect Result:%s"%sp_y,1)
+                    self.logger('____________________________________________',1)
                     cost+=sp_cost
                     error+=sp_error
-                self.logger( "Sample Cost:%.4f  Sample Error:%.4f%%  " % (cost/self.sample_times, (error/self.sample_times * 100)),2)
-                self.logger( "☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",2)
-                self.logger( '',2)
+                self.logger( "Sample Cost:%.4f  Sample Error:%.4f%%  " % (cost/self.sample_times, (error/self.sample_times * 100)),1)
+                self.logger( "☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",1)
+                self.logger( '',1)
     def get_sample_data(self):
         train_X, valid_X, test_X, train_Y, valid_Y, test_Y = self.kwargs['datas']
 

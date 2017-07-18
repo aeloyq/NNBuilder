@@ -34,11 +34,11 @@ class ex(extension):
         path = './%s/save' % (nnbuilder.config.name)
         self.path = path
         if self.load:
-            self.logger('Loading saved model from checkpoint:', 2, 1)
+            self.logger('Loading saved model from checkpoint:', 1, 1)
             if self.load_file_name == '':
                 savelist = [name for name in os.listdir(path) if name.endswith('.npz')]
                 if savelist == []:
-                    self.logger('Checkpoint not found, exit loading', 3)
+                    self.logger('Checkpoint not found, exit loading', 2)
                     return
 
                 def cp(x, y):
@@ -50,7 +50,7 @@ class ex(extension):
                         return -1
                 savelist.sort(cp)
                 self.load_file_name = savelist[-1]
-            self.logger('Checkpoint is found:{}...'.format(self.load_file_name), 3)
+            self.logger('Checkpoint is found:{}...'.format(self.load_file_name), 2)
             params = (np.load(path + '/' + self.load_file_name))['save'].tolist()
             for key in layers:
                 for param, sparam in zip(layers[key].params, params[key]):
@@ -59,6 +59,7 @@ class ex(extension):
             kwargs['time'] = params['time']
             if not self.data_changed:
                 kwargs['n_iter'] = params['n_iter']
+                kwargs['n_bucket'] = params['n_bucket']
                 kwargs['best_iter'] = params['best_iter']
                 kwargs['best_valid_error'] = params['best_valid_error']
                 kwargs['iter'] = params['iter'] + 1
@@ -74,8 +75,8 @@ class ex(extension):
                     ex.load_(params)
                 kwargs['optimizer'].load_(params)
             except:
-                self.logger('{} Load failed'.format(name), 3)
-            self.logger('Load sucessfully', 3)
+                self.logger('{} Load failed'.format(name), 2)
+            self.logger('Load sucessfully', 2)
 
     def after_iteration(self):
         kwargs = self.kwargs
@@ -123,7 +124,7 @@ class ex(extension):
 
     def save_npz(self, name, delete=True):
         kwargs = self.kwargs
-        self.logger("Prepare to save model", 2, 1)
+        self.logger("Prepare to save model", 1, 1)
         model = kwargs['model']
         layers = model.layers
         params = OrderedDict()
@@ -136,6 +137,7 @@ class ex(extension):
                 params2save[key][pname] = param.get_value()
         params2save['n_epoch'] = kwargs['n_epoch']
         params2save['n_iter'] = kwargs['n_iter']
+        params2save['n_bucket'] = kwargs['n_bucket']
         params2save['best_iter'] = kwargs['best_iter']
         params2save['best_valid_error'] = kwargs['best_valid_error']
         params2save['errors'] = kwargs['errors']
@@ -148,13 +150,14 @@ class ex(extension):
         kwargs['optimizer'].save_(params2save)
         savename = name
         np.savez(savename, save=params2save)
-        self.logger("Save sucessfully at file:{}".format(savename), 3)
+        self.logger("Save Sucessfully At File : [{}]".format(savename), 2)
         if delete:
             savelist = [name for name in os.listdir(self.path) if name.endswith('.npz')]
             savelist.sort()
             for i in range(len(savelist) - self.save_len):
                 os.remove(self.path + '/' + savelist[i])
-                self.logger("Deleted old file:{}".format(self.path + '/' + savelist[i]), 3)
+                self.logger("Deleted Old File : [{}]".format(self.path + '/' + savelist[i]), 2)
+        self.logger("",2)
 
 
 config = ex({})

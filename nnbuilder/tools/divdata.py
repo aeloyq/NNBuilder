@@ -21,7 +21,7 @@ def ExecuteDiv(DataPath, StdinFunction, NumOfDivParts, OutPath=None, SaveFunctio
         vttmp = [data[1], data[2], data[4], data[5]]
     else:
         vttmp = [data[1], data[2], [data[4]], [data[5]]]
-    SaveFunction(OutPath + '/ValidAndTest.dat', vttmp)
+    SaveFunction(OutPath + '/ValidTest', vttmp)
     n_data = len(data[0])
     BucketSize = np.round(n_data // NumOfDivParts)
     if BucketSize % BatchSize != 0:
@@ -29,22 +29,22 @@ def ExecuteDiv(DataPath, StdinFunction, NumOfDivParts, OutPath=None, SaveFunctio
     bar = progressbar.ProgressBar()
     for i in bar(range(NumOfDivParts - 1)):
         if not TrueList:
-            SaveFunction(OutPath + '/Train_{}.dat'.format(i + 1),
+            SaveFunction(OutPath + '/TrainData{}'.format(i + 1),
                          [data[0][i * BucketSize:(i + 1) * BucketSize], data[3][i * BucketSize:(i + 1) * BucketSize]],
                          )
         else:
             tmp=[(data[0][i * BucketSize:(i + 1) * BucketSize]),
                           [data[3][i * BucketSize:(i + 1) * BucketSize]]]
-            SaveFunction(OutPath + '/Train_{}.dat'.format(i + 1),
+            SaveFunction(OutPath + '/TrainData{}'.format(i + 1),
                          tmp
                          )
 
     if not TrueList:
-        SaveFunction(OutPath + '/Train_{}.dat'.format(NumOfDivParts),
+        SaveFunction(OutPath + '/TrainData{}'.format(NumOfDivParts),
                      [data[0][(NumOfDivParts - 1) * BucketSize:NumOfDivParts * BucketSize],
                       data[3][(NumOfDivParts - 1) * BucketSize:NumOfDivParts * BucketSize]])
     else:
-        SaveFunction(OutPath + '/Train_{}.dat'.format(NumOfDivParts),
+        SaveFunction(OutPath + '/TrainData{}'.format(NumOfDivParts),
                      [data[0][(NumOfDivParts - 1) * BucketSize:NumOfDivParts * BucketSize],
                      [data[3][(NumOfDivParts - 1) * BucketSize:NumOfDivParts * BucketSize]]])
 

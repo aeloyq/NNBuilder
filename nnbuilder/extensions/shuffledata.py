@@ -6,20 +6,32 @@ Created on  Feb 14 1:22 PM 2017
 """
 from extension import extension
 from nnbuilder.main import mainloop
+import nnbuilder.config
 
 
 class ex(extension):
     def __init__(self, kwargs):
         extension.__init__(self, kwargs)
-        self.shuffle_window = None
+        self.window = None
+        self.isload=False
+        self.scale=100
+
+    def init(self):
+        extension.init(self)
+        if not self.window: self.window = nnbuilder.config.batch_size * self.scale
 
     def before_epoch(self):
         if self.kwargs['iter'] == 0:
-            self.kwargs['minibatches'] = mainloop.get_minibatches(self.kwargs['datas'], True, self.shuffle_window)
+            if self.isload==False:
+                self.kwargs['minibatches'] = mainloop.get_minibatches(self.kwargs['datas'], True, self.window)
+                self.logger("Shuffled Data At Epoch {} Bucket {} With Window {}".format(self.kwargs['n_epoch'],self.kwargs['n_bucket'],self.window),1,1)
+            else:
+                self.isload=False
 
-    def after_epoch(self):
-        self.kwargs['minibatches'] = mainloop.get_minibatches(self.kwargs['datas'], True,
-                                                            self.shuffle_window)
+    def save_(self,dict):
+        pass
+    def load_(self,dict):
+        self.isload=True
 
 
 config = ex({})
