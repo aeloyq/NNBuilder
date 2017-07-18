@@ -61,3 +61,6 @@ def plot(self, costs, errors, params, roles):
     plt.savefig(self.path + 'paramsplot.png')
 
     plt.cla()
+
+def analysis_save():
+    pass

@@ -14,7 +14,7 @@ class ex(extension):
         extension.__init__(self, kwargs)
         self.window = None
         self.isload=False
-        self.scale=100
+        self.scale=1
 
     def init(self):
         extension.init(self)
