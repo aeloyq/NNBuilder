@@ -20,10 +20,11 @@ class algrithm(base):
         self.beta_1 = 0.9
         self.beta_2 = 0.999
         self.epsilon = 1e-8
+        self.t=1
 
     def init(self, wt_packs, cost):
         base.init(self, wt_packs, cost)
-        self.alpha = theano.shared(self.numpy_floatX(self.alpha)
+        alpha = theano.shared(self.numpy_floatX(self.alpha)
                                                     , name='alpha')
         self.beta_1= theano.shared(self.numpy_floatX(self.beta_1)
                                                     , name='beta_1')
@@ -31,6 +32,9 @@ class algrithm(base):
                                                     , name='beta_2')
         self.epsilon = theano.shared(self.numpy_floatX(self.epsilon)
                                  , name='epsilon')
+        self.t = theano.shared(self.numpy_floatX(self.t)
+                                     , name='t')
+        self.alpha=alpha * T.sqrt(1. - self.beta_2**self.t) / (1. - self.beta_1**self.t)
         self.m= OrderedDict()
         self.v = OrderedDict()
         self.cm= OrderedDict()
@@ -68,7 +72,21 @@ class algrithm(base):
             self.updates_v[self.v[name]] = pnew
         self.updates.update(self.updates_m)
         self.updates.update(self.updates_v)
+        self.updates.update({self.t:self.t+1})
         return self.updates
+    def save_(self,dict):
+        dict['optimizer']={'m':{},'v':{}}
+        for m in self.m.values():
+            dict['optimizer']['m'][m.name]=m.get_value()
+        for v in self.v.values():
+            dict['optimizer']['v'][v.name]=v.get_value()
+        dict['optimizer']['t']=self.t.get_value()
+    def load_(self,dict):
+        for m in self.m.values():
+            m.set_value(dict['optimizer']['m'][m.name])
+        for v in self.v.values():
+            v.set_value(dict['optimizer']['v'][v.name])
+        self.t.set_value(dict['optimizer']['t'])
 
 config = algrithm()
 

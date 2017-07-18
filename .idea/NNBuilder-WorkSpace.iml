@@ -2,19 +2,7 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
-      <sourceFolder url="file://$MODULE_DIR$/demo/datasets" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/demo/mt/data" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/demo/mt/datasets" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/demo/mt_gai/data" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/demo" isTestSource="false" />
-      <excludeFolder url="file://$MODULE_DIR$/Log" />
-      <excludeFolder url="file://$MODULE_DIR$/Pics" />
-      <excludeFolder url="file://$MODULE_DIR$/Scripts" />
-      <excludeFolder url="file://$MODULE_DIR$/demo/adder/adder" />
-      <excludeFolder url="file://$MODULE_DIR$/demo/imdb/imdb" />
-      <excludeFolder url="file://$MODULE_DIR$/demo/mnist/mnist" />
-      <excludeFolder url="file://$MODULE_DIR$/demo/mt/mt_demo" />
-      <excludeFolder url="file://$MODULE_DIR$/demo/mt_gai/mt_demo" />
+      <excludeFolder url="file://$MODULE_DIR$/demo" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

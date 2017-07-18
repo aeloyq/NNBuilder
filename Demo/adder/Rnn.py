@@ -31,8 +31,8 @@ sample.config.sample_func=samples.add_sample
 datastream  = Load_add()
 
 model = model(10,Float3dX,Int2dY)
-model.add(rnn(10,activation=T.nnet.sigmoid,mask=False))
-model.add(direct(out='final',cost_function=cross_entropy))
+model.add(rnn(10,activation=T.nnet.sigmoid,mask=False,out='final'))
+model.add(direct(cost_function=cross_entropy))
 
 train( datastream=datastream,model=model,algrithm=sgd, extension=[monitor])
 

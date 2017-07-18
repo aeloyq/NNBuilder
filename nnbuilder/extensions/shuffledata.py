@@ -4,20 +4,34 @@ Created on  Feb 14 1:22 PM 2017
 
 @author: aeloyq
 """
-import extension
-import timeit
+from extension import extension
+from nnbuilder.main import mainloop
+import nnbuilder.config
 
-base=extension.extension
-class ex(base):
-    def __init__(self,kwargs):
-        base.__init__(self,kwargs)
-        self.shuffle_window=None
-    def before_train(self):
-        if self.kwargs['idx']==0:
-            self.kwargs['minibatch']=self.kwargs['get_minibatches_idx'](self.kwargs['data_stream'],True,self.shuffle_window)
 
-    def after_epoch(self):
-        self.kwargs['minibatch'] = self.kwargs['get_minibatches_idx'](self.kwargs['data_stream'], True,
-                                                                      self.shuffle_window)
+class ex(extension):
+    def __init__(self, kwargs):
+        extension.__init__(self, kwargs)
+        self.window = None
+        self.isload=False
+        self.scale=100
 
-config=ex({})
+    def init(self):
+        extension.init(self)
+        if not self.window: self.window = nnbuilder.config.batch_size * self.scale
+
+    def before_epoch(self):
+        if self.kwargs['iter'] == 0:
+            if self.isload==False:
+                self.kwargs['minibatches'] = mainloop.get_minibatches(self.kwargs['datas'], True, self.window)
+                self.logger("Shuffled Data At Epoch {} Bucket {} With Window {}".format(self.kwargs['n_epoch'],self.kwargs['n_bucket'],self.window),1,1)
+            else:
+                self.isload=False
+
+    def save_(self,dict):
+        pass
+    def load_(self,dict):
+        self.isload=True
+
+
+config = ex({})

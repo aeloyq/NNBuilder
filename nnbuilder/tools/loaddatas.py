@@ -9,7 +9,7 @@ import gzip
 import theano
 import theano.tensor as T
 import numpy as np
-import config
+import nnbuilder.config
 
 ''' define a function of xor '''
 
@@ -24,7 +24,7 @@ def xor_func(nums):
 ''' load mnist '''
 
 def Load_mnist():
-    with gzip.open(config.data_path, 'rb') as f:
+    with gzip.open(nnbuilder.config.data_path, 'rb') as f:
         try:
             train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
         except:
@@ -36,7 +36,7 @@ def Load_mnist():
 def Load_xor():
     trainsets=[[],[]]
     for each_set in range(100):
-        each_input=list(config.rng.randint(0,2,2))
+        each_input=list(nnbuilder.config.rng.randint(0, 2, 2))
         each_output=xor_func(each_input)
         trainsets[0].append(each_input)
         trainsets[1].append(each_output)
@@ -57,21 +57,21 @@ def Load_add():
             b[-idx - 1] = bn[-idx - 1]
         return list(b)
     for each_set in range(100000):
-        each_input = config.rng.randint(0, 512, [2])
+        each_input = nnbuilder.config.rng.randint(0, 512, [2])
         each_output = each_input[0]+each_input[1]
         inp=[binary(each_input[0]),binary(each_input[1])]
         each_output=binary(each_output)
         trainsets[0].append(inp)
         trainsets[1].append(each_output)
     for each_set in range(10000):
-        each_input = config.rng.randint(0, 512, [2])
+        each_input = nnbuilder.config.rng.randint(0, 512, [2])
         each_output = each_input[0]+each_input[1]
         inp = [binary(each_input[0]), binary(each_input[1])]
         each_output = binary(each_output)
         validsets[0].append(inp)
         validsets[1].append(each_output)
     for each_set in range(10000):
-        each_input = config.rng.randint(0, 512, [2])
+        each_input = nnbuilder.config.rng.randint(0, 512, [2])
         each_output = each_input[0]+each_input[1]
         inp = [binary(each_input[0]), binary(each_input[1])]
         each_output = binary(each_output)
@@ -82,7 +82,7 @@ def Load_add():
 ''' load add fun data '''
 
 def Load_imdb(n_words=100000,valid_portion=0.1,maxlen=None,sort_by_len=True):
-    f = open(config.data_path, 'rb')
+    f = open(nnbuilder.config.data_path, 'rb')
     train_set = pickle.load(f)
     test_set = pickle.load(f)
     f.close()
@@ -140,7 +140,7 @@ def Load_imdb(n_words=100000,valid_portion=0.1,maxlen=None,sort_by_len=True):
 
 def Load_mt(maxlen=None,sort_by_len=True,sort_by_asc=True):
     print '\r\nloading data...'
-    path=config.data_path
+    path= nnbuilder.config.data_path
     data=np.load(path)
     train_set, valid_set, test_set, train_sety, valid_sety, test_sety=data['arr_0']
     if maxlen:
