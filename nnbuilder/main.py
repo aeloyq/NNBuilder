@@ -16,11 +16,28 @@ from logger import logger
 
 
 class mainloop:
+    '''
+
+    '''
     def __init__(self):
+        '''
+
+        '''
         pass
 
     @staticmethod
     def train(data, model, algrithm, extensions, stream=None, stream_stdin_func=np.load, prt_conf=False):
+        '''
+
+        :param data: 
+        :param model:
+        :param algrithm:
+        :param extensions:
+        :param stream:
+        :param stream_stdin_func:
+        :param prt_conf:
+        :return:
+        '''
         # Prepare train
         mainloop.init_nnb()
         n_data = mainloop.init_datas(data, stream, stream_stdin_func)

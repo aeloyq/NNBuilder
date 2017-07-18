@@ -113,10 +113,10 @@ class ex(extension):
 
             savelist.sort(cp)
             self.load_file_name = savelist[-1]
-            print('Checkpoint is found:{}...'.format(self.load_file_name))
+            print('Checkpoint is found : [{}]'.format(self.load_file_name))
         else:
             self.load_file_name = name + '.npz'
-            print('Checkpoint is found:{}...'.format(self.load_file_name))
+            print('Checkpoint is found : [{}]'.format(self.load_file_name))
         params = (np.load(path + '/' + self.load_file_name))['save'].tolist()
         for key in layers:
             for param, sparam in zip(layers[key].params, params[key]):

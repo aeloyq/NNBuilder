@@ -24,4 +24,3 @@ int_x=False
 int_y=False
 savelog=True
 data_path=''
-n_data=None

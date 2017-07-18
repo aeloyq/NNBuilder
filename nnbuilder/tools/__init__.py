@@ -1,5 +1,5 @@
-import plot
+import plotter
 import samples
 import loaddatas
-import divdata
-__all__=['plot', 'samples', 'divdata','loaddatas']
+import datadiver
+__all__=['plotter', 'samples', 'datadiver', 'loaddatas']
