@@ -1,9 +1,8 @@
-import basic
-import conv
-import misc
-import ops
-import roles
-import sequential
-import simple
-import utils
-__all__=['basic','conv','misc','ops','roles','sequential','simple','utils']
+from basic import *
+from conv import *
+from misc import *
+from ops import *
+from roles import *
+from sequential import *
+from simple import *
+from utils import *

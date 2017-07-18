@@ -1,4 +1,4 @@
 # NNBuilder
 Neural Network Builder
-On top of Theano
-a neural network framework
+On Top Of Theano
+A Neural Network Framework
