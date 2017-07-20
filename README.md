@@ -1,17 +1,15 @@
 NNBuilder
 ===========
-Describe
---------
+## Description
 * A Neural Network Framework
 * On Top Of Theano
-Dependency
---------
+## Dependency
 * Python2.7
 * Theano
 * Matplotlib
 * Progressbar
 * Pydot Pydot-ng Graphviz
-## Install
+## Installation
 `conda install theano pygpu`
 `conda upgrade numpy`
 `pip install pydot pydot-ng progressbar`
