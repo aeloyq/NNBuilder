@@ -1,8 +1,11 @@
-# NNBuilder
-## Describe
+NNBuilder
+===========
+Describe
+--------
 * A Neural Network Framework
 * On Top Of Theano
-## Dependency
+Dependency
+--------
 * Python2.7
 * Theano
 * Matplotlib
