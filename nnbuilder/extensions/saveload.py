@@ -56,12 +56,9 @@ class ex(extension):
                 for param, sparam in zip(layers[key].params, params[key]):
                     layers[key].params[param].set_value(params[key][sparam])
             kwargs['n_epoch'] = params['n_epoch']
-            kwargs['time'] = params['time']
             if not self.data_changed:
                 kwargs['n_iter'] = params['n_iter']
-                kwargs['n_bucket'] = params['n_bucket']
-                kwargs['best_iter'] = params['best_iter']
-                kwargs['best_valid_error'] = params['best_valid_error']
+                kwargs['n_part'] = params['n_part']
                 kwargs['iter'] = params['iter'] + 1
                 kwargs['minibatches'] = params['minibatches']
             for i in params['errors']:
@@ -71,12 +68,12 @@ class ex(extension):
             name = ''
             try:
                 for ex in kwargs['extensions']:
-                    name = ex.__class__
-                    ex.load_(params)
+                    ex.config.load_(params)
                 kwargs['optimizer'].load_(params)
             except:
                 self.logger('{} Load failed'.format(name), 2)
             self.logger('Load sucessfully', 2)
+            self.logger('',2)
 
     def after_iteration(self):
         kwargs = self.kwargs
@@ -137,23 +134,29 @@ class ex(extension):
                 params2save[key][pname] = param.get_value()
         params2save['n_epoch'] = kwargs['n_epoch']
         params2save['n_iter'] = kwargs['n_iter']
-        params2save['n_bucket'] = kwargs['n_bucket']
-        params2save['best_iter'] = kwargs['best_iter']
-        params2save['best_valid_error'] = kwargs['best_valid_error']
+        params2save['n_part'] = kwargs['n_part']
         params2save['errors'] = kwargs['errors']
         params2save['costs'] = kwargs['costs']
         params2save['iter'] = kwargs['iter']
         params2save['minibatches'] = kwargs['minibatches']
-        params2save['time'] = kwargs['time'] + (timeit.default_timer() - kwargs['start_time'])
         for ex in kwargs['extensions']:
-            ex.save_(params2save)
+            ex.config.save_(params2save)
         kwargs['optimizer'].save_(params2save)
         savename = name
         np.savez(savename, save=params2save)
         self.logger("Save Sucessfully At File : [{}]".format(savename), 2)
         if delete:
             savelist = [name for name in os.listdir(self.path) if name.endswith('.npz')]
-            savelist.sort()
+
+            def cp(x, y):
+                xt = os.stat(self.path + '/' + x)
+                yt = os.stat(self.path + '/' + y)
+                if xt.st_mtime > yt.st_mtime:
+                    return 1
+                else:
+                    return -1
+
+            savelist.sort(cp)
             for i in range(len(savelist) - self.save_len):
                 os.remove(self.path + '/' + savelist[i])
                 self.logger("Deleted Old File : [{}]".format(self.path + '/' + savelist[i]), 2)

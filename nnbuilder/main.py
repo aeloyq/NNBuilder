@@ -9,16 +9,19 @@ import theano
 import numpy as np
 import config
 import types
-import timeit
 import copy
 import os
+import tools
+import extensions
 from logger import logger
+from collections import OrderedDict
 
 
 class mainloop:
     '''
 
     '''
+
     def __init__(self):
         '''
 
@@ -26,7 +29,7 @@ class mainloop:
         pass
 
     @staticmethod
-    def train(data, model, algrithm, extensions, stream=None, stream_stdin_func=np.load, prt_conf=False):
+    def train(data, model, algrithm, extensions, stream=None, stream_stdin_func=np.load, prt_conf=True):
         '''
 
         :param data: 
@@ -39,11 +42,12 @@ class mainloop:
         :return:
         '''
         # Prepare train
+        logger("Prepare Model:", 0, 1)
         mainloop.init_nnb()
+        mainloop.build_model(model)
         n_data = mainloop.init_datas(data, stream, stream_stdin_func)
-        model.build()
         if prt_conf: mainloop.print_config(model, algrithm, extensions)
-        train_fn, valid_fn, test_fn, sample_fn, model_fn = mainloop.get_modelstream(model, algrithm)
+        fn_dict = mainloop.get_functions(model, algrithm)
         logger("Trainning Model:", 0, 1)
         max_epoch = config.max_epoch
         kwargs = {}
@@ -52,11 +56,6 @@ class mainloop:
         kwargs['stream'] = stream
         kwargs['optimizer'] = algrithm.config
         kwargs['logger'] = logger
-        kwargs['train_fn'] = train_fn
-        kwargs['valid_fn'] = valid_fn
-        kwargs['test_fn'] = test_fn
-        kwargs['sample_fn'] = sample_fn
-        kwargs['model_fn'] = model_fn
         kwargs['config'] = config
         kwargs['batchsize'] = config.batch_size
         kwargs['n_data'] = n_data
@@ -65,27 +64,24 @@ class mainloop:
         kwargs['debug_result'] = []
         kwargs['n_epoch'] = 0
         kwargs['n_iter'] = 0
-        kwargs['n_bucket'] = 0
+        kwargs['n_part'] = 0
         kwargs['iter'] = 0
-        kwargs['time'] = 0
         kwargs['errors'] = []
         kwargs['costs'] = []
         kwargs['stop'] = False
-        kwargs['best_valid_error'] = 1
-        kwargs['best_iter'] = -1
+        kwargs.update(fn_dict)
         extension_instance = []
         for ex in extensions: ex.config.kwargs = kwargs;ex.config.init();extension_instance.append(ex.config)
-        kwargs['extensions'] = extension_instance
+        kwargs['extensions'] = extensions
 
         # Main
         logger('Training Start', 1)
         for ex in extension_instance:   ex.before_train()
         if kwargs['stop']:
             return
-        kwargs['start_time'] = timeit.default_timer()
         while (True):
             # Prepare data
-            datas = mainloop.get_datas(data, stream, stream_stdin_func, kwargs['n_bucket'])
+            datas = mainloop.get_datas(data, stream, stream_stdin_func, kwargs['n_part'])
             kwargs['datas'] = datas
             train_X, valid_X, test_X, train_Y, valid_Y, test_Y = datas
             kwargs['minibatches'] = mainloop.get_minibatches(datas)
@@ -98,30 +94,30 @@ class mainloop:
             for ex in extension_instance:   ex.before_epoch()
 
             minibatches = kwargs['minibatches'][0][kwargs['iter']:]
-            kwargs['pre_iter']=np.sum(kwargs['n_data'][1][:kwargs['n_bucket']])
-            kwargs['prefix']=kwargs['iter']
+            kwargs['pre_iter'] = np.sum(kwargs['n_data'][1][:kwargs['n_part']])
+            kwargs['prefix'] = kwargs['iter']
             for iter, index in enumerate(minibatches):
-                kwargs['iter'] = iter+kwargs['prefix']
+                kwargs['iter'] = iter + kwargs['prefix']
 
                 for ex in extension_instance:   ex.before_iteration()
 
                 d = mainloop.prepare_data(train_X, train_Y, index)
-                traincost = train_fn(*d)
+                traincost = kwargs['train_fn'](*d)
                 kwargs['train_cost'] = traincost
                 kwargs['n_iter'] += 1
 
                 for ex in extension_instance:   ex.after_iteration()
 
                 # After epoch
-                if (kwargs['iter'] + 1 == kwargs['n_data'][1][kwargs['n_bucket']]):
-                    if kwargs['stream'] == None or kwargs['n_bucket'] == len(kwargs['stream']) - 1:
-                        kwargs['n_bucket'] = 0
+                if (kwargs['iter'] + 1 == kwargs['n_data'][1][kwargs['n_part']]):
+                    if kwargs['stream'] == None or kwargs['n_part'] == len(kwargs['stream']) - 1:
+                        kwargs['n_part'] = 0
                         kwargs['n_epoch'] += 1
                         testdatas = []
                         for index in kwargs['minibatches'][2]:
                             d = mainloop.prepare_data(test_X, test_Y, index)
                             testdatas.append(d)
-                        test_result = np.array([test_fn(*tuple(testdata)) for testdata in testdatas])
+                        test_result = np.array([kwargs['test_fn'](*tuple(testdata)) for testdata in testdatas])
                         kwargs['test_error'] = np.mean(test_result[:, 1])
                         kwargs['errors'].append(kwargs['test_error'])
                         kwargs['costs'].append(np.mean(test_result[:, 0]))
@@ -129,7 +125,7 @@ class mainloop:
                         for ex in extension_instance:   ex.after_epoch()
 
                     else:
-                        kwargs['n_bucket'] += 1
+                        kwargs['n_part'] += 1
 
                 # Stop when needed
                 if kwargs['stop']:
@@ -142,14 +138,12 @@ class mainloop:
                     for index in kwargs['minibatches'][2]:
                         d = mainloop.prepare_data(test_X, test_Y, index)
                         testdatas.append(d)
-                    test_result = np.array([test_fn(*tuple(testdata)) for testdata in testdatas])
+                    test_result = np.array([kwargs['test_fn'](*tuple(testdata)) for testdata in testdatas])
                     test_error = np.mean(test_result[:, 1])
                     if np.mean(test_error) == 0:
-                        kwargs['best_iter'] = kwargs['n_iter']
                         logger("●Trainning Sucess●", 1, 1)
                         break
             kwargs['iter'] = 0
-        kwargs['time'] = kwargs['time'] + (timeit.default_timer() - kwargs['start_time'])
 
         for ex in extension_instance:   ex.after_train()
 
@@ -168,16 +162,25 @@ class mainloop:
         return theano.function(inputs, predict)
 
     @staticmethod
-    def debug(model):
-        model.build()
-        NNB_model = model
-        inputs = NNB_model.inputs
-        params = NNB_model.params
-        cost = NNB_model.cost
-        raw_cost = NNB_model.raw_cost
-        error = NNB_model.error
-        predict = NNB_model.predict
-        return theano.function(inputs, predict)
+    def debug(data,model,algrithm,use_data=None,get_function_only=False):
+        if use_data is not None:
+            tmp=[]
+            for i in xrange(len(use_data)):
+                if use_data[i]==1:
+                    tmp.append(data[i])
+            data=tmp
+        mainloop.build_model(model)
+        mainloop.build_optimizer(model,algrithm)
+        if get_function_only:
+            return data,mainloop.get_functions(model, algrithm)
+        kwargs=OrderedDict()
+        kwargs['logger']=logger
+        kwargs['model']=model
+        kwargs['data']=data
+        extensions.debugmode.config.kwargs=kwargs
+        extensions.debugmode.config.init()
+        extensions.debugmode.config.debug()
+        return kwargs, kwargs['debug_result']
 
     @staticmethod
     def init_nnb():
@@ -200,114 +203,180 @@ class mainloop:
         t_num = len(data[2])
         v_batches = (v_num - 1) // config.valid_batch_size + 1
         t_batches = (t_num - 1) // config.valid_batch_size + 1
-        logger("Datasets        -          Train          -          Valid          -          test", 1)
+        info = [['Datasets', '|', 'Train', '|', 'Valid', '|', 'Test']]
+        strip = [15, 1, 22, 1, 22, 1, 22]
         if stream == None:
+            info.append(["=" * strip[0], "|" * strip[1], "=" * strip[2], "|" * strip[3], "=" * strip[4], "|" * strip[5],
+                         "=" * strip[6]])
             num = len(data[0])
             batches = (num - 1) // config.batch_size + 1
-            logger("SingleFile        -          {}          -          {}          -          {}".format(num, v_num,
-                                                                                                          t_num), 1)
-            logger(
-                "N_Batch           -         {}*{}         -         {}*{}         -         {}*{}".format(batches,
-                                                                                                           config.batch_size,
-                                                                                                           v_batches,
-                                                                                                           config.valid_batch_size,
-                                                                                                           t_batches,
-                                                                                                           config.valid_batch_size),
-                1)
+            info.append(['SingleFile', '|', '{}'.format(num), '|', '{}'.format(v_num), '|', '{}'.format(t_num)])
+            info.append(['N_Batch', '|', '{}*{}'.format(batches, config.batch_size), '|', '{}*{}'.format(v_batches,
+                                                                                                         config.valid_batch_size),
+                         '|', '{}*{}'.format(t_batches,
+                                             config.valid_batch_size)])
+            logger(tools.printer.paragraphformatter(info, LengthList=strip, Align='center'), 1)
             return [[num], [batches]]
         else:
+            v_num = len(data[0])
+            t_num = len(data[1])
+            v_batches = (v_num - 1) // config.valid_batch_size + 1
+            t_batches = (t_num - 1) // config.valid_batch_size + 1
             n_data = [[], []]
-            i=0
-            for bucket in stream:
-                i+=1
+            i = 0
+            logger(tools.printer.lineformatter(info[0], LengthList=strip, Align='center'), 1)
+            logger(tools.printer.lineformatter(
+                ["=" * strip[0], "|" * strip[1], "=" * strip[2], "|" * strip[3], "=" * strip[4], "|" * strip[5],
+                 "=" * strip[6]], LengthList=strip, Align='center'), 1)
+            for part in stream:
+                i += 1
                 try:
-                    d = stream_stdin_func(bucket)
+                    d = stream_stdin_func(part)
                     num = len(d[0])
                     batches = (num - 1) // config.batch_size + 1
                     n_data[0].append(num)
                     n_data[1].append(batches)
-                    logger("Bucket {}        -      {}/{}={}      -      {}/{}={}      -      {}/{}={}".format(i,num,config.batch_size,batches,
-                                                                                                                  v_num,config.valid_batch_size,v_batches,
-                                                                                                                  t_num,config.valid_batch_size,t_batches),
-                           1)
+                    logger(tools.printer.lineformatter(['Part {}'.format(i), '|', '{}/{} = {}'.format(num,
+                                                                                                    config.batch_size,
+                                                                                                    batches, ), '|',
+                                                        '{}/{} = {}'.format(v_num,
+                                                                          config.valid_batch_size,
+                                                                          v_batches),
+                                                        '|', '{}/{} = {}'.format(t_num,
+                                                                               config.valid_batch_size,
+                                                                               t_batches)], LengthList=strip,
+                                                       Align='center'), 1)
                 except:
-                    logger("Broken bucket found in data stream !", 0)
+                    logger("Broken part found in data stream !", 0)
+            logger(tools.printer.lineformatter(
+                ["-" * strip[0], "|" * strip[1], "-" * strip[2], "|" * strip[3], "-" * strip[4], "|" * strip[5],
+                 "-" * strip[6]], LengthList=strip, Align='center'), 1)
+            logger(
+                tools.printer.lineformatter(['Total Data'.format(i), '|', '{}/{} = {}'.format(int(str(np.sum(n_data[0]))),
+                                                                                            config.batch_size,
+                                                                                            int(str(
+                                                                                                np.sum(n_data[1]))), ),
+                                             '|',
+                                             '{}/{} = {}'.format(v_num,
+                                                               config.valid_batch_size,
+                                                               v_batches),
+                                             '|', '{}/{} = {}'.format(t_num,
+                                                                    config.valid_batch_size,
+                                                                    t_batches)], LengthList=strip,
+                                            Align='center'), 1)
+
             return n_data
 
     @staticmethod
     def print_config(model, algrithm, extension):
-        def get_info(item):
-            if type(item) == types.ObjectType:
-                return 'object'
-            elif type(item) == types.ClassType:
-                return 'class'
-            elif type(item) == types.InstanceType:
-                return 'instanse'
-            elif type(item) == types.FunctionType:
-                return 'function'
-            elif type(item) == types.ModuleType:
-                return 'Module'
-            else:
-                return item
+        def get_info(key, item, column, truthvalue=True, stringvalue=True):
+            if type(item) == int or type(item) == float:
+                column.append('{} = {}'.format(key, item))
+            elif type(item) == types.BooleanType and truthvalue:
+                column.append('{} = {}'.format(key, item))
+            elif type(item) == types.StringType and stringvalue and item.strip() !="":
+                column.append('{} = {}'.format(key, item))
 
-        logger('Configurations:', 0, 1)
-        logger('config:', 1)
+        strip = [11, 1, 28, 1, 28, 1, 28]
+
+        logger('Config Detail:', 0, 1)
+        info_all = []
+        info_all.append(['', ' ', 'Global', '|', 'Graph', '|', 'Extension'])
+        info_all.append([" " * strip[0], " " * strip[1], "=" * strip[2], "|" * strip[3], "=" * strip[4], "|" * strip[5],
+                         "=" * strip[6]])
+
+        first_column_info = []
         for key in config.__dict__:
             if not key.startswith('__'):
-                info = get_info(config.__dict__[key])
-                logger(key + ' : %s' % info, 2)
-        logger('model:', 1)
+                get_info(key, config.__dict__[key], first_column_info)
+        first_column_info.extend(["","", "Model", "=" * strip[4]])
+        tmp_column_info = []
         for key in model.__dict__:
             if not key.startswith('__'):
-                info = get_info(model.__dict__[key])
-                logger(key + ' : %s' % info, 2)
-        logger('layer:', 1)
+                get_info(key, model.__dict__[key], tmp_column_info)
+        first_column_info.extend(tmp_column_info)
+
+        second_column_info = []
+
         for lykey in model.layers:
-            logger(lykey + ":", 2)
+            second_column_info.extend([lykey + " " * strip[-1], "-" * strip[-1]])
             for key in model.layers[lykey].__dict__:
                 if not key.startswith('__'):
-                    info = get_info(model.layers[lykey].__dict__[key])
-                    logger(key + ' : %s' % info, 3)
-        logger('algrithm:', 1)
-        logger(str(algrithm.__name__.split('.')[-1]), 2)
+                    get_info(key, model.layers[lykey].__dict__[key], second_column_info, truthvalue=False)
+            second_column_info.append("")
+
+        second_column_info.extend(["","Algrithm","="* strip[-1]])
+
         for key in algrithm.config.__dict__:
             if not key.startswith('__'):
-                logger(key + ' : %s' % algrithm.config.__dict__[key], 3)
-        logger('extension:', 1)
+                get_info(key, algrithm.config.__dict__[key], second_column_info)
+
+        third_column_info = []
         for ex in extension:
-            logger(str(ex.__name__.split('.')[-1]), 2)
+            third_column_info.extend([ex.__name__.split('.')[-1] + " " * strip[-1], "-" * strip[-1]])
             for key in ex.config.__dict__:
-                if not key.startswith('__'):
-                    logger(key + ' : %s' % ex.config.__dict__[key], 3)
+                get_info(key, ex.config.__dict__[key], third_column_info)
+            third_column_info.append("")
+        third_column_info.pop(-1)
+
+
+
+        for i in range(max(len(first_column_info), len(second_column_info), len(third_column_info))):
+            info_all.append([''])
+            info_all[i + 2].append(' ')
+            if i < len(first_column_info):
+                info_all[i + 2].append(first_column_info[i])
+            else:
+                info_all[i + 2].append("")
+            info_all[i + 2].append('|')
+            if i < len(second_column_info):
+                info_all[i + 2].append(second_column_info[i])
+            else:
+                info_all[i + 2].append("")
+            info_all[i + 2].append('|')
+            if i < len(third_column_info):
+                info_all[i + 2].append(third_column_info[i])
+            else:
+                info_all[i + 2].append("")
+
+        logger(tools.printer.paragraphformatter(info_all, LengthList=strip, Align='center'), 0)
 
     @staticmethod
-    def get_datas(data, stream=None, stream_stdin_func=None, n_bucket=0):
+    def get_datas(data, stream=None, stream_stdin_func=None, n_part=0):
         if stream == None:
             return data
         else:
-            trainning_data = stream_stdin_func(stream[n_bucket])
+            trainning_data = stream_stdin_func(stream[n_part])
             data_ = [trainning_data[0], data[0], data[1], trainning_data[1], data[2], data[3]]
             return data_
 
     @staticmethod
-    def get_modelstream(model, algrithm):
-        logger("Building Model:", 0, 1)
-        NNB_model = model
-        inputs = NNB_model.inputs
-        params = NNB_model.params
-        cost = NNB_model.cost
-        raw_cost = NNB_model.raw_cost
-        error = NNB_model.error
-        predict = NNB_model.predict
+    def build_model(model):
+        model.build()
+
+    @staticmethod
+    def build_optimizer(model,algrithm):
+        params = model.params
+        cost = model.cost
         optimizer = algrithm.config
         optimizer.init(params, cost)
-        train_updates = optimizer.get_updates()
-        model_updates = NNB_model.updates
-        NNB_model.train_updates = train_updates
-        debug_output = []
-        for key in NNB_model.layers:
-            debug_output.extend(NNB_model.layers[key].debug_stream)
-        updates = model_updates.items() + train_updates.items()
+        optimizer_updates = optimizer.get_updates()
+        model_updates = model.updates
+        model.optimizer_updates = optimizer_updates
+        updates = model_updates.items() + optimizer_updates.items()
+        raw_updates = model.raw_updates
+        return updates,raw_updates,model_updates,optimizer_updates
+
+    @staticmethod
+    def get_functions(model, algrithm):
+        logger("Building Function:", 0, 1)
+        inputs = model.inputs
+        cost = model.cost
+        raw_cost = model.raw_cost
+        error = model.error
+        predict = model.predict
+        updates, raw_updates, model_updates, optimizer_updates=mainloop.build_optimizer(model,algrithm)
+        updates = model_updates.items() + optimizer_updates.items()
         raw_updates = model.raw_updates
         logger('Compiling Training Model', 1)
         train_fn = theano.function(inputs=inputs,
@@ -329,7 +398,7 @@ class mainloop:
         model_fn = theano.function(inputs=inputs,
                                    outputs=predict, on_unused_input='ignore',
                                    updates=raw_updates)
-        return [train_fn, valid_fn, test_fn, sample_fn, model_fn]
+        return {'train_fn':train_fn,'valid_fn': valid_fn,'test_fn': test_fn,'sample_fn': sample_fn,'model_fn': model_fn}
 
     @staticmethod
     def get_minibatches(data, shuffle=False, window=None):
@@ -384,7 +453,8 @@ class mainloop:
 
     @staticmethod
     def prepare_data(data_x, data_y, index):
-        mask_x=None;mask_y=None
+        mask_x = None;
+        mask_y = None
         x = copy.deepcopy([data_x[t] for t in index])
         y = copy.deepcopy([data_y[t] for t in index])
         if config.transpose_x:
@@ -423,8 +493,6 @@ class mainloop:
             data.append(mask_y)
         data = tuple(data)
         return data
-
-
 
 
 # Shortcuts

@@ -24,7 +24,7 @@ class ex(extension):
         if self.kwargs['iter'] == 0:
             if self.isload==False:
                 self.kwargs['minibatches'] = mainloop.get_minibatches(self.kwargs['datas'], True, self.window)
-                self.logger("Shuffled Data At Epoch {} Bucket {} With Window {}".format(self.kwargs['n_epoch'],self.kwargs['n_bucket']+1,self.window),1,1)
+                self.logger("Shuffled Data At Epoch {} part {} With Window {}".format(self.kwargs['n_epoch']+1,self.kwargs['n_part']+1,self.window),1,1)
             else:
                 self.isload=False
 

@@ -11,48 +11,57 @@ from extension import extension
 
 
 class ex(extension):
-    def __init__(self,kwargs):
-        extension.__init__(self,kwargs)
-        self.sample_times=1
-        self.kwargs=kwargs
+    def __init__(self, kwargs):
+        extension.__init__(self, kwargs)
+        self.sample_times = 1
+        self.kwargs = kwargs
         self.sample_func = None
-        self.sample_freq=-1
-        self.sample_from='train'
+        self.sample_freq = -1
+        self.sample_from = 'train'
+
     def init(self):
         extension.init(self)
+
     def before_train(self):
         kwargs = self.kwargs
-        if self.sample_freq==-1:
-            self.sample_freq=kwargs['n_data'][1][kwargs['n_bucket']]
+        if self.sample_freq == -1:
+            self.sample_freq = kwargs['n_data'][1][kwargs['n_part']]
+
     def after_iteration(self):
         kwargs = self.kwargs
         if kwargs['n_iter'] % self.sample_freq == 0:
             if self.sample_func != None:
-                datastream=kwargs['datas']
-                sample_model=kwargs['sample_fn']
-                self.logger('',1)
-                self.logger("☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",1)
-                self.logger('____________________________________________', 1)
-                cost=0
-                error=0
+                sample_model = kwargs['sample_fn']
+                self.logger('', 1)
+                cost = 0
+                error = 0
+                sr = []
                 for _ in range(self.sample_times):
                     sample_data = self.get_sample_data()
                     sp_pred, sp_cost, sp_error = sample_model(*sample_data)
-                    s2p,sp_y=self.sample_func(sample_data[0], sp_pred,sample_data[1])
-                    self.logger( s2p,1)
-                    self.logger( "Expect Result:%s"%sp_y,1)
-                    self.logger('____________________________________________',1)
-                    cost+=sp_cost
-                    error+=sp_error
-                self.logger( "Sample Cost:%.4f  Sample Error:%.4f%%  " % (cost/self.sample_times, (error/self.sample_times * 100)),1)
-                self.logger( "☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",1)
-                self.logger( '',1)
+                    s2p = self.sample_func(sample_data[0], sp_pred, sample_data[1])
+                    sr.append(s2p)
+                    cost += sp_cost
+                    error += sp_error
+                rs = sr[0]
+                for r in sr[1:]:
+                    rs += "\r\n" + r
+                ln = max([len(i) for i in rs.split('\r\n')])
+                self.logger("Sample:", 1)
+                self.logger('-' * ln, 1)
+                for r in sr:
+                    self.logger(r, 1)
+                    self.logger('-' * ln, 1)
+                self.logger("Sample Loss:%.4f   Error:%.4f%%   On Average" % (
+                cost / self.sample_times, (error / self.sample_times * 100)), 1)
+                self.logger('', 1)
+
     def get_sample_data(self):
         train_X, valid_X, test_X, train_Y, valid_Y, test_Y = self.kwargs['datas']
 
         def g(X, Y):
-            mask_x=None
-            mask_y=None
+            mask_x = None
+            mask_y = None
             try:
                 n_train = X.get_value().shape[0]
             except:
@@ -90,4 +99,4 @@ class ex(extension):
             return g(test_X, test_Y)
 
 
-config=ex({})
+config = ex({})

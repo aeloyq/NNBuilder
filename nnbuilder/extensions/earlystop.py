@@ -17,6 +17,8 @@ class ex(extension):
         self.valid_freq=0
         self.valid_epoch=True
         self.patience=0
+        self.best_iter=-1
+        self.best_valid_error=1.
     def init(self):
         extension.init(self)
         kwargs = self.kwargs
@@ -39,15 +41,17 @@ class ex(extension):
                     data = mainloop.prepare_data(valid_X,valid_Y, index)
                     validdatas.append(data)
                 valid_error = np.mean([valid_model(*tuple(validdata)) for validdata in validdatas])
-                if valid_error < kwargs['best_valid_error']:
-                    if valid_error < kwargs['best_valid_error'] * self.imp_threshold:
+                if valid_error < self.best_valid_error:
+                    if valid_error < self.best_valid_error * self.imp_threshold:
                         self.patience = max(self.patience, kwargs['n_iter'] * self.patience_increase)
-                    kwargs['best_valid_error'] = valid_error
-                    kwargs['best_iter'] = kwargs['n_iter']
-                    self.logger("★Better Model Detected at Epoches:%d  Iterations:%d  Valid error:%.4f%%★" % (
+                    self.best_valid_error = valid_error
+                    self.best_iter = kwargs['n_iter']
+                    self.best_valid_error=valid_error
+                    self.best_iter = kwargs['n_iter']
+                    self.logger("Better Model Detected at Epoches:%d  Iterations:%d  Valid error:%.4f%%★" % (
                         kwargs['n_epoch'], kwargs['n_iter'], float(str(valid_error)) * 100),1,1)
                 if self.patience < kwargs['n_iter']:
-                    self.logger( "▲NO Trainning Patience      Early Stopped▲",1,1)
+                    self.logger( "NO Trainning Patience      Early Stopped",1,1)
                     kwargs['stop']=True
 
     def after_epoch(self):
@@ -61,16 +65,29 @@ class ex(extension):
                 data = mainloop.prepare_data(valid_X, valid_Y, index)
                 validdatas.append(data)
             valid_error = np.mean([valid_model(*tuple(validdata)) for validdata in validdatas])
-            if valid_error < kwargs['best_valid_error']:
-                if valid_error < kwargs['best_valid_error'] * self.imp_threshold:
+            if valid_error < self.best_valid_error:
+                if valid_error < self.best_valid_error * self.imp_threshold:
                     self.patience = max(self.patience, kwargs['n_iter'] * self.patience_increase)
-                kwargs['best_valid_error'] = valid_error
-                kwargs['best_iter'] = kwargs['n_iter']
-                self.logger("★Better Model Detected at Epoches:%d  Iterations:%d  Valid error:%.4f%%★" % (
+                self.best_valid_error = valid_error
+                self.best_iter = kwargs['n_iter']
+                self.best_valid_error=valid_error
+                self.best_iter= kwargs['n_iter']
+                self.logger("Better Model Detected at Epoches:%d  Iterations:%d  Valid error:%.4f%%" % (
                     kwargs['n_epoch'], kwargs['n_iter'], float(str(valid_error)) * 100), 1, 1)
             if self.patience < kwargs['n_iter']:
-                self.logger("▲NO Trainning Patience      Early Stopped▲", 1, 1)
+                self.logger("NO Trainning Patience      Early Stopped", 1, 1)
                 kwargs['stop'] = True
+
+    def save_(self,dict):
+        dict['earlystop']={'best_iter':self.best_iter,'best_valid_error':self.best_valid_error}
+
+    def load_(self,dict):
+        try:
+            self.best_iter=dict['earlystop']['best_iter']
+            self.best_valid_error=dict['earlystop']['best_valid_error']
+        except:
+            pass
+
 
 
 config=ex({})

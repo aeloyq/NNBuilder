@@ -7,9 +7,35 @@ Created on Sat Dec 17 17:02:46 2016
 import pickle
 import gzip
 import theano
+import nnbuilder.config
+import os
 import theano.tensor as T
 import numpy as np
-import nnbuilder.config
+
+def Load_stream(path,n,endwith='.npy'):
+    vtdata=path+'/'+'ValidTest'+endwith
+    stream=[]
+    for i in range(n):
+        stream.append(path+'/'+'TrainData{}{}'.format(str(i+1).zfill(3),endwith))
+    return vtdata,stream
+
+def Load_npz(path,name=None):
+    if name==None:
+        savelist=[name for name in os.listdir(path) if name.endswith('.npz')]
+
+        def cp(x, y):
+            xt = os.stat(path + '/' + x)
+            yt = os.stat(path + '/' + y)
+            if xt.st_mtime > yt.st_mtime:
+                return 1
+            else:
+                return -1
+
+        savelist.sort(cp)
+        load_file_name = savelist[-1]
+    else:
+        load_file_name=path+'/'+name
+    return np.load(load_file_name)['save'].tolist()
 
 ''' define a function of xor '''
 

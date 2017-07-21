@@ -29,22 +29,22 @@ def ExecuteDiv(DataPath, StdinFunction, NumOfDivParts, OutPath=None, SaveFunctio
     bar = progressbar.ProgressBar()
     for i in bar(range(NumOfDivParts - 1)):
         if not TrueList:
-            SaveFunction(OutPath + '/TrainData{}'.format(i + 1),
+            SaveFunction(OutPath + '/TrainData{}'.format(str(i + 1).zfill(3)),
                          [data[0][i * BucketSize:(i + 1) * BucketSize], data[3][i * BucketSize:(i + 1) * BucketSize]],
                          )
         else:
-            tmp=[(data[0][i * BucketSize:(i + 1) * BucketSize]),
+            tmp=[data[0][i * BucketSize:(i + 1) * BucketSize],
                           [data[3][i * BucketSize:(i + 1) * BucketSize]]]
-            SaveFunction(OutPath + '/TrainData{}'.format(i + 1),
+            SaveFunction(OutPath + '/TrainData{}'.format(str(i + 1).zfill(3)),
                          tmp
                          )
 
     if not TrueList:
-        SaveFunction(OutPath + '/TrainData{}'.format(NumOfDivParts),
+        SaveFunction(OutPath + '/TrainData{}'.format(str(NumOfDivParts).zfill(3)),
                      [data[0][(NumOfDivParts - 1) * BucketSize:NumOfDivParts * BucketSize],
                       data[3][(NumOfDivParts - 1) * BucketSize:NumOfDivParts * BucketSize]])
     else:
-        SaveFunction(OutPath + '/TrainData{}'.format(NumOfDivParts),
+        SaveFunction(OutPath + '/TrainData{}'.format(str(NumOfDivParts).zfill(3)),
                      [data[0][(NumOfDivParts - 1) * BucketSize:NumOfDivParts * BucketSize],
                      [data[3][(NumOfDivParts - 1) * BucketSize:NumOfDivParts * BucketSize]]])
 

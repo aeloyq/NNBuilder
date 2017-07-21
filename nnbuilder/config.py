@@ -10,12 +10,11 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 name='unamed'
 
 
-rng=np.random.RandomState(1234)
-trng=RandomStreams(1234)
 
 batch_size=20
 valid_batch_size=64
 max_epoch=1000
+data_path=''
 transpose_x=False
 transpose_y=False
 mask_x=False
@@ -23,4 +22,7 @@ mask_y=False
 int_x=False
 int_y=False
 savelog=True
-data_path=''
+
+
+rng=np.random.RandomState(1234)
+trng=RandomStreams(1234)

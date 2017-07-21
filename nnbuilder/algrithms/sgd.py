@@ -18,8 +18,8 @@ class algrithm:
         self.learning_rate=0.01
         self.if_clip=False
         self.grad_clip_norm=1.
-    def init(self, params, cost):
-        self.params = params
+    def init(self, wrt, cost):
+        self.params = wrt
         self.cost = cost
         self.learning_rate = theano.shared(self.numpy_floatX(self.learning_rate), name='Learning_Rate', borrow=True)
         self.gparams=OrderedDict()
@@ -58,3 +58,4 @@ class algrithm:
     def load_(self,dict):
         pass
 config=algrithm()
+base=config

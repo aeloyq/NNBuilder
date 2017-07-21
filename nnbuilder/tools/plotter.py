@@ -4,16 +4,16 @@ Created on Fri Dec 23 23:24:31 2016
 
 @author: aeloyq
 """
-import matplotlib
 import numpy as np
 import nnbuilder
 from nnbuilder.layers.roles import weight,bias
 
-matplotlib.use('Agg')
-import matplotlib.pylab as plt
-plt.cla()
+
 
 def plot(self, costs, errors, params, roles):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pylab as plt
     x_axis = np.arange(len(costs)) + 1
 
     plt.figure(1)
