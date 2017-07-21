@@ -10,7 +10,11 @@ NNBuilder
 * Progressbar
 * Pydot Pydot-ng Graphviz
 ## Installation
-### Using PIPY:
+### Github:
+`git clone https://github.com/aeloyq/NNBuilder`<br />
+`cd NNBuilder`<br />
+`python setup.py install`
+### Using PIPY （Recommend）:
 `pip install nnbuilder`
 ### For Theano Plaese:
 `conda install theano pygpu`
