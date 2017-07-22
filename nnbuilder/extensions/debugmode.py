@@ -71,14 +71,12 @@ class ex(extension):
                 self.logger('-----------------------------------------------', 2)
                 self.logger(
                     'input:    %s' % layer.input + '  shape:' + str(debug_result[0].shape), 2)
-                self.logger('pprint:', 3)
-                self.logger(str(theano.pp(layer.input))[:100], 2)
                 self.logger('value:', 3)
                 self.logger(str(debug_result[0]) + '    id : %s' % len(values), 3)
                 values.append(debug_result[0])
 
                 self.logger('-----------------------------------------------', 2)
-                self.logger('params' + ':', 3)
+                self.logger('params' + ':', 2)
                 for name,param in layer.params.items():
                     self.logger('%s' % param + ' : ' + str(param.get_value().shape), 2)
                     self.logger(str(param.get_value()) + '    id : %s' % len(values), 3)

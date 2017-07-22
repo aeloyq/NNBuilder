@@ -441,8 +441,12 @@ class mainloop:
                 idx + batch_size])
 
             # Make a minibatch out of what is left
-            minibatches.insert(np.random.randint((num - 1) // batch_size),
+            if shuffle:
+                minibatches.insert(np.random.randint((num - 1) // batch_size)+1,
                                index_list[((num - 1) // batch_size) * batch_size:])
+            else:
+                minibatches.append(index_list[((num - 1) // batch_size) * batch_size:])
+
 
             return minibatches
 

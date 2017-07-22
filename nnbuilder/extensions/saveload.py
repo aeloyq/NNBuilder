@@ -80,6 +80,11 @@ class ex(extension):
         if kwargs['n_iter'] % self.save_freq == 0:
             savename = self.path + '/%s.npz' % (kwargs['n_iter'])
             self.save_npz(savename, self.overwrite)
+        if 'saveload_save' in kwargs:
+            if kwargs['saveload_save']!=None:
+                savename = self.path + '/{}'.format(kwargs['saveload_save'])+'%s.npz' % (kwargs['n_iter'])
+                self.save_npz(savename, self.overwrite)
+                kwargs['saveload_save'] = None
 
     def after_epoch(self):
         if self.save_epoch:
@@ -118,6 +123,7 @@ class ex(extension):
         for key in layers:
             for param, sparam in zip(layers[key].params, params[key]):
                 layers[key].params[param].set_value(params[key][sparam])
+        return params
 
     def save_npz(self, name, delete=True):
         kwargs = self.kwargs
