@@ -28,11 +28,14 @@ class embedding(layer):
         self.emb_dim = unit
     def init_params(self):
         self.wemb=self.allocate(randn, 'Wemb', weight, self.in_dim, self.emb_dim)
-    def apply(self, X, P):
-        n_timesteps = X.shape[0]
-        n_samples =   X.shape[1]
-        return T.reshape(P['Wemb'][X.flatten()], [n_timesteps,
-                                                  n_samples, self.emb_dim])
+    def apply(self, X):
+        if X.ndim>1:
+            n_timesteps = X.shape[0]
+            n_samples =   X.shape[1]
+            return T.reshape(self.wemb[X.flatten()], [n_timesteps,
+                                                      n_samples, self.emb_dim])
+        else:
+            return self.wemb[X.flatten()]
 
 class lookuptable(embedding):
     def __init__(self,unit,**kwargs):
@@ -43,7 +46,7 @@ class maxout(baselayer):
         baselayer.__init__(self)
         self.num_pieces=num_pieces
 
-    def apply(self,X,P):
+    def apply(self,X):
         last_dim = X.shape[-1]
         output_dim = last_dim // self.num_pieces
         new_shape = ([X.shape[i] for i in range(X.ndim - 1)] +
@@ -56,7 +59,7 @@ class compass(baselayer):
         baselayer.__init__(self)
         self.n_dim=ndim
 
-    def apply(self,X,P):
+    def apply(self,X):
         if self.n_dim==1:
             self.shape=X.shape
             new_shape=self.shape[0]
@@ -86,7 +89,7 @@ class direct(baselayer):
         self.setattr('cost')
         self.setattr('predict')
         self.setattr('error')
-    def apply(self,X,P):
+    def apply(self,X):
         return X
     def get_predict(self):
         self.predict=T.round(self.output)
@@ -108,7 +111,7 @@ class softmax(output_layer):
         self.children['lb'] = linear_bias(self.unit_dim, self.activation)
         self.children['compass']=compass(2)
 
-    def apply(self, X, P):
+    def apply(self, X):
         shape=X.shape
         ndim=X.ndim
         if X.ndim >2:

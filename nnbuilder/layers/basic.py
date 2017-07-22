@@ -35,7 +35,6 @@ class baselayer:
         self.output = None
         self.children = OrderedDict()
         self.params = OrderedDict()
-        self.P = OrderedDict()
         self.inited_param = False
         self.inited_children = False
         self.input_set = False
@@ -208,20 +207,17 @@ class baselayer:
         :return: theano shared variable
             the allocated param
         '''
+        pname = name + '_' + self.name
         if name in self.kwargs:
             if callable(self.kwargs[name]):
                 rndfn = self.kwargs[name]
             else:
-                pname = name + '_' + self.name
                 self.params[pname] = theano.shared(value=self.kwargs[name], name=pname, borrow=True)
-                self.P[name] = self.params[pname]
                 self.roles[pname] = role
-                return self.params[pname]
-        pname = name + '_' + self.name
+                return self.addops(pname, self.params[pname], weightnorm)
         self.params[pname] = theano.shared(value=rndfn(*args), name=pname, borrow=True)
-        self.P[name] = self.addops(pname, self.params[pname], weightnorm)
         self.roles[pname] = role
-        return self.P[name]
+        return self.addops(pname, self.params[pname], weightnorm)
 
     def init_children(self):
         '''
@@ -251,7 +247,7 @@ class baselayer:
                 self.ops.update(child.ops)
                 self.updates.update(child.updates)
 
-    def feedforward(self, X=None, P=None):
+    def feedforward(self, X=None):
         '''
         feed forward to get the graph
         :return: tensor variable
@@ -259,29 +255,22 @@ class baselayer:
         '''
         if X is None:
             X = self.input
-        if P == None or P == {}:
-            P = self.P
-        else:
-            if self.children_name in P:
-                dict = self.P
-                dict.update(P[self.children_name])
-                P = dict
         self.set_input(X)
-        self.get_output(X, P)
+        self.get_output(X)
         self.feedforward_ops()
         self.merge(1)
         return self.output
 
-    def get_output(self, X, P):
+    def get_output(self, X):
         '''
         get the output of layer
         :return: tensor variable
             output of layer
         '''
-        self.output = self.apply(X, P)
+        self.output = self.apply(X)
         self.output_ops()
 
-    def apply(self, X, P):
+    def apply(self, X):
         '''
         build the graph of layer
         :return: tensor variable
@@ -359,19 +348,19 @@ class layer(baselayer):
         baselayer.__init__(self, **kwargs)
         self.unit_dim = unit
 
-    def apply(self, X, P):
+    def apply(self, X):
         if len(self.children) > 1:
             feedlist = []
             for name, child in self.children.items():
                 chd = child
                 input = X
-                feedlist.append(chd.feedforward(input, P))
+                feedlist.append(chd.feedforward(input))
             return concatenate(feedlist, axis=feedlist[0].ndim - 1)
         elif len(self.children) == 1:
             child = self.children.items()[0][1]
             chd = child
             input = X
-            return chd.feedforward(input, P)
+            return chd.feedforward(input)
         else:
             return X
 
@@ -388,8 +377,8 @@ class linear(layer):
     def init_params(self):
         self.wt = self.allocate(uniform, 'Wt', weight, self.in_dim, self.unit_dim)
 
-    def apply(self, X, P):
-        return T.dot(X, P['Wt'])
+    def apply(self, X):
+        return T.dot(X, self.wt)
 
     def output_ops(self):
         if self.activation is not None:
@@ -418,8 +407,8 @@ class linear_bias(linear):
         linear.init_params(self)
         self.bi = self.allocate(zeros, 'Bi', bias, self.unit_dim)
 
-    def apply(self, X, P):
-        return T.dot(X, P['Wt']) + P['Bi']
+    def apply(self, X):
+        return T.dot(X, self.wt) + self.bi
 
 
 class hidden_layer(layer):

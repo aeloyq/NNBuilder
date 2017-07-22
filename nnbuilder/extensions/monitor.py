@@ -102,7 +102,8 @@ class ex(extension):
 
     def after_epoch(self):
         kwargs = self.kwargs
-        epoch_time = timeit.default_timer() - self.epoch_start_time
+        epoch_time = timeit.default_timer() - self.epoch_start_time + self.pre_time[1]
+        self.pre_time[1]=0
         if self.report_epoch:
             len=24
             self.logger("", 2)
@@ -151,7 +152,7 @@ class ex(extension):
         try:
             self.pre_time=[dict['monitor']['time'],dict['monitor']['epoch_time']]
         except:
-            pass
+            self.logger("Didn't use monitor in latest training Abort monitor loading", 1)
 
 
 
