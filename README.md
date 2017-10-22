@@ -16,9 +16,9 @@ A Multi-Backend Framework For Building And Training Neural Networks
 `python setup.py install`
 ### Using PIPY （Recommend）:
 `pip install nnbuilder`
-### For Theano Plaese:
+### For Requirements Plaese:
 `conda install theano pygpu`
-`conda upgrade numpy`
+`pip install -r requirements.txt`
 ### For Other Dependency:
 `pip install pydot pydot-ng progressbar`
 ## Documents

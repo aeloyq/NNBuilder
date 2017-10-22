@@ -30,11 +30,10 @@ Using PIPY （Recommend）::
 
     pip install nnbuilder
 
-For Theano Plaese:
+For Requirements Plaese::
 
-conda install theano pygpu::
-
-    conda upgrade numpy
+    conda install theano
+    pip install -r requirements.txt
 
 For Other Dependency::
 
