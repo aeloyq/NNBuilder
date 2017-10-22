@@ -6,7 +6,6 @@ Created on  Feb 12 11:29 AM 2017
 """
 import setuptools
 from setuptools import setup, find_packages
-import distutils.command.bdist_conda
 
 setup(
     name='NNBuilder',
@@ -24,7 +23,6 @@ setup(
     setup_requires=['numpy'],
     install_requires=['numpy', 'theano'],
     zip_safe=False,
-    distclass=distutils.command.bdist_conda.CondaDistribution,
     conda_buildnum=1,
     conda_features=['mkl'],
 )
