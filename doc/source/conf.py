@@ -32,9 +32,10 @@
 # ones.
 import sys
 import os
-
-sys.path.append(os.path.abspath('../../../NNBuilder'))
 import nnbuilder
+
+nnbuilder_path = os.path.join(os.path.dirname(__file__), os.pardir)
+sys.path.append(os.path.abspath(nnbuilder_path))
 
 extensions = ['sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinx.ext.autodoc', 'sphinx.ext.linkcode',
               'sphinx.ext.napoleon']
