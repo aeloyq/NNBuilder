@@ -1,3 +1,1 @@
-import model
-import seq2seq
-__all__=['model','seq2seq']
+from seq2seq import *

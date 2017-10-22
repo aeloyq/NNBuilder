@@ -5,126 +5,118 @@ Created on  四月 26 21:11 2017
 @author: aeloyq
 """
 
-from nnbuilder import config
-from collections import OrderedDict
 import numpy as np
-import theano
-import theano.tensor as T
+import roles
+from collections import OrderedDict
+from nnbuilder.kernel import *
 
 
-# weights init function
-
-
-def numpy_asarray_floatx(data):
-    data2return = np.asarray(data, dtype=theano.config.floatX)
-    return data2return
-
-
-def randn(*args):
-    param = config.rng.randn(*args)
-    return numpy_asarray_floatx(param)
-
-
-def uniform(*args):
-    param = config.rng.uniform(low=-np.sqrt(6. / sum(args)), high=np.sqrt(6. / sum(args)), size=args)
-    return numpy_asarray_floatx(param)
-
-
-def zeros(*args):
-    shape = []
-    for dim in args:
-        shape.append(dim)
-    param = np.zeros(shape)
-    return numpy_asarray_floatx(param)
-
-
-def orthogonal(*args):
-    param = uniform(args[0], args[0])
-    param = np.linalg.svd(param)[0]
-    for _ in range(args[1] / args[0] - 1):
-        param_ = uniform(args[0], args[0])
-        param = np.concatenate((param, np.linalg.svd(param_)[0]), 1)
-    return numpy_asarray_floatx(param)
-
-
-# recurrent output
-
-def final(outputs, mask):
-    return outputs[-1]
-
-
-def all(outputs, mask):
-    return outputs
-
-
-def mean_pooling(outputs, mask):
-    return ((outputs * mask[:, :, None]).sum(axis=0)) / mask.sum(axis=0)[:, None]
-
-
-def concatenate(tensor_list, axis=0):
-    """
-    Alternative implementation of `theano.tensor.concatenate`.
-    This function does exactly the same thing, but contrary to Theano's own
-    implementation, the gradient is implemented on the GPU.
-    Backpropagating through `theano.tensor.concatenate` yields slowdowns
-    because the inverse operation (splitting) needs to be done on the CPU.
-    This implementation does not have that problem.
-    :usage:
-        >>> x, y = T.matrices('x', 'y')
-        >>> c = concatenate([x, y], axis=1)
-    :parameters:
-        - tensor_list : list
-            list of Theano tensor expressions that should be concatenated.
-        - axis : int
-            the tensors will be joined along this axis.
-    :returns:
-        - out : tensor
-            the concatenated tensor expression.
-    """
-    concat_size = sum(tt.shape[axis] for tt in tensor_list)
-
-    output_shape = ()
-    for k in range(axis):
-        output_shape += (tensor_list[0].shape[k],)
-    output_shape += (concat_size,)
-    for k in range(axis + 1, tensor_list[0].ndim):
-        output_shape += (tensor_list[0].shape[k],)
-
-    out = T.zeros(output_shape)
-    offset = 0
-    for tt in tensor_list:
-        indices = ()
-        for k in range(axis):
-            indices += (slice(None),)
-        indices += (slice(offset, offset + tt.shape[axis]),)
-        for k in range(axis + 1, tensor_list[0].ndim):
-            indices += (slice(None),)
-
-        out = T.set_subtensor(out[indices], tt)
-        offset += tt.shape[axis]
-
-    return out
-
-
-# cost function
-
-def mean_square(Y, output):
-    return T.mean(T.square(Y - output))/2
-
-
-def neg_log(Y, output):
-    return T.mean(T.nnet.categorical_crossentropy(Y,output))
-
-
-def cross_entropy(Y, output):
-    return T.mean(T.nnet.categorical_crossentropy(Y,output))
-
-
-def errors(Y_reshaped, pred_Y):
+class param_init_functions:
     '''
-    calculate the error rates
-    :param Y_reshaped: 
-    :param pred_Y: 
-    :return: 
+    # Weights Init Functions
     '''
-    return T.mean(T.neq(pred_Y, Y_reshaped))
+
+    @staticmethod
+    def numpy_asarray_floatx(data):
+        data2return = np.asarray(data, dtype=kernel.config.floatX)
+        return data2return
+
+    @staticmethod
+    def randn(shape):
+        param = 0.01 * kernel.random.randn(*tuple(shape))
+        return param_init_functions.numpy_asarray_floatx(param)
+
+    @staticmethod
+    def rand(shape):
+        param = 0.01 * kernel.random.rand(*tuple(shape))
+        return param_init_functions.numpy_asarray_floatx(param)
+
+    @staticmethod
+    def uniform(shape):
+        param = kernel.random.uniform(low=-np.sqrt(6. / sum(shape)), high=np.sqrt(6. / sum(shape)), size=shape)
+        return param_init_functions.numpy_asarray_floatx(param)
+
+    @staticmethod
+    def scaled_uniform(shape):
+        param = kernel.random.uniform(low=-np.sqrt(6. / sum(shape)), high=np.sqrt(6. / sum(shape)), size=shape) * 4
+        return param_init_functions.numpy_asarray_floatx(param)
+
+    @staticmethod
+    def zeros(shape):
+        param = np.zeros(shape)
+        return param_init_functions.numpy_asarray_floatx(param)
+
+    @staticmethod
+    def ones(shape):
+        param = np.ones(shape)
+        return param_init_functions.numpy_asarray_floatx(param)
+
+    @staticmethod
+    def orthogonal(shape):
+        param = np.random.rand(shape[0], shape[0])
+        param = np.linalg.svd(param)[0]
+        for _ in range(shape[1] / shape[0] - 1):
+            param_ = np.random.rand(shape[0], shape[0])
+            param = np.concatenate((param, np.linalg.svd(param_)[0]), 1)
+        return param_init_functions.numpy_asarray_floatx(param)
+
+    @staticmethod
+    def convweight(shape, poolsize):
+        fan_in = np.prod(shape[1:])
+        fan_out = (shape[0] * np.prod(shape[2:]) // np.prod(poolsize))
+        W_bound = np.sqrt(6. / (fan_in + fan_out))
+        param = kernel.random.uniform(low=-W_bound, high=W_bound, size=shape)
+        return param_init_functions.numpy_asarray_floatx(param)
+
+
+class utils:
+    '''
+    Misc Utils
+    '''
+    gated_activation = [T.glu, T.gtu, T.maxout]
+
+    @staticmethod
+    def slice(_x, n, dim):
+        if _x.ndim == 2:
+            return _x[:, n * dim:(n + 1) * dim]
+        elif _x.ndim == 3:
+            return _x[:, :, n * dim:(n + 1) * dim]
+        elif _x.ndim == 4:
+            return _x[:, :, :, n * dim:(n + 1) * dim]
+
+    @staticmethod
+    def compress(X, ndim):
+        shape = X.shape
+        compressed_shape = shape[0]
+        for i in range(1, X.ndim - ndim + 1):
+            compressed_shape = compressed_shape * shape[i]
+        remained_shape = []
+        for i in range(-ndim + 1, 0):
+            remained_shape.append(shape[i])
+        return X.reshape([compressed_shape] + remained_shape, [None] + [X.attr[-1]])
+
+    @staticmethod
+    def zeros_initiator(batch_size, unit_dim):
+        return T.zeros([batch_size, unit_dim], [roles.batch, roles.unit])
+
+
+class loss_functions:
+    '''
+    Cost Functions
+    '''
+
+    @staticmethod
+    def mse(y, y_true):
+        return T.mean_square(y, y_true)
+
+    @staticmethod
+    def rmse(y, y_true):
+        return T.root_mean_square(y, y_true)
+
+    @staticmethod
+    def ce(y, y_true):
+        return T.binary_crossentropy(y, y_true)
+
+    @staticmethod
+    def nlog(y, y_true):
+        return T.categorical_crossentropy(y, y_true)

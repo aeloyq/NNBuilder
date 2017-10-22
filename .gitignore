@@ -19,5 +19,6 @@
 NNBuilder.egg-info
 .idea
 build
-demo
+test
 dist
+doc/build

@@ -10,10 +10,10 @@ import os
 
 
 def ExecuteDiv(DataPath, StdinFunction, NumOfDivParts, OutPath=None, SaveFunction=np.save, BatchSize=1, TrueList=False):
-    print 'Divide Data Script V1.0:'
-    print 'Loading ...'
+    print('Divide Data Script V1.0:')
+    print('Loading ...')
     data = StdinFunction(DataPath)
-    print 'Dividing ...'
+    print('Dividing ...')
     if OutPath is None:
         OutPath = './data/DivData'
     if not os.path.exists(OutPath): os.mkdir(OutPath)

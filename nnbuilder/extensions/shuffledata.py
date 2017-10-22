@@ -4,21 +4,21 @@ Created on  Feb 14 1:22 PM 2017
 
 @author: aeloyq
 """
-from extension import extension
+import nnbuilder.main
+from basic import base
 from nnbuilder.main import mainloop
-import nnbuilder.config
 
 
-class ex(extension):
+class ex(base):
     def __init__(self, kwargs):
-        extension.__init__(self, kwargs)
+        base.__init__(self, kwargs)
         self.window = None
         self.isload=False
         self.scale=1
 
     def init(self):
-        extension.init(self)
-        if not self.window: self.window = nnbuilder.config.batch_size * self.scale
+        base.init(self)
+        if not self.window: self.window = nnbuilder.main.config.batch_size * self.scale
 
     def before_epoch(self):
         if self.kwargs['iter'] == 0:
@@ -35,3 +35,4 @@ class ex(extension):
 
 
 config = ex({})
+instance=config

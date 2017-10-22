@@ -6,139 +6,114 @@ Created on Sat Dec 17 13:55:42 2016
 """
 
 import numpy as np
-import theano
-import theano.tensor as T
-from basic import *
 from utils import *
+from basic import *
 from roles import *
 from ops import *
+from nnbuilder.kernel import *
 
 
-
-class hiddenlayer(hidden_layer):
+class fwdhidden(fwdlinear, hidden):
     ''' 
     setup hidden layer of feedforward network inherited from Hidden_Layer
     '''
-    def __init__(self, unit, activation=T.tanh):
-        hidden_layer.__init__(self,unit, activation)
+    pass
 
-class embedding(layer):
-    def __init__(self,unit,**kwargs):
-        layer.__init__(self,unit,**kwargs)
-        self.emb_dim = unit
+
+class fwdoutput(fwdlinear, output):
+    pass
+
+
+class gtdhidden(fwdhidden):
+    '''
+    gated hidden layer
+    '''
+
+    def __init__(self, unit, biased=True, gate=T.glu, **kwargs):
+        super(gtdhidden, self).__init__(unit=unit, biased=biased, activation=gate, **kwargs)
+        self.unit_dim = unit * 2
+        self.gate = gate
+        if gate not in utils.gated_activation:
+            raise AssertionError('Given gate is not a gated activation. gate:%s  gated activation:%s' % (
+                str(gate), str(utils.gated_activation)))
+
+
+class trfhidden(transfer, hidden):
+    pass
+
+
+class trfoutput(transfer, output):
+    pass
+
+
+class lkphidden(fwdlookup, hidden):
+    pass
+
+
+class multilkphidden(itglookup, hidden):
+    def __init__(self, units, **kwargs):
+        itglookup.__init__(**kwargs)
+        self.units = units
+        self.units_dim = units.copy()
+
     def init_params(self):
-        self.wemb=self.allocate(randn, 'Wemb', weight, self.in_dim, self.emb_dim)
+        self.init_all_lookup_params(self.units_dim)
+
+    def get_out_dim(self):
+        self.out_dim = sum(self.units_dim.values())
+
     def apply(self, X):
-        if X.ndim>1:
-            n_timesteps = X.shape[0]
-            n_samples =   X.shape[1]
-            return T.reshape(self.wemb[X.flatten()], [n_timesteps,
-                                                      n_samples, self.emb_dim])
+        return T.concatenate([self.layer_lookup(name=name, X=X[:, :, i]) for i, name in enumerate(self.units)],
+                             axis=X.ndim)
+
+
+class hnn(fwdhidden, entity):
+    pass
+
+
+class gnn(gtdhidden, entity):
+    pass
+
+
+class embedding(lkphidden, entity):
+    pass
+
+
+class multiembedding(multilkphidden, entity):
+    pass
+
+
+class activation(trfhidden, entity):
+    def __init__(self, activation=T.tanh, **kwargs):
+        trfhidden.__init__(**kwargs)
+        self.activation = activation
+
+    def apply(self, X):
+        return self.activation(X)
+
+    def get_out_dim(self):
+        if self.activation not in utils.gated_activation:
+            self.out_dim = self.in_dim
         else:
-            return self.wemb[X.flatten()]
+            self.out_dim = self.in_dim / 2
 
-class lookuptable(embedding):
-    def __init__(self,unit,**kwargs):
-        embedding.__init__(self,unit,**kwargs)
 
-class maxout(baselayer):
-    def __init__(self,num_pieces):
-        baselayer.__init__(self)
-        self.num_pieces=num_pieces
-
-    def apply(self,X):
-        last_dim = X.shape[-1]
-        output_dim = last_dim // self.num_pieces
-        new_shape = ([X.shape[i] for i in range(X.ndim - 1)] +
-                     [output_dim, self.num_pieces])
-        return T.max(X.reshape(new_shape, ndim=X.ndim + 1),
-                            axis=X.ndim)
-
-class compass(baselayer):
-    def __init__(self,ndim=2):
-        baselayer.__init__(self)
-        self.n_dim=ndim
-
-    def apply(self,X):
-        if self.n_dim==1:
-            self.shape=X.shape
-            new_shape=self.shape[0]
-            for i in range(1,X.ndim):
-                new_shape = new_shape*self.shape[i]
-            return X.reshape([new_shape])
-        elif X.ndim>self.n_dim:
-            self.shape = X.shape
-            new_shape_1 = self.shape[0]
-            for i in range(1, X.ndim-self.n_dim+1):
-                new_shape_1 = new_shape_1 * self.shape[i]
-            new_shape_2 = []
-            for i in range(-self.n_dim+1,0):
-                new_shape_2.append(self.shape[i])
-            return X.reshape([new_shape_1]+new_shape_2)
-
-class direct(baselayer):
+class direct(trfoutput, entity):
     ''' setup direct output layer inherited from base output layer '''
-    def __init__(self,**kwargs):
-        baselayer.__init__(self,**kwargs)
-        self.cost_function = mean_square
-        self.cost = None
-        self.predict = None
-        self.error = None
-        self.mask=False
-        self.setattr('cost_function')
-        self.setattr('cost')
-        self.setattr('predict')
-        self.setattr('error')
-    def apply(self,X):
-        return X
-    def get_predict(self):
-        self.predict=T.round(self.output)
-    def get_cost(self,Y):
-        self.cost=self.cost_function(Y,self.output)
-    def get_error(self,Y):
-        self.error=T.mean(T.neq(Y,self.predict))
+    pass
 
-class logistic(output_layer):
-    def __init__(self,unit,**kwargs):
-       output_layer.__init__(self,unit, T.nnet.sigmoid,**kwargs)
-       self.cost_function=cross_entropy
 
-class softmax(output_layer):
-    def __init__(self, unit,**kwargs):
-        output_layer.__init__(self,unit, T.nnet.softmax,**kwargs)
+class logistic(fwdoutput, entity):
+    def __init__(self, unit, biased=True, **kwargs):
+        fwdoutput.__init__(self, unit=unit, biased=biased, activation=T.sigmoid, **kwargs)
+        output.__init__(self, loss_function=loss_functions.ce, **kwargs)
 
-    def set_children(self):
-        self.children['lb'] = linear_bias(self.unit_dim, self.activation)
-        self.children['compass']=compass(2)
 
-    def apply(self, X):
-        shape=X.shape
-        ndim=X.ndim
-        if X.ndim >2:
-            X=self.children['compass'].feedforward(X, P)
-            output=self.children['lb'].feedforward(X, P)
-            self.cost_output=output
-            new_shape=[]
-            for i in range(0,ndim-1):
-                new_shape.append(shape[i])
-            new_shape.append(output.shape[-1])
-            return output.reshape(new_shape)
-        else:
-            self.cost_output = self.children['lb'].feedforward(X, P)
-            return self.cost_output
+class softmax(fwdoutput, entity):
+    def __init__(self, unit, biased=True, **kwargs):
+        fwdlinear.__init__(self, unit=unit, biased=biased, activation=T.softmax,
+                           **kwargs)
+        output.__init__(self, loss_function=loss_functions.nlog, **kwargs)
 
-    def get_predict(self):
-        self.predict = T.argmax(self.output, axis=-1)
-
-    def get_cost(self, Y):
-        if Y.ndim >= 2:
-            self.cost = T.mean(T.nnet.categorical_crossentropy(self.cost_output, Y.flatten()))
-        else:
-            self.cost = T.mean(T.nnet.categorical_crossentropy(self.output, Y))
-
-    def get_error(self, Y):
-        self.error = T.mean(T.neq(self.predict, Y))
-
-class readout(hidden_layer):
-    def __init__(self, unit, activation=T.tanh,**kwargs):
-        hidden_layer.__init__(self,unit, activation,**kwargs)
+    def apply_sample(self):
+        return self.output.argmax(-1)

@@ -4,154 +4,168 @@ Created on  Feb 13 10:24 PM 2017
 
 @author: aeloyq
 """
-import config
-import layers.basic as basic
-import theano
-import theano.tensor as T
 import numpy as np
 import logger
+import copy
 from collections import OrderedDict
+from layers.basic import base, entity
 from layers.roles import *
 from layers.utils import *
 from layers.ops import *
+from nnbuilder.kernel import *
 
 
+class var:
+    class X:
+        default = [batch, feature], kernel.config.floatX
+        sequence = [time, batch], kernel.config.catX
+        image = [batch, channel, height, width], kernel.config.floatX
 
-X = T.matrix
-Y = T.ivector
-Int4dX = T.itensor4
-Int4dY = T.itensor4
-Int3dX = T.itensor3
-Int3dY = T.itensor3
-Int2dX = T.imatrix
-Int2dY = T.imatrix
-IntX=T.ivector
-IntY=T.ivector
-Float4dX = T.ftensor4
-Float4dY = T.ftensor4
-Float3dX = T.ftensor3
-Float3dY = T.ftensor3
-Float2dX = T.fmatrix
-Float2dY = T.fmatrix
-FloatX=T.fvector
-FloatY=T.fvector
-Int4dMask=T.wtensor4
-Int3dMask=T.wtensor3
-Int2dMask=T.wmatrix
-IntMask=T.wvector
-Float4dMask=T.ftensor4
-Float3dMask=T.ftensor3
-Float2dMask=T.fmatrix
-FloatMask=T.fvector
+    class Y:
+        default = [batch], kernel.config.catX
+        numerical = [batch], kernel.config.floatX
+        catglory = [batch], kernel.config.catX
+        image = [batch], kernel.config.catX
+        sequence = [time, batch], kernel.config.catX
 
-class model():
-    def __init__(self,dim,X=X,Y=Y,**kwargs):
-        self.X = X('X')
-        self.Y = Y('Y')
-        for name in kwargs:
-            setattr(self, name, kwargs[name](name))
-        self.X_dim=dim
-        self.pre_dim=dim
-        self.pre_layer=self.X
+
+class input_layer(base):
+    def __init__(self, **kwargs):
+        super(input_layer, self).__init__(**kwargs)
+        self.name = 'input layer'
+
+    def set_input_layer(self, input, dim):
+        self.set_in_dim(dim)
+        self.set_input(input)
+        self.get_out_dim()
+        self.output = input
+
+
+class model(object):
+    def __init__(self, dim, X=var.X.default, Y=var.Y.default):
+        self.X_dim = dim
+        self.varX = X
+        self.varY = Y
+        self.X = kernel.placeholder('X', X[0], X[1])
+        self.Y = kernel.placeholder('Y', Y[0], Y[1])
+        self.X_mask = None
+        self.Y_mask = None
         self.inputs = [self.X, self.Y]
-        self.rng = config.rng
+        self.data = {'X': self.X, 'Y': self.Y, 'X_Mask': None, 'Y_Mask': None}
+        self.input_layer = input_layer()
+        self.input_layer.set_input_layer(self.X, dim)
+        #
         self.layers = OrderedDict()
-        self.layers_in_dim_dict=OrderedDict()
-        self.layers_input_dict = OrderedDict()
-        self.n_layers = 0
+        self.n_layer = 0
         self.ops = OrderedDict()
-        self.ops['cost'] = []
-        self.n_ops = 0
+        self.lossops = []
+        self.ops_options = OrderedDict()
+        self.last_added_layer = self.input_layer
+        #
+        self.output_layer = None
         self.output = None
         self.raw_output = None
-        self.cost = None
-        self.raw_cost = None
-        self.error = None
-        self.params = OrderedDict()
+        self.loss = None
+        self.sample = None
+        self.sample_loss = None
+        self.sample_error = None
+        self.predict = None
+        self.trainable_params = OrderedDict()
         self.roles = OrderedDict()
-        self.user_debug_stream = []
-        self.X_mask = X('X_mask')
-        self.Y_mask = Y('Y_mask')
+        self.shapes = OrderedDict()
+        self.rndfns = OrderedDict()
+        self.untrainable_params = OrderedDict()
         self.updates = OrderedDict()
         self.raw_updates = OrderedDict()
+        self.user_debug_stream = []
+        #
+        self.intX = False
+        self.intY = False
+        self.seqX = False
+        self.seqY = False
+        if X[1] in [kernel.config.catX, kernel.config.boolX, kernel.config.intX]:
+            self.intX = True
+        if Y[1] in [kernel.config.catX, kernel.config.boolX, kernel.config.intX]:
+            self.intY = True
 
-    def set_inputs(self, inputs):
-        self.inputs = inputs
-        self.train_inputs = inputs
-        self.X = inputs[0]
-        self.Y = inputs[1]
-
-    def set_output(self, tvar):
-        self.output = tvar
-
-    def set_predict(self, tvar):
-        self.predict = tvar
-
-    def set_cost(self, tvar):
-        self.cost = tvar
-
-    def set_error(self, tvar):
-        self.error = tvar
-
-    def build(self):
-        def raw():
-            for name,node in self.layers.items():
-                op_dict = {}
-                for op in self.ops[node]:
-                    op.evaluate()
-                    op_dict.update(op.op_dict)
-                op_dict['mode'] = 'use'
-                node.evaluate(self.layers_input_dict[name],name,**op_dict)
-                self.params.update(node.params)
-                self.roles.update(node.roles)
-                self.raw_output = node
-            self.raw_output.get_cost(self.Y)
-            self.raw_output.get_predict()
-            self.raw_output.get_error(self.Y)
-            self.raw_cost = self.raw_output.cost
-            self.predict = self.raw_output.predict
-            self.error = self.raw_output.error
-            for key in self.layers:
-                self.raw_updates.update(self.layers[key].raw_updates)
+    def build(self, raw_only=False):
+        for name, layer in self.layers.items():
+            for op in self.ops[layer]:
+                op.build(layer, self.ops_options[layer][op.name])
 
         def train():
-            for name, node in self.layers.items():
-                op_dict = {}
-                for op in self.ops[node]:
-                    op.evaluate()
-                    op_dict.update(op.op_dict)
-                op_dict['mode'] = 'train'
-                node.evaluate(self.layers_input_dict[name],name,**op_dict)
-                self.output = node
-            self.output.get_cost(self.Y)
-            self.cost = self.output.cost
-            for key in self.layers:
-                self.updates.update(self.layers[key].updates)
+            for name, layer in self.layers.items():
+                ops_option = copy.deepcopy(self.ops_options[layer])
+                ops_option['mode'] = 'train'
+                layer.build(ops_option)
+                self.updates.update(layer.updates)
+            self.output_layer = self.layers.values()[-1]
+            self.output = self.output_layer.output
+            self.loss = self.output_layer.apply_loss(self.Y)
+            self.output_layer.loss = self.loss
 
-        train()
+        def raw():
+            for name, layer in self.layers.items():
+                ops_option = copy.deepcopy(self.ops_options[layer])
+                ops_option['mode'] = 'use'
+                layer.build(ops_option)
+                self.trainable_params.update(layer.trainable_params)
+                self.untrainable_params.update(layer.untrainable_params)
+                self.roles.update(layer.roles)
+                self.shapes.update(layer.shapes)
+                self.rndfns.update(layer.rndfns)
+                layer.raw_output = layer.output
+                self.raw_updates.update(layer.raw_updates)
+                self.user_debug_stream.extend(layer.debug_stream)
+            self.output_layer = self.layers.values()[-1]
+            self.raw_output = self.output_layer.output
+            self.sample = self.output_layer.apply_sample()
+            self.output_layer.sample = self.sample
+            self.sample_loss = self.output_layer.apply_sample_loss(self.Y)
+            self.output_layer.sample_loss = self.sample_loss
+            self.sample_error = self.output_layer.apply_sample_error(self.Y)
+            self.output_layer.sample_error = self.sample_error
+            self.predict = self.output_layer.apply_predict()
+            self.output_layer.predict = self.predict
+
+        if not raw_only:
+            train()
         raw()
-        for ops in self.ops['cost']:
-            self.cost = ops.evaluate(self.cost,self.layers)
-        for key in self.layers:
-            self.user_debug_stream.extend(self.layers[key].debug_stream)
+        for ops in self.lossops:
+            self.loss = ops.build(self.loss)
 
-    def add(self,element,name=None):
-        if isinstance(element,basic.baselayer):
-            self.n_layers += 1
-            if name == None: name = 'layer{}'.format(self.n_layers)
+    def add(self, element, name=None):
+        if isinstance(element, entity):
+            self.n_layer += 1
+            if name == None: name = 'layer{}'.format(self.n_layer)
             self.layers[name] = element
-            element.set_in_dim(self.pre_dim)
-            self.layers_input_dict[name]=self.pre_layer
+            element.pre_build(name, self.last_added_layer, self.data)
+            self.last_added_layer = element
             self.ops[element] = []
-            self.pre_layer=element
-            if self.X_mask in self.inputs:element.x_mask=self.X_mask
-            if self.Y_mask in self.inputs:element.y_mask=self.Y_mask;element.y=self.Y
-            if hasattr(element,'unit_dim'):
-                self.pre_dim=element.unit_dim
+            self.ops_options[element] = OrderedDict()
+
+        elif isinstance(element, inlayerops):
+            self.ops[self.last_added_layer].append(element)
+            if element.name not in self.ops_options[self.last_added_layer]:
+                self.ops_options[self.last_added_layer][element.name] = OrderedDict()
+            element.init(self.last_added_layer)
+
+        elif isinstance(element, lossops):
+            self.lossops.append(element)
+            element.init(self.last_added_layer, self)
+
         else:
-            element.init(self.pre_layer, self.ops)
+            if isinstance(element, base):
+                raise TypeError('Please use entity layer class !')
 
-    def sequential(self,X=Int2dMask,Y=None):
-        if X is not None: self.X_mask=X('X_mask');self.inputs.append(self.X_mask)
-        if Y is not None: self.Y_mask=Y('Y_mask');self.inputs.append(self.Y_mask)
-
+    def sequential(self, X=True, Y=False):
+        if X:
+            self.X_mask = kernel.placeholder('X_Mask', self.varX[0], kernel.config.floatX)
+            self.inputs.append(self.X_mask)
+            self.data['X_Mask'] = self.X_mask
+            self.seqX = True
+        if Y:
+            self.Y_mask = kernel.placeholder('Y_Mask', self.varY[0], kernel.config.floatX)
+            self.inputs.append(self.Y_mask)
+            self.data['Y_Mask'] = self.Y_mask
+            self.seqY = True
