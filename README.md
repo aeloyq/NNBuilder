@@ -2,13 +2,12 @@ NNBuilder
 ===========
 ## Description
 * A Neural Network Framework
-* On Top Of Theano
+* On Top Of Several Popular Neural Network Library
 ## Dependency
-* Python2.7
-* Theano
-* Matplotlib
-* Progressbar
-* Pydot Pydot-ng Graphviz
+* Python2.7 later for 3.5/3.6
+* Theano/Pytorch/Tensorflow/MXNet
+* Bokeh
+* Not Necessary: Pydot Pydot-ng Graphviz
 ## Installation
 ### Github:
 `git clone https://github.com/aeloyq/NNBuilder`<br />
