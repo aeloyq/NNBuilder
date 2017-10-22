@@ -1,12 +1,12 @@
 NNBuilder
 ===========
-A multi-backend framework for building and training neural networks
+A Multi-Backend Framework For Building And Training Neural Networks
 ## Description
 * A Neural Network Framework
 * On Top Of Several Popular Neural Network Library
 ## Dependency
-* Python2.7 later for 3.5/3.6
-* Theano Later for Pytorch/Tensorflow/MXNet
+* Python2.7 Later For 3.5/3.6
+* Theano Later For Pytorch/Tensorflow/MXNet
 * Bokeh
 * Not Necessary: Pydot Pydot-ng Graphviz
 ## Installation

@@ -1,0 +1,1 @@
+sphinx-apidoc -o doc/source/api nnbuilder -T --no-toc -V 0.3.1  -f

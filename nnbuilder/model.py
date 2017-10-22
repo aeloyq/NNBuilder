@@ -24,7 +24,7 @@ class var:
     class Y:
         default = [batch], kernel.config.catX
         numerical = [batch], kernel.config.floatX
-        catglory = [batch], kernel.config.catX
+        category = [batch], kernel.config.catX
         image = [batch], kernel.config.catX
         sequence = [time, batch], kernel.config.catX
 

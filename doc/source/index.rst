@@ -7,14 +7,16 @@ Welcome to NNBuilder's documentation!
 =====================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :numbered:
 
+   Introduction <intro>
+   QuickStart <quickstart>
+   Tutorial <tutorial>
+   API Documentation <api/nnbuilder>
 
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

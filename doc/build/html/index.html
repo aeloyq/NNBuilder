@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Welcome to NNBuilder’s documentation! &mdash; NNBuilder 0.2.0rc6 documentation</title>
+  <title>Welcome to NNBuilder’s documentation! &mdash; NNBuilder 0.3.1 documentation</title>
   
 
   
@@ -35,7 +35,8 @@
         <link rel="index" title="Index"
               href="genindex.html"/>
         <link rel="search" title="Search" href="search.html"/>
-    <link rel="top" title="NNBuilder 0.2.0rc6 documentation" href="#"/> 
+    <link rel="top" title="NNBuilder 0.3.1 documentation" href="#"/>
+        <link rel="next" title="1. Introduction Of NNBuilder" href="intro.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -64,7 +65,7 @@
             
             
               <div class="version">
-                0.2.X
+                0.3.1
               </div>
             
           
@@ -88,12 +89,13 @@
               
             
             
-              <!-- Local TOC -->
-              <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">Welcome to NNBuilder’s documentation!</a></li>
-<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">2. QuickStart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">3. Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/nnbuilder.html">4. API Documentation</a></li>
 </ul>
-</div>
+
             
           
         </div>
@@ -158,13 +160,91 @@
   <div class="section" id="welcome-to-nnbuilder-s-documentation">
 <h1>Welcome to NNBuilder’s documentation!<a class="headerlink" href="#welcome-to-nnbuilder-s-documentation" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">1. Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#description">1.1. Description</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#dependency">1.2. Dependency</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#installation">1.3. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#documents">1.4. Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#examples">1.5. Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">2. QuickStart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">3. Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/nnbuilder.html">4. API Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.extensions.html">4.1. nnbuilder.extensions package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#submodules">4.1.1. Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#module-nnbuilder.extensions.basic">4.1.2. basic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#module-nnbuilder.extensions.debugmode">4.1.3. debugmode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#module-nnbuilder.extensions.earlystop">4.1.4. earlystop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#module-nnbuilder.extensions.extension">4.1.5. extension</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#module-nnbuilder.extensions.monitor">4.1.6. monitor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#module-nnbuilder.extensions.sample">4.1.7. sample</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#module-nnbuilder.extensions.saveload">4.1.8. saveload</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#module-nnbuilder.extensions.shuffledata">4.1.9. shuffledata</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.extensions.html#module-nnbuilder.extensions">4.1.10. Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.kernel.html">4.2. nnbuilder.kernel package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.kernel.html#submodules">4.2.1. Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.kernel.html#module-nnbuilder.kernel.Theano">4.2.2. Theano</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.kernel.html#module-nnbuilder.kernel.basic">4.2.3. basic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.kernel.html#module-nnbuilder.kernel.kernel">4.2.4. kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.kernel.html#module-nnbuilder.kernel">4.2.5. Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.layers.html">4.3. nnbuilder.layers package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#submodules">4.3.1. Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers.basic">4.3.2. basic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers.conv">4.3.3. conv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers.convolutional">4.3.4. convolutional</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers.misc">4.3.5. misc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers.ops">4.3.6. ops</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers.roles">4.3.7. roles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers.sequential">4.3.8. sequential</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers.simple">4.3.9. simple</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers.utils">4.3.10. utils</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.layers.html#module-nnbuilder.layers">4.3.11. Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.models.html">4.4. nnbuilder.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.models.html#submodules">4.4.1. Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.models.html#module-nnbuilder.models.gan">4.4.2. gan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.models.html#module-nnbuilder.models.lenet">4.4.3. lenet</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.models.html#module-nnbuilder.models.seq2seq">4.4.4. seq2seq</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.models.html#module-nnbuilder.models">4.4.5. Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.optimizers.html">4.5. nnbuilder.optimizers package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.optimizers.html#submodules">4.5.1. Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.optimizers.html#module-nnbuilder.optimizers.gradientdescent">4.5.2. gradientdescent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.optimizers.html#module-nnbuilder.optimizers.newtonsmethod">4.5.3. newtonsmethod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.optimizers.html#module-nnbuilder.optimizers">4.5.4. Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.tools.html">4.6. nnbuilder.tools package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.tools.html#submodules">4.6.1. Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.tools.html#module-nnbuilder.tools.datadiver">4.6.2. datadiver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.tools.html#module-nnbuilder.tools.loaddatas">4.6.3. loaddatas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.tools.html#module-nnbuilder.tools.plotter">4.6.4. plotter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.tools.html#module-nnbuilder.tools.printer">4.6.5. printer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.tools.html#module-nnbuilder.tools.samples">4.6.6. samples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/nnbuilder.tools.html#module-nnbuilder.tools">4.6.7. Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.html#module-nnbuilder.logger">4.7. logger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.html#module-nnbuilder.main">4.8. main</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.html#module-nnbuilder.model">4.9. model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/nnbuilder.html#module-nnbuilder">4.10. Module contents</a></li>
+</ul>
+</li>
+</ul>
 </div>
 </div>
 <div class="section" id="indices-and-tables">
 <h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
 <ul class="simple">
 <li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
-<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
 <li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
 </ul>
 </div>
@@ -176,6 +256,13 @@
            </div>
           </div>
           <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="intro.html" class="btn btn-neutral float-right" title="1. Introduction Of NNBuilder" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+    </div>
   
 
   <hr/>
@@ -204,7 +291,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'0.2.0rc6',
+            VERSION:'0.3.1',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
