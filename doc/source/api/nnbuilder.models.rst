@@ -1,4 +1,4 @@
-nnbuilder\.models package
+models
 =========================
 
 Submodules

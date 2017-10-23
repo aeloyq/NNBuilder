@@ -12,10 +12,10 @@ Description
 Dependency
 ----------------
 
-* Python2.7 Later For 3.5/3.6
-* Theano Later For Pytorch/Tensorflow/MXNet
-* Bokeh
-* Not Necessary: Pydot Pydot-ng Graphviz
+* Python2.7 Later For /3.5/3.6
+* Theano Later For /Pytorch/Tensorflow/MXNet
+* Matplotlib Bokeh
+* Not Necessary: (Theano:Pydot Pydot-ng Graphviz)
 
 Installation
 ---------------
@@ -30,14 +30,13 @@ Using PIPY （Recommend）::
 
     pip install nnbuilder
 
-For Requirements Plaese::
+For Other Requirements Plaese::
 
-    conda install theano
     pip install -r requirements.txt
 
-For Other Dependency::
+For Theano::
 
-    pip install pydot pydot-ng progressbar
+    conda install theano
 
 Documents
 -------------------

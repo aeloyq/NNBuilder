@@ -1,4 +1,4 @@
-nnbuilder\.tools package
+tools
 ========================
 
 Submodules

@@ -5,7 +5,6 @@ Created on  七月 17 6:45 2017
 @author: aeloyq
 """
 import numpy as np
-import progressbar
 import os
 
 
@@ -26,8 +25,7 @@ def ExecuteDiv(DataPath, StdinFunction, NumOfDivParts, OutPath=None, SaveFunctio
     BucketSize = np.round(n_data // NumOfDivParts)
     if BucketSize % BatchSize != 0:
         BucketSize = BucketSize + (BatchSize - BucketSize % BatchSize)
-    bar = progressbar.ProgressBar()
-    for i in bar(range(NumOfDivParts - 1)):
+    for i in range(NumOfDivParts - 1):
         if not TrueList:
             SaveFunction(OutPath + '/TrainData{}'.format(str(i + 1).zfill(3)),
                          [data[0][i * BucketSize:(i + 1) * BucketSize], data[3][i * BucketSize:(i + 1) * BucketSize]],
@@ -38,6 +36,7 @@ def ExecuteDiv(DataPath, StdinFunction, NumOfDivParts, OutPath=None, SaveFunctio
             SaveFunction(OutPath + '/TrainData{}'.format(str(i + 1).zfill(3)),
                          tmp
                          )
+        print('   ...')
 
     if not TrueList:
         SaveFunction(OutPath + '/TrainData{}'.format(str(NumOfDivParts).zfill(3)),

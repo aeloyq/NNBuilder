@@ -1,4 +1,4 @@
-nnbuilder\.kernel package
+kernel
 =========================
 
 Submodules

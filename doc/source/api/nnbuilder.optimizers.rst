@@ -1,4 +1,4 @@
-nnbuilder\.optimizers package
+optimizers
 =============================
 
 Submodules

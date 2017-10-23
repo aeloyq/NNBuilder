@@ -1,4 +1,4 @@
-nnbuilder\.extensions package
+extensions
 =============================
 
 Submodules

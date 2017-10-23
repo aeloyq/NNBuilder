@@ -1,4 +1,4 @@
-nnbuilder\.layers package
+layers
 =========================
 
 Submodules
