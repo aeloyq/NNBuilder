@@ -5,6 +5,8 @@ Created on  八月 03 23:44 2017
 @author: aeloyq
 """
 import os
+import numpy as np
+import copy
 from collections import OrderedDict
 
 if "NNBUILDER_FLAGS" in os.environ:
@@ -19,13 +21,15 @@ if "NNBUILDER_FLAGS" in os.environ:
 else:
     import Theano as Backend
 
-bkd_knl = Backend.kernel
-bkd_op = Backend.operator
-bkd_phd = Backend.placeholder
-bkd_srd = Backend.shared
-bkd_tsr = Backend.tensor
-bkd_rng = Backend.randomgraph
-bkd_cfg = Backend.config
+
+class Attr:
+    batch = 'batch'
+    unit = 'unit'
+    channel = 'channel'
+    deepth = 'deepth'
+    height = 'height'
+    width = 'width'
+    search = 'search'
 
 
 class operator:
@@ -35,7 +39,12 @@ class operator:
             return isinstance(v, var_list)
 
         def as_graph(self, v):
-            return v.graph if isinstance(v, var_list) else v
+            if isinstance(v, var_list):
+                return v.graph
+            elif hasattr(v, 'graph'):
+                return v.graph
+            else:
+                return AssertionError('This is not a Tensor: %s' % (str(v)))
 
         def broadcast_attr(self, l, r):
             if operator.is_graph(l):
@@ -77,7 +86,7 @@ class operator:
 
         def reduce_attr(self, t, axis):
             if axis is None:
-                return [None]
+                return []
             if not isinstance(axis, (tuple, list)):
                 true_axis = axis
                 if axis < 0:
@@ -106,6 +115,74 @@ class operator:
                     attr.append(None)
             return attr
 
+        def broadcast_size(self, l, r):
+            if operator.is_graph(l):
+                lsize = l.size
+                lndim = l.ndim
+            else:
+                lsize = [None]
+                lndim = 0
+            if operator.is_graph(r):
+                rsize = r.size
+                rndim = r.ndim
+            else:
+                rsize = [None]
+                rndim = 0
+            size = []
+            ndim_diff = lndim - rndim
+            for i in range(abs(ndim_diff)):
+                if ndim_diff > 0:
+                    size.append(lsize[i])
+                else:
+                    size.append(rsize[i])
+            for i in range(abs(ndim_diff), max(lndim, rndim)):
+                if ndim_diff >= 0:
+                    if rsize[i - ndim_diff] is not None:
+                        size.append(rsize[i - ndim_diff])
+                    elif lsize[i] is not None:
+                        size.append(lsize[i])
+                    else:
+                        size.append(None)
+                else:
+
+                    if rsize[i] is not None:
+                        size.append(rsize[i])
+                    elif lsize[i - ndim_diff] is not None:
+                        size.append(lsize[i - ndim_diff])
+                    else:
+                        size.append(None)
+            return size
+
+        def reduce_size(self, t, axis):
+            if axis is None:
+                return []
+            if not isinstance(axis, (tuple, list)):
+                true_axis = axis
+                if axis < 0:
+                    true_axis = t.ndim + axis
+                size = t.size[:true_axis] + t.size[true_axis + 1:]
+            else:
+                true_axis_list = []
+                for ax in axis:
+                    true_axis_list.append(ax if ax >= 0 else t.ndim + ax)
+                axes = range(t.ndim)
+                for tax in true_axis_list:
+                    axes.remove(tax)
+                size = t.size[axes]
+            return size
+
+        def group_size(self, tlist):
+            size = []
+            for i in range(tlist[0].ndim):
+                find = True
+                for j in tlist:
+                    if j.size[i] is None:
+                        find = False
+                        break
+                if find:
+                    size.append(sum([t.size[i] for t in tlist]))
+            return size
+
         def preprocess_lr(self, l, r):
             l_ = l
             r_ = r
@@ -114,286 +191,298 @@ class operator:
             if operator.is_graph(r):
                 r_ = r.graph
             attr = operator.utils.broadcast_attr(l, r)
-            # if operator.is_graph(l) and operator.is_graph(r):
-            #     attr = operator.utils.group_attr([l, r])
-            # elif operator.is_graph(l):
-            #     attr = l.attr
-            # else:
-            #     attr = r.attr
-            return l_, r_, attr
+            size = operator.utils.broadcast_size(l, r)
+            return l_, r_, size, attr
 
         def hash(self, t):
             return t.graph.__hash__()
 
         def cast(self, t, dtype):
-            o = bkd_op.utils.cast(t.graph, dtype)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.utils.cast(t.graph, dtype)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
     class Matrix:
 
         def dot(self, l, r):
+            size = l.size[:-1] + r.size[1:]
             attr = l.attr[:-1] + r.attr[1:]
-            o = bkd_op.matrix.dot(l.graph, r.graph)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.matrix.dot(l.graph, r.graph)
+            return tensor(graph=o, size=size, attr=attr)
 
         def transpose(self, t):
-            o = bkd_op.matrix.transpose(t.graph)
-            return tensor(graph=o, attr=o.attr[::-1])
+            o = Backend.operator.matrix.transpose(t.graph)
+            return tensor(graph=o, size=o.size[::-1], attr=o.attr[::-1])
 
         def dimshuffle(self, t, order=None):
+            size = []
+            for i in order:
+                if i in ['x', None]:
+                    size.append(None)
+                else:
+                    size.append(t.size[i])
             attr = []
             for i in order:
                 if i in ['x', None]:
                     attr.append(None)
                 else:
                     attr.append(t.attr[i])
-            o = bkd_op.matrix.dimshuffle(t.graph, order)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.matrix.dimshuffle(t.graph, order)
+            return tensor(graph=o, size=size, attr=attr)
 
-        def conv(self, input, filters, input_shape=None, filter_shape=None, mode='normal', pad=None, strides=None,
-                 flip=True, dilation=None):
-            '''
+        def tile(self, t, n, attr=None):
+            size = t.size
+            for i, s in enumerate(size):
+                if s is None:
+                    if isinstance(n, (list, tuple)):
+                        if n[i] != 1:
+                            size[i] = n[i]
+                else:
+                    if isinstance(n, (list, tuple)):
+                        if n[i] != 1:
+                            size[i] = size[i] * n[i]
+            o = Backend.operator.tile(t, n)
+            if attr is None:
+                attr = t.attr
+            return tensor(graph=o, size=size, attr=attr)
 
-            :param input:
-            :param filters:
-            :param input_shape:
-            :param filter_shape:
-            :param mode: 'normal','full','half','pad'
-            :param pad: default None or tuple()
-            :param strides:
-            :param flip:
-            :param dilation:default None or tuple()
-            :return:
-            '''
-            attr = input.attr
-            input = operator.utils.as_graph(input)
-            filters = operator.utils.as_graph(filters)
-            if strides is None:
-                strides = tuple([1] * (input.ndim - 2))
-            if dilation is None:
-                dilation = tuple([1] * (input.ndim - 2))
-            o = bkd_op.matrix.conv(input=input, filters=filters, input_shape=input_shape,
-                                   filter_shape=filter_shape,
-                                   mode=mode, pad=pad, strides=strides, flip=flip, dilation=dilation)
-            return tensor(graph=o, attr=attr)
-
-        def pool(self, input, window, noborder=True, strides=None, pad=None, mode='max'):
-            '''
-
-            :param input:
-            :param window:
-            :param noborder:
-            :param strides:
-            :param pad:
-            :param mode: 'max','sum','avg','avgpad'
-            :return:
-            '''
-            attr = input.attr
-            input = operator.utils.as_graph(input)
-            window = operator.utils.as_graph(window)
-            if pad is None:
-                pad = tuple([0] * (input.ndim - 2))
-            o = bkd_op.matrix.pool(input=input, window=window, noborder=noborder, strides=strides, pad=pad,
-                                   mode=mode)
-            return tensor(graph=o, attr=attr)
+        def repeat(self, t, n, attr=None):
+            size = t.size
+            for i, s in enumerate(size):
+                if s is None:
+                    if isinstance(n, (list, tuple)):
+                        if n[i] != 1:
+                            size[i] = n[i]
+                else:
+                    if isinstance(n, (list, tuple)):
+                        if n[i] != 1:
+                            size[i] = size[i] * n[i]
+            o = Backend.operator.repeat(t, n)
+            if attr is None:
+                attr = t.attr
+            return tensor(graph=o, size=size, attr=attr)
 
     class Elemwise:
 
         def add(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.add(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.add(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def sub(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.sub(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.sub(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def mul(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.mul(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.mul(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def div(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.div(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.div(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def floordiv(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.floordiv(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.floordiv(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def mod(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.mod(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.mod(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def divmod(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o1, o2 = bkd_op.elemwise.divmod(l, r)
-            return (tensor(graph=o1, attr=attr), tensor(graph=o2, attr=attr))
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o1, o2 = Backend.operator.elemwise.divmod(l, r)
+            return (tensor(graph=o1, size=size, attr=attr), tensor(graph=o2, size=size, attr=attr))
 
         def pow(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.pow(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.pow(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def eq(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.eq(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.eq(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def neq(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.neq(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.neq(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def lt(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.lt(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.lt(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def gt(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.gt(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.gt(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def ge(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.ge(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.ge(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def le(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.le(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.le(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def and_(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.and_(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.and_(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def or_(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.or_(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.or_(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def invert(self, t):
-            o = bkd_op.elemwise.invert(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.invert(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def xor(self, l, r):
-            l, r, attr = operator.preprocess_lr(l, r)
-            o = bkd_op.elemwise.xor(l, r)
-            return tensor(graph=o, attr=attr)
+            l, r, size, attr = operator.preprocess_lr(l, r)
+            o = Backend.operator.elemwise.xor(l, r)
+            return tensor(graph=o, size=size, attr=attr)
 
         def neg(self, t):
-            o = bkd_op.elemwise.neg(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.neg(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def abs(self, t):
-            o = bkd_op.elemwise.abs(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.abs(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def tanh(self, t):
-            o = bkd_op.elemwise.tanh(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.tanh(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def sigmoid(self, t):
-            o = bkd_op.elemwise.sigmoid(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.sigmoid(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def softmax(self, t, keepdims=True):
-            o = bkd_op.elemwise.softmax(t.graph, keepdims)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.softmax(t.graph, keepdims)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def relu(self, t):
-            o = bkd_op.elemwise.relu(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.relu(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def log(self, t):
-            o = bkd_op.elemwise.log(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.log(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def exp(self, t):
-            o = bkd_op.elemwise.exp(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.exp(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def sqr(self, t):
-            o = bkd_op.elemwise.sqr(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.sqr(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def sqrt(self, t):
-            o = bkd_op.elemwise.sqrt(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.sqrt(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def round(self, t):
-            o = bkd_op.elemwise.round(t.graph)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.round(t.graph)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def clip(self, t, min, max):
-            o = bkd_op.elemwise.clip(t.graph, min, max)
-            return tensor(graph=o, attr=t.attr)
+            o = Backend.operator.elemwise.clip(t.graph, min, max)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
         def switch(self, condition, t, f):
             attr = operator.broadcast_attr(t, f)
-            o = bkd_op.elemwise.switch(operator.as_graph(condition), operator.as_graph(t), operator.as_graph(f))
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.elemwise.switch(operator.as_graph(condition), operator.as_graph(t),
+                                                 operator.as_graph(f))
+            return tensor(graph=o, size=t.size, attr=attr)
 
     class Reduction:
 
         def sum(self, t, axis=None, keepdims=False):
             if keepdims:
+                size = t.size
+            else:
+                size = operator.reduce_size(t, axis)
+            if keepdims:
                 attr = t.attr
             else:
                 attr = operator.reduce_attr(t, axis)
-            o = bkd_op.reduction.sum(t.graph, axis, keepdims)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.reduction.sum(t.graph, axis, keepdims)
+            return tensor(graph=o, size=size, attr=attr)
 
         def mean(self, t, axis=None, keepdims=False):
             if keepdims:
+                size = t.size
+            else:
+                size = operator.reduce_size(t, axis)
+            if keepdims:
                 attr = t.attr
             else:
                 attr = operator.reduce_attr(t, axis)
-            o = bkd_op.reduction.mean(t.graph, axis, keepdims)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.reduction.mean(t.graph, axis, keepdims)
+            return tensor(graph=o, size=size, attr=attr)
 
         def var(self, t, axis=None, keepdims=False):
             if keepdims:
+                size = t.size
+            else:
+                size = operator.reduce_size(t, axis)
+            if keepdims:
                 attr = t.attr
             else:
                 attr = operator.reduce_attr(t, axis)
-            o = bkd_op.reduction.var(t.graph, axis, keepdims)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.reduction.var(t.graph, axis, keepdims)
+            return tensor(graph=o, size=size, attr=attr)
 
         def std(self, t, axis=None, keepdims=False):
             if keepdims:
+                size = t.size
+            else:
+                size = operator.reduce_size(t, axis)
+            if keepdims:
                 attr = t.attr
             else:
                 attr = operator.reduce_attr(t, axis)
-            o = bkd_op.reduction.std(t.graph, axis, keepdims)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.reduction.std(t.graph, axis, keepdims)
+            return tensor(graph=o, size=size, attr=attr)
 
         def max(self, t, axis=None, keepdims=False):
             if keepdims:
-                attr = t.attr
+                size = t.size
             else:
-                attr = operator.reduce_attr(t, axis)
-            o = bkd_op.reduction.max(t.graph, axis, keepdims)
-            return tensor(graph=o, attr=attr)
-
-        def argmax(self, t, axis=None, keepdims=False):
+                size = operator.reduce_size(t, axis)
             if keepdims:
                 attr = t.attr
             else:
                 attr = operator.reduce_attr(t, axis)
-            o = bkd_op.reduction.argmax(t.graph, axis, keepdims)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.reduction.max(t.graph, axis, keepdims)
+            return tensor(graph=o, size=size, attr=attr)
+
+        def argmax(self, t, axis=None, keepdims=False):
+            if keepdims:
+                size = t.size
+            else:
+                size = operator.reduce_size(t, axis)
+            if keepdims:
+                attr = t.attr
+            else:
+                attr = operator.reduce_attr(t, axis)
+            o = Backend.operator.reduction.argmax(t.graph, axis, keepdims)
+            return tensor(graph=o, size=size, attr=attr)
 
         def nonzero(self, t):
-            o = bkd_op.reduction.nonzero(t)
-            return tensor(graph=o, attr=[None])
+            o = Backend.operator.reduction.nonzero(t)
+            return tensor(graph=o, size=[], attr=[])
 
     class Slicing:
 
@@ -417,99 +506,137 @@ class operator:
             if not isinstance(key, tuple):
                 lkey = [key]
                 check(t, (key,))
-                o = bkd_op.slicing.getitem(t.graph, operator.as_graph(key))
+                o = Backend.operator.slicing.getitem(t.graph, operator.as_graph(key))
             else:
                 check(t, key)
                 gkey = tuple([operator.as_graph(k) for k in key])
-                o = bkd_op.slicing.getitem(t.graph, gkey)
-            attr = []
+                o = Backend.operator.slicing.getitem(t.graph, gkey)
             for i in range(len(lkey), t.ndim):
                 lkey.append(slice(None, None, None))
+            size = []
+            attr = []
             n = 0
             for k in lkey:
                 if k is not None:
                     if operator.is_graph(k):
-                        if k.ndim != 0:
-                            attr.append(t.attr[n])
-                    elif isinstance(k, (slice, tuple, list)):
+                        if k.ndim > 1:
+                            raise AssertionError('slice indice must be int or list')
+                        elif k.ndim == 1:
+                            size.append(k.size[0])
+                            if t.attr[n] is not None:
+                                attr.append(t.attr[n])
+                            else:
+                                attr.append(k.attr[0])
+                    elif isinstance(k, slice):
+                        if operator.is_graph(k.start) or operator.is_graph(k.stop) or operator.is_graph(k.step):
+                            length = None
+                        else:
+                            length = (k.stop - k.start) // k.step
+                        size.append(length)
+                        attr.append(t.attr[n])
+                    elif isinstance(k, (tuple, list)):
+                        size.append(len(k))
                         attr.append(t.attr[n])
                     n += 1
                 else:
+                    size.append(None)
                     attr.append(None)
-            if attr == []:
-                attr = [None]
-            return tensor(graph=o, attr=attr)
+            return tensor(graph=o, size=size, attr=attr)
 
         def setitem(self, t, key, tnew):
-            attr = t.attr
             tnew = operator.as_graph(tnew)
-            o = bkd_op.slicing.setitem(t.graph, key, tnew)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.slicing.setitem(t.graph, key, tnew)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
     class Grouping:
 
         def concatenate(self, tlist, axis=0):
             glist = [t.graph for t in tlist]
+            size = operator.group_size(tlist)
             attr = operator.group_attr(tlist)
-            o = bkd_op.grouping.concatenate(glist, axis)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.grouping.concatenate(glist, axis)
+            return tensor(graph=o, size=size, attr=attr)
 
         def stack(self, tlist, addition_role=None):
             glist = [t.graph for t in tlist]
+            size = [len(tlist)] + operator.group_attr(tlist)
             attr = [addition_role] + operator.group_attr(tlist)
-            o = bkd_op.grouping.stack(glist)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.grouping.stack(glist)
+            return tensor(graph=o, size=size, attr=attr)
 
         def flatten(self, t):
-            o = bkd_op.grouping.flatten(t.graph)
+            o = Backend.operator.grouping.flatten(t.graph)
             attr = [t.attr[-1]]
-            return tensor(graph=o, attr=attr)
+            if None not in t.size:
+                size = [np.prod(t.size)]
+            else:
+                size = [None]
+            return tensor(graph=o, size=size, attr=attr)
 
-        def reshape(self, t, shape, attr):
+        def reshape(self, t, shape, size, attr):
             shape = [operator.as_graph(s) for s in shape]
-            o = bkd_op.grouping.reshape(t.graph, shape)
-            attr = attr
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.grouping.reshape(t.graph, shape)
+            return tensor(graph=o, size=size, attr=attr)
 
     class Alloc:
 
-        def ones(self, shape, attr, dtype=bkd_knl.config.floatX):
+        def ones(self, shape, attr, dtype=Backend.kernel.config.floatX):
+            size = shape
             shape = [operator.as_graph(s) for s in shape]
-            o = bkd_op.alloc.ones(shape, dtype)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.alloc.ones(shape, dtype)
+            return tensor(graph=o, size=size, attr=attr)
 
-        def alloc(self, value, shape, attr, dtype=bkd_knl.config.floatX):
+        def alloc(self, value, shape, attr, dtype=Backend.kernel.config.floatX):
+            size = shape
             shape = [operator.as_graph(s) for s in shape]
-            o = bkd_op.alloc.alloc(value, shape, dtype)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.alloc.alloc(value, shape, dtype)
+            return tensor(graph=o, size=size, attr=attr)
 
-        def oneslike(self, t, dtype=bkd_knl.config.floatX):
-            o = bkd_op.alloc.oneslike(t.graph, dtype)
-            attr = t.attr
-            return tensor(graph=o, attr=attr)
+        def oneslike(self, t, dtype=Backend.kernel.config.floatX):
+            o = Backend.operator.alloc.oneslike(t.graph, dtype)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
-        def zeros(self, shape, attr, dtype=bkd_knl.config.floatX):
+        def zeros(self, shape, attr, dtype=Backend.kernel.config.floatX):
+            size = shape
             shape = [operator.as_graph(s) for s in shape]
-            o = bkd_op.alloc.zeros(shape, dtype)
-            return tensor(graph=o, attr=attr)
+            o = Backend.operator.alloc.zeros(shape, dtype)
+            return tensor(graph=o, size=size, attr=attr)
 
-        def zeroslike(self, t, dtype=bkd_knl.config.floatX):
-            o = bkd_op.alloc.zeroslike(t.graph, dtype)
-            attr = t.attr
-            return tensor(graph=o, attr=attr)
+        def zeroslike(self, t, dtype=Backend.kernel.config.floatX):
+            o = Backend.operator.alloc.zeroslike(t.graph, dtype)
+            return tensor(graph=o, size=t.size, attr=t.attr)
 
-        def arange(self, start, end=None, step=None, dtype=bkd_knl.config.floatX):
+        def arange(self, *range, **kwargs):
+            dtype = Backend.kernel.config.floatX
+            if 'dtype' in kwargs:
+                dtype = kwargs['dtype']
+            if len(range) == 1:
+                start = 0
+                end = range[0]
+                step = 1
+            elif len(range) == 1:
+                start = range[0]
+                end = range[1]
+                step = 1
+            else:
+                start = range[0]
+                end = range[1]
+                step = range[2]
+            if operator.is_graph(start) or operator.is_graph(end) or operator.is_graph(step):
+                length = None
+            else:
+                length = (end - start) // step
             start = operator.as_graph(start)
             end = operator.as_graph(end)
             step = operator.as_graph(step)
-            o = bkd_op.alloc.arange(start, end, step, dtype)
+            o = Backend.operator.alloc.arange(start, end, step, dtype)
             attr = [None] * o.ndim
-            return tensor(graph=o, attr=attr)
+            return tensor(graph=o, size=[length], attr=attr)
 
-        def constant(self, x, role=None, name=None, ndim=None, dtype=bkd_knl.config.floatX):
+        def constant(self, x, size=None, attr=None, name=None, ndim=None, dtype=Backend.kernel.config.floatX):
             x = operator.as_graph(x)
-            o = bkd_op.alloc.constant(x, name, ndim, dtype)
-            t = tensor(graph=o, attr=[role], name=name)
+            o = Backend.operator.alloc.constant(x, name, ndim, dtype)
+            return tensor(graph=o, size=size, attr=attr, name=name)
 
     class Nnet:
         def slice(self, x, i, len=None):
@@ -521,9 +648,12 @@ class operator:
 
         def lookup(self, x, dictionary, dim=None):
             if dim is None:
-                dim = dictionary.shape[-1]
+                if dictionary.size[-1] is not None:
+                    dim = dictionary.size[-1]
+                else:
+                    dim = dictionary.shape[-1]
             if x.ndim > 1:
-                embbedding = operator.reshape(dictionary[x.flatten()], shape=x.shape + [dim],
+                embbedding = operator.reshape(dictionary[x.flatten()], shape=x.shape + [dim], size=x.size + [dim],
                                               attr=x.attr + [dictionary.attr[-1]])
                 return embbedding
             else:
@@ -548,14 +678,44 @@ class operator:
             xkey = tuple([slice(None, None, None)] * (axis - 1) + [slice(distance, None, None)])
             return operator.setitem(background, bkey, x[xkey])
 
-        def forwardflatten(self, x, ndim=2):
-            return x.reshape([-1] + x.shape[:-(ndim - 1)], attr=[None] + x.attr[:-(ndim - 1)])
+        def tailflatten(self, x, left_ndim=2, size=None, attr=None):
+            ndim = left_ndim - 1
+            if size is None:
+                if None not in (x.size[ndim:]):
+                    size = x.size[:ndim] + np.prod(x.size[ndim:])
+                else:
+                    size = x.size[:ndim] + [None]
+            if attr is None:
+                if None not in (x.size[ndim:]):
+                    rest_attr = None
+                    for i in x.attr[ndim:][::-1]:
+                        if i is not None:
+                            rest_attr = i
+                    attr = x.attr[:ndim] + [rest_attr]
+                else:
+                    attr = x.attr[:ndim] + [None]
+            return x.reshape([x.shape[0], -1], size, attr)
 
-        def backwardflatten(self, x, ndim=2):
-            return x.reshape(x.shape[(ndim - 1):] + [-1], attr=x.attr[(ndim - 1):] + [None])
+        def headflatten(self, x, left_ndim=2, size=None, attr=None):
+            ndim = left_ndim - 1
+            if size is None:
+                if None not in (x.size[:ndim]):
+                    size = np.prod(x.size[:ndim]) + x.size[ndim:]
+                else:
+                    size = [None] + x.size[ndim:]
+            if attr is None:
+                if None not in (x.size[:ndim]):
+                    rest_attr = None
+                    for i in x.attr[:ndim][::-1]:
+                        if i is not None:
+                            rest_attr = i
+                    attr = [rest_attr] + x.attr[ndim:]
+                else:
+                    attr = [None] + x.attr[ndim:]
+            return x.reshape([x.shape[0], -1], size, attr)
 
         def forwardbroadcast(self, x, ndim):
-            key = range(x.ndim) + [None] * ndim
+            key = range(x.ndim) + ['x'] * ndim
             return x.dimshuffle(key)
 
         def forwardbroadcastitem(self, x, ndim):
@@ -568,7 +728,7 @@ class operator:
             output_dim = last_dim // num_pieces
             new_shape = ([x.shape[i] for i in range(x.ndim - 1)] +
                          [output_dim, num_pieces])
-            return operator.max(operator.reshape(x, new_shape, x.attr + [None]), axis=x.ndim)
+            return operator.max(operator.reshape(x, new_shape, x.size + [num_pieces], x.attr + [None]), axis=x.ndim)
 
         def glu(self, x, dim=None):
             x0 = operator.slice(x, 0, dim)
@@ -580,48 +740,185 @@ class operator:
             x1 = operator.slice(x, 1, dim)
             return operator.sigmoid(x0) * operator.tanh(x1)
 
-        def loss_function(self, y, y_true, fn, shape=None, attr=None):
+        def conv(self, input, filters, mode='normal', pad=None, stride=None,
+                 dilation=None):
+            '''
+
+            :param input:
+            :param filters:
+            :param input_shape:
+            :param filter_shape:[nfilter,nchannel,]
+            :param mode: 'normal','full','half','pad'
+            :param pad: default None or tuple()
+            :param stride:
+            :param dilation:default None or tuple()
+            :param flip:
+            :return:
+            '''
+            input = operator.utils.as_graph(input)
+            filters = operator.utils.as_graph(filters)
+            if stride is None:
+                stride = tuple([1] * (input.ndim - 2))
+            if not isinstance(stride, (tuple, list)):
+                stride = [stride] * (input.ndim - 2)
+            if dilation is None:
+                dilation = tuple([1] * (input.ndim - 2))
+            if not isinstance(dilation, (tuple, list)):
+                dilation = [dilation] * (input.ndim - 2)
+            if not isinstance(pad, (tuple, list)):
+                if pad is not None:
+                    pad = [pad] * (input.ndim - 2)
+            o = Backend.operator.matrix.conv(input=input, filters=filters, input_shape=input.size,
+                                             filter_shape=filters.size,
+                                             mode=mode, pad=pad, stride=stride, dilation=dilation, flip=True)
+            outchannel = filters.size[0]
+            if pad is None:
+                pad = tuple([0] * (input.ndim - 2))
+            if mode is 'normal':
+                outimagesize = [(a - (f + 2 * (d - 1)) + p * 2) // s + 1 for a, f, s, p, d in
+                                zip(input.size[2:], filters.size[2:], stride, pad, dilation)]
+            elif mode is 'full':
+                outimagesize = [(a + (f + 2 * (d - 1)) + p * 2) // s - 1 for a, f, s, p, d in
+                                zip(input.size[2:], filters.size[2:], stride, pad, dilation)]
+            elif mode is 'half':
+                outimagesize = input.size[2:]
+            else:
+                outimagesize = input.size[2:]
+            attr = input.attr
+            size = [outchannel] + outimagesize
+            return tensor(graph=o, size=size, attr=attr)
+
+        def cross_corr(self, input, filters, input_shape, filter_shape, mode, pad, stride, dilation):
+            '''
+
+            :param input:
+            :param filters:
+            :param input_shape:
+            :param filter_shape:
+            :param mode:
+            :param pad:
+            :param stride:
+            :param dilation:
+            :return:
+            '''
+
+            input = operator.utils.as_graph(input)
+            filters = operator.utils.as_graph(filters)
+            if stride is None:
+                stride = tuple([1] * (input.ndim - 2))
+            if not isinstance(stride, (tuple, list)):
+                stride = [stride] * (input.ndim - 2)
+            if dilation is None:
+                dilation = tuple([1] * (input.ndim - 2))
+            if not isinstance(dilation, (tuple, list)):
+                dilation = [dilation] * (input.ndim - 2)
+            if not isinstance(pad, (tuple, list)):
+                if pad is not None:
+                    pad = [pad] * (input.ndim - 2)
+            o = Backend.operator.matrix.conv(input=input, filters=filters, input_shape=input.size,
+                                             filter_shape=filters.size,
+                                             mode=mode, pad=pad, stride=stride, dilation=dilation, flip=False)
+            outchannel = filters.size[0]
+            if pad is None:
+                pad = tuple([0] * (input.ndim - 2))
+            if mode is 'normal':
+                outimagesize = [(a - (f + 2 * (d - 1)) + p * 2) // s + 1 for a, f, s, p, d in
+                                zip(input.size[2:], filters.size[2:], stride, pad, dilation)]
+            elif mode is 'full':
+                outimagesize = [(a + (f + 2 * (d - 1)) + p * 2) // s - 1 for a, f, s, p, d in
+                                zip(input.size[2:], filters.size[2:], stride, pad, dilation)]
+            elif mode is 'half':
+                outimagesize = input.size[2:]
+            else:
+                outimagesize = input.size[2:]
+            attr = input.attr
+            size = input.size[0] + [outchannel] + outimagesize
+            return tensor(graph=o, size=size, attr=attr)
+
+        def pool(self, input, window, mode='max', stride=None, pad=None, autopad=False):
+            '''
+
+            :param input:
+            :param window:
+            :param autopad:
+            :param stride:
+            :param pad:
+            :param mode: 'max','sum','avg','avgpad'
+            :return:
+            '''
+            input = operator.utils.as_graph(input)
+            window = operator.utils.as_graph(window)
+            if stride is None:
+                stride = window
+            if not isinstance(stride, (tuple, list)):
+                stride = [stride] * (input.ndim - 2)
+            if not isinstance(pad, (tuple, list)):
+                if pad is not None:
+                    pad = [pad] * (input.ndim - 2)
+            if pad is None:
+                pad = tuple([0] * (input.ndim - 2))
+            o = Backend.operator.matrix.pool(input=input, window=window, mode=mode, stride=stride, pad=pad,
+                                             autopad=autopad)
+            if pad is None:
+                pad = tuple([0] * (input.ndim - 2))
+            if autopad:
+                outimagesize = [(a - w + p * 2) // s + 1 for a, w, s, p in zip(input.size[2:], window, stride, pad)]
+            else:
+                outimagesize = [(a - w + p * 2 - 1) // s + 2 for a, w, s, p in
+                                zip(input.size[2:], window, stride, pad)]
+            size = input.size[:2] + outimagesize
+            attr = input.attr
+            return tensor(graph=o, size=size, attr=attr)
+
+        def im2col(self, tensor, shape, step=None, mode='normal'):
+            '''
+
+            :param tensor:
+            :param shape:
+            :param step:
+            :param mode:
+            :return:
+            '''
+            return None
+
+        def col2im(self, tensor, shape, original_shape=None, mode='normal'):
+            '''
+
+            :param tensor:
+            :param shape:
+            :param original_shape:
+            :param mode:
+            :return:
+            '''
+            return None
+
+        def loss_function(self, y, y_true, fn, shape=None, size=None, attr=None):
             if shape is None:
-                shape = y.shape[:-1]
+                shape = y_true.shape
             if attr is None:
-                attr = y.attr[:-1]
-            prob = y
-            true = y_true
+                attr = y_true.attr
+            if size is None:
+                size = y_true.size
             if y_true.ndim != 1:
                 true = y_true.flatten()
+            else:
+                true = y_true
             if y.ndim > 2:
-                prob = operator.forwardflatten(prob, 2)
+                prob = operator.tailflatten(y, 2)
+            else:
+                prob = y
             prob_ = operator.as_graph(prob)
             true_ = operator.as_graph(true)
-            total_loss = tensor(graph=fn(prob_, true_), attr=[None])
-            if len(shape) >= 2:
-                total_loss.reshape(shape, attr)
-                for _ in range(y.ndim - 1):
-                    total_loss = total_loss.sum(0)
-            loss = total_loss.mean()
-            return loss
-
-        def mean_square(self, y, y_true):
-            def mse(y, y_true):
-                return operator.elemwise.sqr(y[:, 0] - y_true)
-
-            return operator.nnet.loss_function(y, y_true, mse)
-
-        def root_mean_square(self, y, y_true):
-            def rmse(y, y_true):
-                return operator.elemwise.sqrt(operator.elemwise.sqr(y[:, 0] - y_true))
-
-            return operator.nnet.loss_function(y, y_true, rmse)
+            total_loss = tensor(graph=fn(prob_, true_), size=true.size, attr=true.attr)
+            if len(shape) > y_true.ndim:
+                total_loss.reshape(shape, size, attr)
+            return total_loss
 
         def binary_crossentropy(self, y, y_true):
-            return operator.nnet.loss_function(y, y_true, bkd_op.nnet.binary_crossentropy)
+            return operator.nnet.loss_function(y, y_true, Backend.operator.nnet.binary_crossentropy)
 
         def categorical_crossentropy(self, y, y_true):
-            return operator.nnet.loss_function(y, y_true, bkd_op.nnet.categorical_crossentropy)
-
-        def softmax_categorical_crossentropy(self, output, y_true):
-            y = operator.elemwise.softmax(output, keepdims=False)
-            return operator.nnet.loss_function(y, y_true, bkd_op.nnet.categorical_crossentropy)
+            return operator.nnet.loss_function(y, y_true, Backend.operator.nnet.categorical_crossentropy)
 
     utils = Utils()
     matrix = Matrix()
@@ -642,6 +939,9 @@ class operator:
     is_graph = utils.is_graph
     as_graph = utils.as_graph
     preprocess_lr = utils.preprocess_lr
+    group_size = utils.group_size
+    reduce_size = utils.reduce_size
+    broadcast_size = utils.broadcast_size
     group_attr = utils.group_attr
     reduce_attr = utils.reduce_attr
     broadcast_attr = utils.broadcast_attr
@@ -650,8 +950,8 @@ class operator:
     dot = matrix.dot
     transpose = matrix.transpose
     dimshuffle = matrix.dimshuffle
-    conv = matrix.conv
-    pool = matrix.pool
+    tile = matrix.tile
+    repeat = matrix.repeat
 
     ### Elemwise ###
     # operator #
@@ -717,8 +1017,11 @@ class operator:
     zeroslike = alloc.zeroslike
 
     ### nnet ###
-    mean_square = nnet.mean_square
-    root_mean_square = nnet.root_mean_square
+    conv = nnet.conv
+    cross_corr = nnet.cross_corr
+    pool = nnet.pool
+    im2col = nnet.im2col
+    col2im = nnet.col2im
     categorical_crossentropy = nnet.categorical_crossentropy
     binary_crossentropy = nnet.binary_crossentropy
     slice = nnet.slice
@@ -728,25 +1031,22 @@ class operator:
     maxout = nnet.maxout
     shiftleft = nnet.shiftleft
     shiftright = nnet.shiftright
-    forwardflatten = nnet.forwardflatten
-    backwardflatten = nnet.backwardflatten
+    tailflatten = nnet.tailflatten
+    headflatten = nnet.headflatten
     forwardbroadcast = nnet.forwardbroadcast
     forwardbroadcastitem = nnet.forwardbroadcastitem
 
 
 class placeholder(Backend.placeholder):
-    def __init__(self, name, attr, dtype=bkd_knl.config.floatX):
-        Backend.placeholder.__init__(self, name, attr, dtype)
+    def __init__(self, name, size, attr, dtype=Backend.kernel.config.floatX):
+        Backend.placeholder.__init__(self, name, size, attr, dtype)
 
     def set_test_value(self, value):
         self.test_value = value
 
-    def type(self):
-        return tensor(self.graph.type(), self.attr)
-
     @property
     def shape(self):
-        return [tensor(s, [r]) for s, r in zip(self.graph.shape, self.attr)]
+        return [tensor(s, [], []) for s in Backend.placeholder.get_shape_graph(self)]
 
     def __hash__(self):
         return operator.hash(self)
@@ -923,8 +1223,8 @@ class placeholder(Backend.placeholder):
     def flatten(self):
         return operator.flatten(self)
 
-    def reshape(self, shape, attr):
-        return operator.reshape(self, shape, attr)
+    def reshape(self, shape, size, attr):
+        return operator.reshape(self, shape, size, attr)
 
     def dimshuffle(self, order):
         return operator.dimshuffle(self, order)
@@ -938,17 +1238,14 @@ class shared(Backend.shared):
         Backend.shared.__init__(self, value, name, attr)
 
     def set(self, value):
-        bkd_srd.set(self, value)
+        Backend.shared.set(self, value)
 
     def get(self):
-        return bkd_srd.get(self)
-
-    def type(self):
-        return tensor(self.graph.type(), self.attr)
+        return Backend.shared.get(self)
 
     @property
     def shape(self):
-        return [tensor(s, [r]) for s, r in zip(self.graph.shape, self.attr)]
+        return [tensor(s, [], []) for s in Backend.shared.get_shape_graph(self)]
 
     def __hash__(self):
         return operator.hash(self)
@@ -1125,8 +1422,8 @@ class shared(Backend.shared):
     def flatten(self):
         return operator.flatten(self)
 
-    def reshape(self, shape, attr):
-        return operator.reshape(self, shape, attr)
+    def reshape(self, shape, size, attr):
+        return operator.reshape(self, shape, size, attr)
 
     def dimshuffle(self, order):
         return operator.dimshuffle(self, order)
@@ -1136,20 +1433,18 @@ class shared(Backend.shared):
 
 
 class tensor(Backend.tensor):
-    def __init__(self, graph, attr, name=None):
-        Backend.tensor.__init__(self, graph, attr, name)
-        if len(attr) != len(self.shape) and len(self.shape) != 0:
+    def __init__(self, graph, size, attr, name=None):
+        Backend.tensor.__init__(self, graph, size, attr, name)
+        if len(size) != len(self.shape):
+            raise AssertionError('shape and size not match!   shape:%s   size:%s' % (str(self.shape), str(size)))
+        if len(attr) != len(self.shape):
             raise AssertionError('shape and attr not match!   shape:%s   attr:%s' % (str(self.shape), str(attr)))
-
         if self.ndim != self.graph.ndim:
             raise AssertionError('ndims not match!   tensor:%s   graph:%s' % (str(self.ndim), str(self.graph.ndim)))
 
-    def type(self):
-        return tensor(self.graph.type(), self.attr)
-
     @property
     def shape(self):
-        return [tensor(s, [r]) for s, r in zip(self.graph.shape, self.attr)]
+        return [tensor(s, [], []) for s in Backend.tensor.get_shape_graph(self)]
 
     def __hash__(self):
         return operator.hash(self)
@@ -1326,8 +1621,8 @@ class tensor(Backend.tensor):
     def flatten(self):
         return operator.flatten(self)
 
-    def reshape(self, shape, attr):
-        return operator.reshape(self, shape, attr)
+    def reshape(self, shape, size, attr):
+        return operator.reshape(self, shape, size, attr)
 
     def dimshuffle(self, order):
         return operator.dimshuffle(self, order)
@@ -1338,57 +1633,112 @@ class tensor(Backend.tensor):
 
 class randomgraph:
     @staticmethod
-    def binomial(shape=(), n=1, p=0.5, ndim=None, dtype=bkd_knl.config.floatX):
+    def binomial(shape=(), n=1, p=0.5, ndim=None, attr=None, dtype=Backend.kernel.config.floatX):
+        size = shape
         shape = [operator.as_graph(s) for s in shape]
-        return tensor(bkd_rng.binomial(shape, n, p, ndim, dtype), [None] * len(shape))
+        if attr is None:
+            attr = [None] * len(shape)
+        if ndim is not None:
+            if ndim > len(shape):
+                size.extend([None] * (ndim - len(shape)))
+                attr.extend([None] * (ndim - len(shape)))
+        return tensor(Backend.randomgraph.binomial(shape, n, p, ndim, dtype), size=size, attr=attr)
 
     @staticmethod
-    def uniform(shape=(), low=0.0, high=1.1, ndim=None, dtype=bkd_knl.config.floatX):
+    def uniform(shape=(), low=0.0, high=1.1, ndim=None, attr=None, dtype=Backend.kernel.config.floatX):
+        size = shape
         shape = [operator.as_graph(s) for s in shape]
-        return tensor(bkd_rng.uniform(shape, low, high, ndim, dtype=dtype), [None] * len(shape))
+        if attr is None:
+            attr = [None] * len(shape)
+        if ndim is not None:
+            if ndim > len(shape):
+                size.extend([None] * (ndim - len(shape)))
+                attr.extend([None] * (ndim - len(shape)))
+        return tensor(Backend.randomgraph.uniform(shape, low, high, ndim, dtype=dtype), size=size, attr=attr)
 
     @staticmethod
-    def normal(shape, avg, std, ndim=None, dtype=bkd_knl.config.floatX):
+    def normal(shape, avg, std, ndim=None, attr=None, dtype=Backend.kernel.config.floatX):
+        size = shape
         shape = [operator.as_graph(s) for s in shape]
-        return tensor(bkd_rng.normal(shape, avg, std, ndim, dtype=dtype), [None] * len(shape))
+        if attr is None:
+            attr = [None] * len(shape)
+        if ndim is not None:
+            if ndim > len(shape):
+                size.extend([None] * (ndim - len(shape)))
+                attr.extend([None] * (ndim - len(shape)))
+        return tensor(Backend.randomgraph.normal(shape, avg, std, ndim, dtype=dtype), size=size, attr=attr)
 
     @staticmethod
-    def random_integers(shape, low, high, ndim=None, dtype=bkd_knl.config.floatX):
+    def random_integers(shape, low, high, ndim=None, attr=None, dtype=Backend.kernel.config.floatX):
+        size = shape
         shape = [operator.as_graph(s) for s in shape]
-        return tensor(bkd_rng.random_integers(shape, low, high, ndim, dtype=dtype), [None] * len(shape))
+        if attr is None:
+            attr = [None] * len(shape)
+        if ndim is not None:
+            if ndim > len(shape):
+                size.extend([None] * (ndim - len(shape)))
+                attr.extend([None] * (ndim - len(shape)))
+        return tensor(Backend.randomgraph.random_integers(shape, low, high, ndim, dtype=dtype), size=size, attr=attr)
 
     @staticmethod
-    def choice(shape, a, p, ndim=None, dtype=bkd_knl.config.floatX):
+    def choice(shape, a, p, ndim=None, attr=None, dtype=Backend.kernel.config.floatX):
+        size = shape
         shape = [operator.as_graph(s) for s in shape]
-        return tensor(bkd_rng.choice(shape, a, p, ndim, dtype=dtype), [None] * len(shape))
+        if attr is None:
+            attr = [None] * len(shape)
+        if ndim is not None:
+            if ndim > len(shape):
+                size.extend([None] * (ndim - len(shape)))
+                attr.extend([None] * (ndim - len(shape)))
+        return tensor(Backend.randomgraph.choice(shape, a, p, ndim, dtype=dtype), size=size, attr=attr)
 
     @staticmethod
-    def poisson(shape, lam, ndim=None, dtype=bkd_knl.config.floatX):
+    def poisson(shape, lam, ndim=None, attr=None, dtype=Backend.kernel.config.floatX):
+        size = shape
         shape = [operator.as_graph(s) for s in shape]
-        return tensor(bkd_rng.poisson(shape, lam, ndim, dtype=dtype), [None] * len(shape))
+        if attr is None:
+            attr = [None] * len(shape)
+        if ndim is not None:
+            if ndim > len(shape):
+                size.extend([None] * (ndim - len(shape)))
+                attr.extend([None] * (ndim - len(shape)))
+        return tensor(Backend.randomgraph.poisson(shape, lam, ndim, dtype=dtype), size=size, attr=attr)
 
     @staticmethod
-    def permutation(shape, n, ndim=None, dtype=bkd_knl.config.floatX):
+    def permutation(shape, n, ndim=None, attr=None, dtype=Backend.kernel.config.floatX):
+        size = shape
         shape = [operator.as_graph(s) for s in shape]
-        return tensor(bkd_rng.permutation(shape, n, ndim, dtype=dtype), [None] * len(shape))
+        if attr is None:
+            attr = [None] * len(shape)
+        if ndim is not None:
+            if ndim > len(shape):
+                size.extend([None] * (ndim - len(shape)))
+                attr.extend([None] * (ndim - len(shape)))
+        return tensor(Backend.randomgraph.permutation(shape, n, ndim, dtype=dtype), size=size, attr=attr)
 
     @staticmethod
     def shuffle_row_elements(input):
-        attr = input.attr
         input = operator.as_graph(input)
-        return tensor(bkd_rng.shuffle_row_elements(input), attr)
+        return tensor(Backend.randomgraph.shuffle_row_elements(input), input.size, input.attr)
 
     @staticmethod
-    def multinomial(shape=(), n=1, p=None, ndim=None, dtype=bkd_knl.config.catX):
+    def multinomial(shape=(), n=1, p=None, ndim=None, attr=None, dtype=Backend.kernel.config.catX):
+        size = shape
         shape = [operator.as_graph(s) for s in shape]
-        return tensor(bkd_rng.multinormial(shape, p, n, ndim, dtype), [None] * len(shape))
+        if attr is None:
+            attr = [None] * len(shape)
+        if ndim is not None:
+            if ndim > len(shape):
+                size.extend([None] * (ndim - len(shape)))
+                attr.extend([None] * (ndim - len(shape)))
+        return tensor(Backend.randomgraph.multinormial(shape, p, n, ndim, dtype), size=size, attr=attr)
 
 
 class config:
-    floatX = bkd_cfg.floatX
-    intX = bkd_cfg.intX
-    boolX = bkd_cfg.boolX
-    catX = bkd_cfg.catX
+    floatX = Backend.config.floatX
+    intX = Backend.config.intX
+    boolX = Backend.config.boolX
+    catX = Backend.config.catX
 
 
 class kernel:
@@ -1397,14 +1747,14 @@ class kernel:
     shared = shared
     operator = operator
     config = config
-    backend = bkd_knl.backend
-    modules = bkd_knl.modules
-    random = bkd_knl.random
-    randomgraph = bkd_knl.randomgraph
+    backend = Backend.kernel.backend
+    modules = Backend.kernel.modules
+    random = Backend.kernel.random
+    randomgraph = Backend.kernel.randomgraph
 
     @staticmethod
     def printing(graph, outfile=None):
-        return bkd_knl.printing(operator.as_graph(graph), outfile)
+        return Backend.kernel.printing(operator.as_graph(graph), outfile)
 
     @staticmethod
     def grad(y, w):
@@ -1413,11 +1763,11 @@ class kernel:
             w_ = [i.graph for i in w]
         else:
             w_ = w.graph
-        g = bkd_knl.grad(y_, w_)
+        g = Backend.kernel.grad(y_, w_)
         if isinstance(g, list):
-            g_ = [tensor(j, i.attr) for i, j in zip(w, g)]
+            g_ = [tensor(j, i.size, i.attr) for i, j in zip(w, g)]
         else:
-            g_ = tensor(g, w.attr)
+            g_ = tensor(g, w.size, w.attr)
         return g_
 
     @staticmethod
@@ -1430,11 +1780,13 @@ class kernel:
             outputs_ = [operator.as_graph(i) for i in outputs]
         else:
             outputs_ = []
+        if isinstance(updates, (dict, OrderedDict)):
+            updates = updates.items()
         if updates is not None and updates != []:
             updates_ = [(operator.as_graph(i), operator.as_graph(j)) for i, j in updates]
         else:
             updates_ = []
-        return bkd_knl.compile(inputs=inputs_, outputs=outputs_, updates=updates_, strict=strict)
+        return Backend.kernel.compile(inputs=inputs_, outputs=outputs_, updates=updates_, strict=strict)
 
     @staticmethod
     def scan(fn, sequences=None, initiate_states=None, non_iters=None, non_sequences=None, n_steps=None,
@@ -1453,41 +1805,57 @@ class kernel:
             else:
                 n_steps = 0
 
+        args_size_list = [i[0].size for i in sequences] + [i.size for i in initiate_states] + [i.size for i in
+                                                                                               non_sequences]
         args_attr_list = [i[0].attr for i in sequences] + [i.attr for i in initiate_states] + [i.attr for i in
                                                                                                non_sequences]
-        out = fn(*([seq[0] for seq in sequences] + initiate_states + non_sequences))
-        out_attr_list = [out.attr] if not isinstance(out, (list, tuple)) else [o.attr for o in out]
 
         def step(*args):
-            rargs = [tensor(arg, args_attr_list[i]) for i, arg in enumerate(args)]
+            rargs = [tensor(arg, args_size_list[i], args_attr_list[i]) for i, arg in enumerate(args)]
             rs = fn(*rargs)
             if isinstance(rs, (list, tuple)):
                 return [r.graph for r in rs]
             else:
                 return rs.graph
 
+        def fn_wrapper(fn, args):
+            targs = []
+            for i, arg in enumerate(args):
+                targs.append(tensor(arg, args_size_list[i], args_attr_list[i]))
+            outs = fn(*targs)
+            out_size_list = [outs.size] if not isinstance(outs, (list, tuple)) else [o.size for o in outs]
+            out_attr_list = [outs.attr] if not isinstance(outs, (list, tuple)) else [o.attr for o in outs]
+            gouts = []
+            for out in outs:
+                gouts.append(out.graph)
+            return out_size_list, out_attr_list, gouts
+
         sequences = [i.graph for i in sequences]
         outputs_info = [i.graph for i in initiate_states] + non_iters
         non_sequences = [i.graph for i in non_sequences]
 
+        out_size_list, out_attr_list, o, u = Backend.kernel.scan(fn_wrapper=fn_wrapper, fn=step, sequences=sequences,
+                                                                 outputs_info=outputs_info,
+                                                                 non_sequences=non_sequences,
+                                                                 n_steps=n_steps.graph, go_backwards=go_backwards)
+
         if operator.is_graph(n_steps):
+            out_size_list = [n_steps.size + out_size for out_size in out_size_list]
             out_attr_list = [n_steps.attr + out_attr for out_attr in out_attr_list]
         else:
+            out_size_list = [[n_steps] + out_size for out_size in out_size_list]
             out_attr_list = [[None] + out_attr for out_attr in out_attr_list]
 
-        o, u = bkd_knl.scan(fn=step, sequences=sequences, outputs_info=outputs_info, non_sequences=non_sequences,
-                            n_steps=n_steps.graph, go_backwards=go_backwards)
-
         if isinstance(o, list):
-            o_ = [tensor(graph=i, attr=j) for i, j in zip(o, out_attr_list)]
+            o_ = [tensor(graph=i, size=j, attr=k) for i, j, k in zip(o, out_size_list, out_attr_list)]
         else:
-            o_ = [tensor(graph=o, attr=out_attr_list[0])]
+            o_ = [tensor(graph=o, size=out_size_list[0], attr=out_attr_list[0])]
 
         u_ = OrderedDict()
         for k, v in u.items():
-            u_[tensor(k, [None])] = tensor(v, [None])
+            u_[tensor(k, [None] * k.ndim, [None] * k.ndim)] = tensor(v, [None] * v.ndim, [None] * v.ndim)
 
         return o_, u_
 
 
-var_list = (placeholder, shared, tensor, bkd_phd, bkd_srd, bkd_tsr)
+var_list = (placeholder, shared, tensor, Backend.placeholder, Backend.shared, Backend.tensor)

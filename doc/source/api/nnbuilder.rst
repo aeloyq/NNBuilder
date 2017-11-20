@@ -1,5 +1,8 @@
-nnbuilder
+nnbuilder package
 =================
+
+Subpackages
+-----------
 
 .. toctree::
 
@@ -10,7 +13,18 @@ nnbuilder
     nnbuilder.optimizers
     nnbuilder.tools
 
-logger
+Submodules
+----------
+
+nnbuilder\.data module
+----------------------
+
+.. automodule:: nnbuilder.data
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+nnbuilder\.logger module
 ------------------------
 
 .. automodule:: nnbuilder.logger
@@ -18,7 +32,7 @@ logger
     :undoc-members:
     :show-inheritance:
 
-main
+nnbuilder\.main module
 ----------------------
 
 .. automodule:: nnbuilder.main
@@ -26,7 +40,7 @@ main
     :undoc-members:
     :show-inheritance:
 
-model
+nnbuilder\.model module
 -----------------------
 
 .. automodule:: nnbuilder.model

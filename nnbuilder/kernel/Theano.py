@@ -13,52 +13,8 @@ import theano.tensor as T
 import theano.tensor.signal.pool as P
 import numpy
 import basic
+from theano_utils import concatenate, scan
 from theano.tensor.shared_randomstreams import RandomStreams
-
-
-def concatenate(tensor_list, axis=0):
-    """
-    Alternative implementation of `theano.tensor.concatenate`.
-    This function does exactly the same thing, but contrary to Theano's own
-    implementation, the gradient is implemented on the GPU.
-    Backpropagating through `theano.tensor.concatenate` yields slowdowns
-    because the inverse operation (splitting) needs to be done on the CPU.
-    This implementation does not have that problem.
-    :usage:
-        >>> x, y = T.matrices('x', 'y')
-        >>> c = concatenate([x, y], axis=1)
-    :parameters:
-        - tensor_list : list
-            list of Theano tensor expressions that should be concatenated.
-        - axis : int
-            the tensors will be joined along this axis.
-    :returns:
-        - out : tensor
-            the concatenated tensor expression.
-    """
-    concat_size = sum([tt.shape[axis] for tt in tensor_list])
-
-    output_shape = ()
-    for k in range(axis):
-        output_shape += (tensor_list[0].shape[k],)
-    output_shape += (concat_size,)
-    for k in range(axis + 1, tensor_list[0].ndim):
-        output_shape += (tensor_list[0].shape[k],)
-
-    out = T.zeros(output_shape)
-    offset = 0
-    for tt in tensor_list:
-        indices = ()
-        for k in range(axis):
-            indices += (slice(None),)
-        indices += (slice(offset, offset + tt.shape[axis]),)
-        for k in range(axis + 1, tensor_list[0].ndim):
-            indices += (slice(None),)
-
-        out = T.set_subtensor(out[indices], tt)
-        offset += tt.shape[axis]
-
-    return out
 
 
 class operator(basic.operator):
@@ -83,45 +39,11 @@ class operator(basic.operator):
                     od.append(i)
             return t.dimshuffle(od)
 
-        def conv(self, input, filters, input_shape, filter_shape, mode, pad, strides, flip, dilation):
-            if mode == 'normal':
-                border_mode = 'valid'
-            elif mode == 'full':
-                border_mode = 'full'
-            elif mode == 'half':
-                border_mode = 'half'
-            elif mode == 'pad':
-                border_mode = pad
-            else:
-                border_mode = 'normal'
-            if input.ndim == 4:
-                return T.nnet.conv2d(input=input, filters=filters, input_shape=input_shape, filter_shape=filter_shape,
-                                     border_mode=border_mode, subsample=strides, filter_flip=flip,
-                                     filter_dilation=dilation)
-            elif input.ndim == 5:
-                return T.nnet.conv3d(input=input, filters=filters, input_shape=input_shape, filter_shape=filter_shape,
-                                     border_mode=border_mode, subsample=strides, filter_flip=flip,
-                                     filter_dilation=dilation)
-            else:
-                basic.defaultreturn()
+        def tile(self, t, n):
+            T.tile(t, n)
 
-        def pool(self, input, window, noborder, strides, pad, mode):
-            if mode == 'max':
-                mode = 'max'
-            elif mode == 'sum':
-                mode = 'sum'
-            elif mode == 'avg':
-                mode = 'average_exc_pad'
-            elif mode == 'avgpad':
-                mode = 'average_inc_pad'
-            else:
-                mode = 'sum'
-            if input.ndim == 4:
-                return P.pool_2d(input=input, ws=window, ignore_border=noborder, stride=strides, pad=pad, mode=mode)
-            elif input.ndim == 5:
-                return P.pool_3d(input=input, ws=window, ignore_border=noborder, stride=strides, pad=pad, mode=mode)
-            else:
-                basic.defaultreturn()
+        def repeat(self, t, n):
+            T.repeat(t, n)
 
     class Elemwise(basic.operator.Elemwise):
 
@@ -296,6 +218,71 @@ class operator(basic.operator):
 
     class Nnet(basic.operator.Nnet):
 
+        def conv(self, input, filters, input_shape, filter_shape, mode, pad, stride, dilation):
+            if mode == 'normal':
+                border_mode = 'valid'
+            elif mode == 'full':
+                border_mode = 'full'
+            elif mode == 'half':
+                border_mode = 'half'
+            elif mode == 'pad':
+                border_mode = pad
+            else:
+                border_mode = 'normal'
+            if input.ndim == 4:
+                return T.nnet.conv2d(input=input, filters=filters, input_shape=input_shape, filter_shape=filter_shape,
+                                     border_mode=border_mode, subsample=stride, filter_dilation=dilation)
+            elif input.ndim == 5:
+                return T.nnet.conv3d(input=input, filters=filters, input_shape=input_shape, filter_shape=filter_shape,
+                                     border_mode=border_mode, subsample=stride, filter_dilation=dilation)
+            else:
+                basic.defaultreturn()
+
+        def cross_corr(self, input, filters, input_shape, filter_shape, mode, pad, stride, dilation):
+            if mode == 'normal':
+                border_mode = 'valid'
+            elif mode == 'full':
+                border_mode = 'full'
+            elif mode == 'half':
+                border_mode = 'half'
+            elif mode == 'pad':
+                border_mode = pad
+            else:
+                border_mode = 'normal'
+            if input.ndim == 4:
+                return T.nnet.conv2d(input=input, filters=filters, input_shape=input_shape, filter_shape=filter_shape,
+                                     border_mode=border_mode, subsample=stride, filter_dilation=dilation)
+            elif input.ndim == 5:
+                return T.nnet.conv3d(input=input, filters=filters, input_shape=input_shape, filter_shape=filter_shape,
+                                     border_mode=border_mode, subsample=stride, filter_dilation=dilation,
+                                     filter_flip=False)
+            else:
+                basic.defaultreturn()
+
+        def pool(self, input, window, mode, stride, pad, autopad):
+            if mode == 'max':
+                mode = 'max'
+            elif mode == 'sum':
+                mode = 'sum'
+            elif mode == 'avg':
+                mode = 'average_exc_pad'
+            elif mode == 'avgpad':
+                mode = 'average_inc_pad'
+            else:
+                mode = 'sum'
+            if input.ndim == 4:
+                return P.pool_2d(input=input, ws=window, ignore_border=not autopad, stride=stride, pad=pad, mode=mode)
+            elif input.ndim == 5:
+                return P.pool_3d(input=input, ws=window, ignore_border=not autopad, stride=stride, pad=pad, mode=mode)
+            else:
+                basic.defaultreturn()
+
+        def im2col(self, tensor, shape, step=None, mode='normal'):
+            return None
+
+        def col2im(self, tensor, shape, original_shape=None, mode='normal'):
+            return None
+
         def binary_crossentropy(self, y, y_true):
             return T.nnet.binary_crossentropy(y, y_true)
 
@@ -315,8 +302,6 @@ class operator(basic.operator):
     dot = matrix.dot
     transpose = matrix.transpose
     dimshuffle = matrix.dimshuffle
-    conv = matrix.conv
-    pool = matrix.pool
 
     ### Elemwise ###
     # operator #
@@ -388,12 +373,16 @@ class operator(basic.operator):
 
     ### nnet ###
     nnet = Nnet()
+    conv = nnet.conv
+    pool = nnet.pool
+    im2col = nnet.im2col
+    col2im = nnet.col2im
     categorical_crossentropy = nnet.categorical_crossentropy
     binary_crossentropy = nnet.binary_crossentropy
 
 
 class placeholder:
-    def __init__(self, name, attr, dtype):
+    def __init__(self, name, size, attr, dtype):
         def get_placeholder(ndim, float=True, bit2=False, bit16=False, bit32=False, bit64=False):
             if float:
                 if bit32:
@@ -476,21 +465,26 @@ class placeholder:
         if dtype == 'int16':
             bit16 = True
         if dtype == 'int32':
-            bit52 = True
+            bit32 = True
         if dtype == 'int64':
             bit64 = True
         self.name = name
+        self.size = list(size)
         self.attr = attr
         self.ndim = len(self.attr)
         self.graph = get_placeholder(self.ndim, float, bit2, bit16, bit32, bit64)(self.name)
         self.broadcastable = self.graph.broadcastable
         self.dtype = self.graph.dtype
 
+    def get_shape_graph(self):
+        return self.graph.shape
+
 
 class shared:
     def __init__(self, value, name, attr):
         self.name = name
         self.graph = theano.shared(value=value, name=name, borrow=True)
+        self.size = list(value.shape)
         self.attr = attr
         self.ndim = len(self.attr)
         self.broadcastable = self.graph.broadcastable
@@ -502,15 +496,22 @@ class shared:
     def get(self):
         return self.graph.get_value()
 
+    def get_shape_graph(self):
+        return self.graph.shape
+
 
 class tensor:
-    def __init__(self, graph, attr, name=None):
+    def __init__(self, graph, size, attr, name=None):
         self.name = name
         self.graph = graph
+        self.size = list(size)
         self.attr = attr
         self.ndim = graph.ndim
         self.broadcastable = graph.broadcastable
         self.dtype = graph.dtype
+
+    def get_shape_graph(self):
+        return self.graph.shape
 
 
 class Randomgraph(basic.Randomgraph):
@@ -576,10 +577,10 @@ class Kernel(basic.Kernel):
         else:
             return theano.function(inputs=inputs, outputs=outputs, updates=updates, on_unused_input='ignore')
 
-    def scan(self, fn, sequences=None, outputs_info=None, non_sequences=None, n_steps=None, go_backwards=False):
-
-        return theano.scan(fn=fn, sequences=sequences, outputs_info=outputs_info, non_sequences=non_sequences,
-                           n_steps=n_steps, go_backwards=go_backwards)
+    def scan(self, fn_wrapper, fn, sequences=None, outputs_info=None, non_sequences=None, n_steps=None, go_backwards=False):
+        return scan(fn_wrapper=fn_wrapper, fn=fn, sequences=sequences, outputs_info=outputs_info,
+                    non_sequences=non_sequences,
+                    n_steps=n_steps, go_backwards=go_backwards)
 
 
 kernel = Kernel()

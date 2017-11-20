@@ -1,10 +1,10 @@
-layers
+nnbuilder\.layers package
 =========================
 
 Submodules
 ----------
 
-basic
+nnbuilder\.layers\.basic module
 -------------------------------
 
 .. automodule:: nnbuilder.layers.basic
@@ -12,7 +12,7 @@ basic
     :undoc-members:
     :show-inheritance:
 
-conv
+nnbuilder\.layers\.conv module
 ------------------------------
 
 .. automodule:: nnbuilder.layers.conv
@@ -20,15 +20,15 @@ conv
     :undoc-members:
     :show-inheritance:
 
-convolutional
----------------------------------------
+nnbuilder\.layers\.kernel module
+--------------------------------
 
-.. automodule:: nnbuilder.layers.convolutional
+.. automodule:: nnbuilder.layers.kernel
     :members:
     :undoc-members:
     :show-inheritance:
 
-misc
+nnbuilder\.layers\.misc module
 ------------------------------
 
 .. automodule:: nnbuilder.layers.misc
@@ -36,7 +36,7 @@ misc
     :undoc-members:
     :show-inheritance:
 
-ops
+nnbuilder\.layers\.ops module
 -----------------------------
 
 .. automodule:: nnbuilder.layers.ops
@@ -44,23 +44,23 @@ ops
     :undoc-members:
     :show-inheritance:
 
-roles
+nnbuilder\.layers\.param module
 -------------------------------
 
-.. automodule:: nnbuilder.layers.roles
+.. automodule:: nnbuilder.layers.param
     :members:
     :undoc-members:
     :show-inheritance:
 
-sequential
-------------------------------------
+nnbuilder\.layers\.recurrent module
+-----------------------------------
 
-.. automodule:: nnbuilder.layers.sequential
+.. automodule:: nnbuilder.layers.recurrent
     :members:
     :undoc-members:
     :show-inheritance:
 
-simple
+nnbuilder\.layers\.simple module
 --------------------------------
 
 .. automodule:: nnbuilder.layers.simple
@@ -68,7 +68,7 @@ simple
     :undoc-members:
     :show-inheritance:
 
-utils
+nnbuilder\.layers\.utils module
 -------------------------------
 
 .. automodule:: nnbuilder.layers.utils

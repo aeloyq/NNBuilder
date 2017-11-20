@@ -1,7 +1,8 @@
-import basic
-import debugmode
-import earlystop
-import monitor
-import sample
-import saveload
-import shuffledata
+from basic import *
+from debug import *
+from earlystop import *
+from monitor import *
+from sample import *
+from saveload import *
+from shuffledata import *
+from tensorboard import *

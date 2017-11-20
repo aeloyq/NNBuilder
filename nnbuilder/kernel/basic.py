@@ -25,10 +25,10 @@ class operator(object):
         def dimshuffle(self, t, order):
             defaultreturn()
 
-        def conv(self, input, filters, input_shape, filter_shape, mode, pad, strides, flip, dilation):
+        def tile(self, t, n):
             defaultreturn()
 
-        def pool(self, input, window, noborder, strides, pad, mode):
+        def repeat(self, t, n):
             defaultreturn()
 
     class Elemwise:
@@ -190,6 +190,21 @@ class operator(object):
             defaultreturn()
 
     class Nnet:
+        def conv(self, input, filters, input_shape, filter_shape, mode, pad, stride, dilation):
+            defaultreturn()
+
+        def im2col(self, tensor, shape, step=None, mode='normal'):
+            return None
+
+        def col2im(self, tensor, shape, original_shape=None, mode='normal'):
+            return None
+
+        def cross_corr(self, input, filters, input_shape, filter_shape, mode, pad, stride, dilation):
+            defaultreturn()
+
+        def pool(self, input, window, mode, stride, pad, autopad):
+            defaultreturn()
+
         def binary_crossentropy(self, y, y_true):
             defaultreturn()
 
@@ -209,8 +224,8 @@ class operator(object):
     dot = matrix.dot
     transpose = matrix.transpose
     dimshuffle = matrix.dimshuffle
-    conv = matrix.conv
-    pool = matrix.pool
+    tile = matrix.tile
+    repeat = matrix.repeat
 
     ### Elemwise ###
     # operator #
@@ -282,6 +297,10 @@ class operator(object):
 
     ### nnet ###
     nnet = Nnet()
+    conv = nnet.conv
+    pool = nnet.pool
+    im2col = nnet.im2col
+    col2im = nnet.col2im
     categorical_crossentropy = nnet.categorical_crossentropy
     binary_crossentropy = nnet.binary_crossentropy
 
@@ -334,7 +353,7 @@ class Kernel(object):
     def compile(self, inputs, outputs, updates, strict):
         defaultreturn()
 
-    def scan(self, fn, sequences=None, outputs_info=None, non_sequences=None, n_steps=None, go_backwards=False):
+    def scan(self, tensor, fn, sequences=None, outputs_info=None, non_sequences=None, n_steps=None, go_backwards=False):
         defaultreturn()
 
 

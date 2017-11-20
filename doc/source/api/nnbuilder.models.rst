@@ -1,29 +1,45 @@
-models
+nnbuilder\.models package
 =========================
 
 Submodules
 ----------
 
-gan
------------------------------
+nnbuilder\.models\.ganeration module
+------------------------------------
 
-.. automodule:: nnbuilder.models.gan
+.. automodule:: nnbuilder.models.ganeration
     :members:
     :undoc-members:
     :show-inheritance:
 
-lenet
+nnbuilder\.models\.image module
 -------------------------------
 
-.. automodule:: nnbuilder.models.lenet
+.. automodule:: nnbuilder.models.image
     :members:
     :undoc-members:
     :show-inheritance:
 
-seq2seq
----------------------------------
+nnbuilder\.models\.standard module
+----------------------------------
 
-.. automodule:: nnbuilder.models.seq2seq
+.. automodule:: nnbuilder.models.standard
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+nnbuilder\.models\.text module
+------------------------------
+
+.. automodule:: nnbuilder.models.text
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+nnbuilder\.models\.utils module
+-------------------------------
+
+.. automodule:: nnbuilder.models.utils
     :members:
     :undoc-members:
     :show-inheritance:

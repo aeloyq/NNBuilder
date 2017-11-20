@@ -9,7 +9,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='NNBuilder',
-    version='0.3.1',
+    version='0.3.5',
     description='A multi-backend framework for building and training neural networks',
     url='https://github.com/aeloyq',
     author='aeloyq IOBLAB-Shanghai Maritime University',
@@ -22,7 +22,5 @@ setup(
     keywords='theano pytorch machine learning neural networks deep learning',
     setup_requires=['numpy'],
     install_requires=['numpy', 'theano'],
-    zip_safe=False,
-    conda_buildnum=1,
-    conda_features=['mkl'],
+    zip_safe=False
 )

@@ -1,10 +1,10 @@
-optimizers
+nnbuilder\.optimizers package
 =============================
 
 Submodules
 ----------
 
-gradientdescent
+nnbuilder\.optimizers\.gradientdescent module
 ---------------------------------------------
 
 .. automodule:: nnbuilder.optimizers.gradientdescent
@@ -12,7 +12,7 @@ gradientdescent
     :undoc-members:
     :show-inheritance:
 
-newtonsmethod
+nnbuilder\.optimizers\.newtonsmethod module
 -------------------------------------------
 
 .. automodule:: nnbuilder.optimizers.newtonsmethod

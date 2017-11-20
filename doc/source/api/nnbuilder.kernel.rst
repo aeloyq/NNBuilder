@@ -1,10 +1,10 @@
-kernel
+nnbuilder\.kernel package
 =========================
 
 Submodules
 ----------
 
-Theano
+nnbuilder\.kernel\.Theano module
 --------------------------------
 
 .. automodule:: nnbuilder.kernel.Theano
@@ -12,7 +12,7 @@ Theano
     :undoc-members:
     :show-inheritance:
 
-basic
+nnbuilder\.kernel\.basic module
 -------------------------------
 
 .. automodule:: nnbuilder.kernel.basic
@@ -20,10 +20,18 @@ basic
     :undoc-members:
     :show-inheritance:
 
-kernel
+nnbuilder\.kernel\.kernel module
 --------------------------------
 
 .. automodule:: nnbuilder.kernel.kernel
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+nnbuilder\.kernel\.theano\_utils module
+---------------------------------------
+
+.. automodule:: nnbuilder.kernel.theano_utils
     :members:
     :undoc-members:
     :show-inheritance:

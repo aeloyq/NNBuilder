@@ -7,84 +7,242 @@ Created on  四月 26 21:10 2017
 
 import numpy as np
 from utils import *
-from roles import *
-from collections import OrderedDict
+from param import *
 from nnbuilder.kernel import *
+from collections import OrderedDict
 
 
-class inlayerops(object):
+class Ops(object):
+    def __init__(self):
+        '''
+
+        '''
+        self._ops_list = []
+
+    def append(self, op):
+        '''
+
+        :param op:
+        :return:
+        '''
+        self._ops_list.append(op)
+
+    def update(self, op_instance):
+        '''
+
+        :param op:
+        :return:
+        '''
+        ops_list = self.get()
+        for op in ops_list:
+            if isinstance(op_instance, op.op):
+                op.update(op_instance.options)
+                op.switch = True
+
+    def get(self):
+        '''
+
+        :return:
+        '''
+        return self._ops_list
+
+    def get_on(self):
+        '''
+
+        :return:
+        '''
+        return [op for op in self._ops_list if op.switch]
+
+    def get_off(self):
+        '''
+
+        :return:
+        '''
+        return [op for op in self._ops_list if not op.switch]
+
+    def show(self):
+        '''
+
+        :return:
+        '''
+        return [str(op) for op in self._ops_list]
+
+    def show_on(self):
+        '''
+
+        :return:
+        '''
+        return [str(op) for op in self._ops_list if op.switch]
+
+    def show_off(self):
+        '''
+
+        :return:
+        '''
+        return [str(op) for op in self._ops_list if not op.switch]
+
+
+class Op(object):
+    def __init__(self, op, layer, scan=False, **options):
+        '''
+        a class of trick operations of Layer
+        :param tvar:
+        :param kwargs:
+        '''
+        self.op = op
+        self.layer = layer
+        self.scan = scan
+        self.switch = False
+        self.options = options
+        self.name = ''
+
+    def __str__(self):
+        return self.layer.name + '_' + self.name
+
+    def update(self, options):
+        '''
+
+        :param options:
+        :return:
+        '''
+        self.options.update(options)
+
+    def _is_train(self):
+        return self.switch and self.layer.root._build_mode == 'train'
+
+    def _is_running(self):
+        return self.switch and self.layer.root._build_mode == 'running'
+
+    def apply(self, X, scan_X=None):
+        '''
+        trick operations of Layer
+        usually used to train the layer properly
+        this is a pre-register method so that these trick may be applied correctly
+        which means tricks will be in recomended order and using right trick paramerter
+        Layer may use this operation if it was added by model.add(), otherwise will skip through
+        :return: kernel.tensor
+            the graph after operation
+        '''
+        if self._is_train():
+            if not self.scan:
+                return self.op.op(self.layer, X, self.options)
+            else:
+                return self.op.scan_op(self.layer, X, scan_X, self.options)
+        elif self._is_running():
+            if not self.scan:
+                return self.op.op_(self.layer, X, self.options)
+            else:
+                return self.op.scan_op_(self.layer, X, scan_X, self.options)
+        else:
+            return X
+
+    def scan_share_states(self, sequence, iter_state, non_iter_state, non_sequence):
+        if self._is_train():
+            share_sequence, share_iter_state, share_non_iter_state, share_non_sequence = self.op.scan_share_states(
+                self.layer, sequence,
+                iter_state,
+                non_iter_state,
+                non_sequence,
+                self.options)
+        else:
+            share_sequence, share_iter_state, share_non_iter_state, share_non_sequence = self.op.scan_share_states_(
+                self.layer, sequence,
+                iter_state,
+                non_iter_state,
+                non_sequence,
+                self.options)
+        sequence.update(share_sequence)
+        iter_state.update(share_iter_state)
+        non_iter_state.extend(share_non_iter_state)
+        non_sequence.update(share_non_sequence)
+
+    def scan_add_outputs(self, outputs):
+        if self._is_train():
+            addition_outputs = self.op.scan_add_outputs(self.options)
+        else:
+            addition_outputs = self.op.scan_add_outputs_(self.options)
+        return outputs + addition_outputs
+
+    def scan_add_updates(self, scan_outputs, scan_updates, n_step, options):
+        if self._is_train():
+            addition_updates = self.op.scan_add_updates(self.layer, scan_outputs, scan_updates, n_step, options)
+        else:
+            addition_updates = self.op.scan_add_updates_(self.layer, scan_outputs, scan_updates, n_step, options)
+        scan_updates.update(addition_updates)
+
+
+class Inlayerops(object):
     '''
     operations of layer's inner graph or model's loss function
     such as dropout\weight decay etc.
     '''
     name = 'ops'
 
-    def __init__(self, units=None):
+    def __init__(self, op_units=None):
         self.name = self.__class__.name
-        self.units = units
-        self.dict = {}
-
-    def init(self, layer):
-        self.layer = layer
-
-    def build(self, layer, cur_layer_ops_option):
-        self.layer = layer
-        if self.units is None:
-            if self.name not in layer.ops:
-                layer.ops.append(self.name)
-            cur_layer_ops_option['default'] = self.dict
-        else:
-            for unit in self.units:
-                if unit + '_' + self.name not in layer.ops:
-                    layer.ops.append(unit + '_' + self.name)
-                cur_layer_ops_option[unit] = self.dict
+        self.op_units = op_units
+        self.options = {}
 
     @staticmethod
-    def op(layer, tvar, **kwargs):
-        pass
+    def op(layer, X, options):
+        return X
 
     @staticmethod
-    def op_(layer, tvar, **kwargs):
-        pass
+    def op_(layer, X, options):
+        return X
+
+    @staticmethod
+    def scan_op(layer, X, scan_X, options):
+        return X
+
+    @staticmethod
+    def scan_op_(layer, X, scan_X, options):
+        return X
+
+    @staticmethod
+    def scan_share_states(layer, sequence, iter_state, non_iter_state, non_sequence, options):
+        return OrderedDict(), OrderedDict(), [], OrderedDict()
+
+    @staticmethod
+    def scan_add_outputs(layer, outputs, options):
+        return []
+
+    @staticmethod
+    def scan_add_updates(layer, scan_outputs, scan_updates, n_step, options):
+        return OrderedDict()
+
+    @staticmethod
+    def scan_share_states_(layer, sequence, iter_state, non_iter_state, non_sequence, options):
+        return OrderedDict(), OrderedDict(), [], OrderedDict()
+
+    @staticmethod
+    def scan_add_outputs_(layer, outputs, options):
+        return []
+
+    @staticmethod
+    def scan_add_updates_(layer, scan_outputs, scan_updates, n_step, options):
+        return OrderedDict()
 
 
-class betweenlayerops(object):
+class Betweenlayerops(object):
     '''
     operations of between layers'graph or model's loss function
     such as dropout\weight decay etc.
     '''
     name = 'ops'
 
-    def __init__(self, units=None):
+    def __init__(self, others=None):
         self.name = self.__class__.name
-        self.units = units
-        self.dict = {}
+        self.others = others
 
     def init(self, layer):
         self.layer = layer
 
-    def build(self, layer, cur_layer_ops_option):
-        self.layer = layer
-        if self.units is None:
-            if self.name not in layer.ops:
-                layer.ops.append(self.name)
-            cur_layer_ops_option['default'] = self.dict
-        else:
-            for unit in self.units:
-                if unit + '_' + self.name not in layer.ops:
-                    layer.ops.append(unit + '_' + self.name)
-                cur_layer_ops_option[unit] = self.dict
-
-    @staticmethod
-    def op(layer, tvar, **kwargs):
-        pass
-
-    @staticmethod
-    def op_(layer, tvar, **kwargs):
+    def op(self):
         pass
 
 
-class lossops(object):
+class Lossops(object):
     '''
     operations of layer's inner graph or model's loss function
     such as dropout\weight decay etc.
@@ -98,385 +256,407 @@ class lossops(object):
         self.layer = layer
         self.model = model
 
-    def build(self, loss, **kwargs):
+    def build(self, loss):
         return loss
 
 
-class dropout(inlayerops):
+class dropout(Inlayerops):
     name = 'dropout'
 
-    def __init__(self, noise=0.5, units=None):
-        inlayerops.__init__(self, units)
-        self.dict = {'noise': noise}
+    def __init__(self, noise=0.5, op_units=None):
+        Inlayerops.__init__(self, op_units)
+        self.options = {'noise': noise}
 
     @staticmethod
-    def op(layer, tvar, **kwargs):
-
-        def apply_mask(tvar, mask, broadcast):
+    def get_options(X, options):
+        if 'broadcast' not in options:
+            broadcast = None
+        else:
+            broadcast = options['broadcast']
+        if 'shape' not in options:
             if broadcast is None:
-                return tvar * mask
+                shape = X.shape
             else:
-                return tvar * T.forwardbroadcastitem(mask, -broadcast)
-
-        if 'step' in kwargs:
-            if kwargs['step'] == 'share':
-                shape = layer.initiate_states.values()[0].shape
-                for name in layer.inscan_param:
-                    tvar[name + 'Mask'] = R.binomial(shape, p=kwargs['noise']) / kwargs['noise']
-                return tvar
-            elif kwargs['step'] == 'apply':
-                return tvar * kwargs['inputs'][kwargs['pname'] + 'Mask']
+                shape = X.shape[:-broadcast]
         else:
-            if 'shape' not in kwargs:
-                shape = tvar.shape
-            else:
-                shape = kwargs['shape']
-            if 'broadcast' not in kwargs:
-                broadcast = None
-            else:
-                broadcast = kwargs['broadcast']
-            noise = kwargs['noise']
-            if not isinstance(tvar, list):
-                return apply_mask(tvar, R.binomial(shape, p=noise) / noise,
-                                  broadcast)
+            shape = options['shape']
+        noise = options['noise']
+        return broadcast, shape, noise
 
     @staticmethod
-    def op_(layer, tvar, **kwargs):
-        if 'step' in kwargs:
-            if kwargs['step'] == 'share':
-                return {}
-            else:
-                return tvar
+    def apply_mask(X, mask, broadcast):
+        if broadcast is None:
+            return X * mask
         else:
-            return tvar
+            return X * T.forwardbroadcastitem(mask, broadcast)
+
+    @staticmethod
+    def op(layer, X, options):
+
+        broadcast, shape, noise = dropout.get_options(X, options)
+        return dropout.apply_mask(X, R.binomial(shape, p=noise) / noise, broadcast)
+
+    @staticmethod
+    def op_(layer, X, options):
+        return X
+
+    @staticmethod
+    def scan_op(layer, X, scan_X, options):
+        if 'broadcast' not in options:
+            broadcast = None
+        else:
+            broadcast = options['broadcast']
+        mask = scan_X[options['name']]
+        return dropout.apply_mask(X, mask, broadcast)
+
+    @staticmethod
+    def scan_op_(layer, X, **options):
+        return X
+
+    @staticmethod
+    def scan_share_states(layer, sequence, iter_state, non_iter_state, non_sequence, **options):
+        addition_non_sequence = OrderedDict()
+        name = options['name']
+        shape = options['shape']
+        noise = options['noise']
+        addition_non_sequence[name] = R.binomial(shape, p=noise) / noise
+        return OrderedDict(), OrderedDict(), [], addition_non_sequence
+
+    @staticmethod
+    def scan_share_states_(layer, sequence, iter_state, non_sequence, **options):
+        return OrderedDict(), OrderedDict(), [], OrderedDict()
+
+    @staticmethod
+    def scan_add_outputs(layer, outputs, **options):
+
+        return []
+
+    @staticmethod
+    def scan_add_outputs_(layer, outputs, **options):
+        return []
+
+    @staticmethod
+    def scan_add_updates(layer, scan_outputs, scan_updates, n_step, options):
+        return OrderedDict()
+
+    @staticmethod
+    def scan_add_updates_(layer, scan_outputs, scan_updates, n_step, options):
+        return OrderedDict()
 
 
-class normalization(inlayerops):
+class normalization(Inlayerops):
     name = 'normalization'
-    normdict = '[\'layer\',\'batch\']'
+    method = '[\'layer\',\'batch\']'
 
-    def __init__(self, method='layer', units=None):
-        inlayerops.__init__(self, units)
-        self.dict = {'method': method}
+    def __init__(self, method='layer', move_average_factor=0.1, epsilon=1e-5, op_units=None):
+        Inlayerops.__init__(self, op_units)
+        self.options = {'method': method, 'maf': move_average_factor, 'eps': epsilon}
 
     @staticmethod
-    def get_name(tvar, layer, **kwargs):
-        prefix = kwargs['oname'] + '_' + kwargs['method'] + '_' + normalization.name + '_'
+    def get_prefix(options):
+        return options['name'] + '_' + options['method'] + '_' + normalization.name + '_'
 
-        batch_axis = tvar.attr.index(batch)
+    @staticmethod
+    def get_prepare(X, options):
+        prefix = normalization.get_prefix(options)
 
-        unit_axis = tvar.attr.index(unit)
+        try:
+            batch_axis = X.attr.index('batch')
+        except:
+            batch_axis = 0
+        try:
+            unit_axis = X.attr.index('unit')
+        except:
+            unit_axis = -1
 
-        if 'unit_dim' in kwargs:
-            unit_dim = kwargs['unit_dim']
+        if 'unit_dim' in options:
+            unit_dim = options['unit_dim']
         else:
-            unit_dim = layer.units_dim[kwargs['oname']]
+            unit_dim = [X.size[-1]]
 
         return prefix, batch_axis, unit_axis, unit_dim
 
     @staticmethod
-    def pop(tvar, layer, **kwargs):
-        prefix, batch_axis, unit_axis, unit_dim = normalization.get_name(tvar, layer, **kwargs)
+    def preallocate_training(X, layer, options):
+        prefix, batch_axis, unit_axis, unit_dim = normalization.get_prepare(X, options)
 
         gamma_name = prefix + 'gamma'
-        gamma = layer.allocate(param_init_functions.ones, gamma_name, normweight, unit_dim)
-        if kwargs['method'] == 'layer':
-            beta_name = prefix + 'beta'
-            full_beta_name = layer.name + '_' + beta_name
-            if full_beta_name in layer.trainable_params:
-                beta = layer.trainable_params[full_beta_name]
-            else:
-                beta = layer.allocate(param_init_functions.zeros, beta_name, bias, unit_dim)
-        else:
-            beta = None
-        _eps = 1e-5
+        gamma = Parameter(layer, gamma_name, Parameter.normscale, random=Parameter.ones, shape=unit_dim)
+        setattr(layer, gamma_name, gamma)
+        beta_name = prefix + 'beta'
+        beta = Parameter(layer, beta_name, Parameter.normBias, random=Parameter.zeros, shape=unit_dim)
+        setattr(layer, beta_name, beta)
+        eps = options['eps']
 
-        return prefix, batch_axis, unit_axis, unit_dim, gamma, beta, _eps
+        return prefix, batch_axis, unit_axis, unit_dim, gamma(), beta(), eps
 
     @staticmethod
-    def op(layer, tvar, **kwargs):
-
-        def set_oparam(mu_, sigma_, prefix, batch_axis, unit_dim):
-            layer_prefix = layer.name + '_'
-            m = tvar.shape[batch_axis]
-            fm = T.cast(m, kernel.config.floatX)
-            if layer_prefix + prefix + 'n' not in layer.untrainable_params:
-                n = kernel.shared(value=0,
-                                  name=layer_prefix + prefix + 'n', attr=[None])
-                layer.untrainable_params[layer_prefix + prefix + 'n'] = n
-            else:
-                n = layer.untrainable_params[layer_prefix + prefix + 'n']
-            if layer_prefix + prefix + 'mu' not in layer.untrainable_params:
-                mu = kernel.shared(value=np.zeros([unit_dim], dtype=kernel.config.floatX),
-                                   name=layer_prefix + prefix + 'mu', attr=[unit])
-                layer.untrainable_params[layer_prefix + prefix + 'mu'] = mu
-            else:
-                mu = layer.untrainable_params[layer_prefix + prefix + 'mu']
-            if layer_prefix + prefix + 'sigma' not in layer.untrainable_params:
-                sigma = kernel.shared(value=np.zeros([unit_dim], dtype=kernel.config.floatX),
-                                      name=layer_prefix + prefix + 'sigma', attr=[unit])
-                layer.untrainable_params[layer_prefix + prefix + 'sigma'] = sigma
-            else:
-                sigma = layer.untrainable_params[layer_prefix + prefix + 'sigma']
-            updates = {mu.graph: (mu + mu_).graph, sigma.graph: (sigma + (sigma_ * fm) / (fm - 1)).graph,
-                       n.graph: (n + 1).graph}
-            layer.updates.update(updates)
-
-        def batch_norm(tvar):
-            prefix, batch_axis, unit_axis, unit_dim, gamma, beta, _eps = normalization.pop(tvar, layer, **kwargs)
-            mu_ = tvar.mean(range(0, batch_axis + 1))
-            sigma_ = tvar.var(range(0, batch_axis + 1))
-            output = (tvar - mu_) / T.sqrt(
-                (sigma_ + _eps))
-            return gamma * output, mu_, sigma_, prefix, batch_axis, unit_dim
-
-        def layer_norm(tvar):
-            prefix, batch_axis, unit_axis, unit_dim, gamma, beta, _eps = normalization.pop(tvar, layer, **kwargs)
-            tvar = tvar + beta
-            output = (tvar - tvar.mean(unit_axis, keepdims=True)) / T.sqrt(
-                (tvar.var(unit_axis, keepdims=True) + _eps))
-            return gamma * output
-
-        if 'step' in kwargs:
-            step = kwargs['step']
-            if step == 'share':
-                if kwargs['method'] == 'batch':
-                    output = []
-                    for name in layer.inscan_param:
-                        output.extend([name + 'Mean', name + 'Std'])
-                else:
-                    output = []
-            elif step == 'apply':
-                if kwargs['method'] == 'batch':
-                    output, mu_, sigma_, prefix, batch_axis, unit_dim = batch_norm(tvar)
-                    pname = kwargs['pname']
-                    layer.shared_info['step_batch_norm'] = {pname + 'Mean': mu_, pname + 'Std': sigma_}
-                    layer.shared_info['step_batch_info'] = OrderedDict()
-                    layer.shared_info['step_batch_info'][pname] = {'unit_name': kwargs['oname'],
-                                                                   'unit_dim': layer.units_dim[kwargs['oname']]}
-                elif kwargs['method'] == 'layer':
-                    output = layer_norm(tvar)
-                else:
-                    raise NameError
-            elif step == 'add':
-                if kwargs['method'] == 'batch':
-                    output = tvar + layer.shared_info['step_batch_norm'].values()
-                else:
-                    output = tvar
-            elif step == 'update':
-                if kwargs['method'] == 'batch':
-                    output = None
-                    outputs = kwargs['outputs']
-                    for name in layer.inscan_param:
-                        mu_, sigma_, = outputs[name + 'Mean'], outputs[name + 'Std']
-                        mu_ = mu_.mean(mu_.attr.index(time))
-                        sigma_ = sigma_.mean(sigma_.attr.index(time))
-                        prefix = layer.shared_info['step_batch_info'][name]['unit_name'] + '_' + kwargs[
-                            'method'] + '_' + normalization.name + '_'
-                        unit_dim = layer.shared_info['step_batch_info'][name]['unit_dim']
-                        layer_prefix = layer.name + '_'
-                        m = layer.batch_size
-                        fm = T.cast(m, kernel.config.floatX)
-                        if layer_prefix + prefix + 'n' not in layer.untrainable_params:
-                            n = kernel.shared(value=0,
-                                              name=layer_prefix + prefix + 'n', attr=[None])
-                            layer.untrainable_params[layer_prefix + prefix + 'n'] = n
-                        else:
-                            n = layer.untrainable_params[layer_prefix + prefix + 'n']
-                        if layer_prefix + prefix + 'mu' not in layer.untrainable_params:
-                            mu = kernel.shared(value=np.zeros([unit_dim], dtype=kernel.config.floatX),
-                                               name=layer_prefix + prefix + 'mu', attr=[unit])
-                            layer.untrainable_params[layer_prefix + prefix + 'mu'] = mu
-                        else:
-                            mu = layer.untrainable_params[layer_prefix + prefix + 'mu']
-                        if layer_prefix + prefix + 'sigma' not in layer.untrainable_params:
-                            sigma = kernel.shared(value=np.zeros([unit_dim], dtype=kernel.config.floatX),
-                                                  name=layer_prefix + prefix + 'sigma', attr=[unit])
-                            layer.untrainable_params[layer_prefix + prefix + 'sigma'] = sigma
-                        else:
-                            sigma = layer.untrainable_params[layer_prefix + prefix + 'sigma']
-                        updates = {mu.graph: (mu + mu_).graph,
-                                   sigma.graph: (sigma + (sigma_ * fm) / (fm - 1)).graph,
-                                   n.graph: (n + 1).graph}
-                        layer.updates.update(updates)
-                else:
-                    output = None
-            else:
-                raise NameError
+    def preallocate_running(layer, prefix, unit_dim):
+        running_prefix = 'running_'
+        mu_name = running_prefix + prefix + 'mu'
+        sigma_name = running_prefix + prefix + 'sigma'
+        if hasattr(layer, mu_name):
+            mu = getattr(layer, mu_name)
         else:
-            if kwargs['method'] == 'batch':
-                output, mu_, sigma_, prefix, batch_axis, unit_dim = batch_norm(tvar)
-                set_oparam(mu_, sigma_, prefix, batch_axis, unit_dim)
-            elif kwargs['method'] == 'layer':
-                output = layer_norm(tvar)
-            else:
-                raise NameError
+            mu = Parameter(layer, mu_name, role=None, random=Parameter.zeros, shape=unit_dim)
+            setattr(layer, mu_name, mu)
+        if hasattr(layer, sigma_name):
+            sigma = getattr(layer, sigma_name)
+        else:
+            sigma = Parameter(layer, sigma_name, role=None, random=Parameter.ones, shape=unit_dim)
+            setattr(layer, sigma_name, sigma)
+        return mu(), sigma()
 
+    @staticmethod
+    def update_running(layer, X, mu_training, sigma_training, prefix, batch_axis, unit_dim, maf):
+        batch_size = X.shape[batch_axis]
+        batch_size = T.cast(batch_size, kernel.config.floatX)
+        mu, sigma = normalization.preallocate_running(layer, prefix, unit_dim)
+        updates = {mu: mu * (1 - maf) + mu_training * maf,
+                   sigma: sigma * (1 - maf) + (sigma_training * (batch_size / (batch_size - 1))) * maf}
+        layer.updates.update(updates)
+
+    @staticmethod
+    def normlize(layer, X, options):
+        prefix, batch_axis, unit_axis, unit_dim, gamma, beta, _eps = normalization.preallocate_training(X, layer,
+                                                                                                        options)
+        if options['method'] == 'batch':
+            axis = batch_axis
+        else:
+            axis = unit_axis
+        mu_training = X.mean(axis, keepdims=True)
+        sigma_training = X.var(axis, keepdims=True)
+        output = (X - mu_training) / T.sqrt(sigma_training + _eps)
+        output = gamma * output + beta
+        return output, mu_training, sigma_training, prefix, batch_axis, unit_dim
+
+    @staticmethod
+    def normlize_(tvar, layer, options):
+        prefix, batch_axis, unit_axis, unit_dim, gamma, beta, _eps = normalization.preallocate_training(tvar, layer,
+                                                                                                        options)
+        if options['method'] == 'batch':
+            mu_running, sigma_running = normalization.preallocate_running(layer, prefix, unit_dim)
+        else:
+            mu_running, sigma_running = tvar.mean(unit_axis, keepdims=True), tvar.var(unit_axis, keepdims=True)
+        output = (tvar - mu_running) / T.sqrt(sigma_running + _eps)
+        output = gamma * output + beta
         return output
 
     @staticmethod
-    def op_(layer, tvar, **kwargs):
-
-        def batch_norm(tvar):
-            prefix, batch_axis, unit_axis, unit_dim, gamma, beta, _eps = normalization.pop(tvar, layer, **kwargs)
-            layer_prefix = layer.name + '_'
-            n = layer.untrainable_params[layer_prefix + prefix + 'n']
-            mu_ = layer.untrainable_params[layer_prefix + prefix + 'mu']
-            sigma_ = layer.untrainable_params[layer_prefix + prefix + 'sigma']
-            n = T.switch(T.eq(n, 0), 1, n)
-            mu = mu_ / T.cast(n, kernel.config.floatX)
-            sigma = sigma_ / T.cast(n, kernel.config.floatX)
-            output = (tvar - mu) / T.sqrt((sigma + _eps))
-            output = gamma * output
-            return output
-
-        def layer_norm(tvar):
-            prefix, batch_axis, unit_axis, unit_dim, gamma, beta, _eps = normalization.pop(tvar, layer, **kwargs)
-            tvar = tvar + beta
-            output = (tvar - tvar.mean(unit_axis, keepdims=True)) / T.sqrt(
-                (tvar.var(unit_axis, keepdims=True) + _eps))
-            output = gamma * output
-            return output
-
-        if 'step' not in kwargs:
-            if kwargs['method'] == 'batch':
-                output = batch_norm(tvar)
-            elif kwargs['method'] == 'layer':
-                output = layer_norm(tvar)
-            else:
-                raise NameError
-        else:
-            step = kwargs['step']
-            if step == 'share':
-                output = []
-            elif step == 'apply':
-                if kwargs['method'] == 'batch':
-                    output = batch_norm(tvar)
-                elif kwargs['method'] == 'layer':
-                    output = layer_norm(tvar)
-                else:
-                    raise NameError
-            elif step == 'add':
-                output = tvar
-            elif step == 'update':
-                output = None
-            else:
-                output = None
+    def op(layer, X, options):
+        output, mu_training, sigma_training, prefix, batch_axis, unit_dim = normalization.normlize(X, layer, options)
+        if options['method'] == 'batch':
+            normalization.update_running(layer, X, mu_training, sigma_training, prefix, batch_axis, unit_dim,
+                                         options['ma'])
         return output
 
+    @staticmethod
+    def op_(layer, X, **kwargs):
+        output = normalization.normlize_(X, layer, **kwargs)
+        return output
 
-class weightnorm(inlayerops):
+    @staticmethod
+    def scan_op(layer, X, scan_X, options):
+        output, mu_training, sigma_training, prefix, batch_axis, unit_dim = normalization.normlize(X, layer, **options)
+        options['mu_training'] = mu_training
+        options['sigma_training'] = sigma_training
+        options['prefix'] = prefix
+        options['unit_dim'] = unit_dim
+        options['X'] = X
+        return output
+
+    @staticmethod
+    def scan_op_(layer, X, scan_X, options):
+        output = normalization.normlize_(layer, X, options)
+        return output
+
+    @staticmethod
+    def scan_share_states(layer, sequence, iter_state, non_iter_state, non_sequence, options):
+        addition_non_iter_state = [options['name'] + 'mu_training', options['name'] + 'sigma_training']
+        return OrderedDict(), OrderedDict(), addition_non_iter_state, OrderedDict()
+
+    @staticmethod
+    def scan_add_outputs(layer, outputs, options):
+        addition_outputs = [options['mu_training'], options['sigma_training']]
+        return addition_outputs
+
+    @staticmethod
+    def scan_add_updates(layer, scan_outputs, scan_updates, n_step, options):
+        mu_training = scan_outputs[options['name'] + 'mu_training'] / T.cast(n_step, kernel.config.floatX)
+        sigma_training = scan_outputs[options['name'] + 'sigma_training'] / T.cast(n_step, kernel.config.floatX)
+        if options['method'] == 'batch':
+            normalization.update_running(layer, options['X'], mu_training, sigma_training, options['prefix'],
+                                         options['batch_axis'], options['unit_dim'], options['ma'])
+
+    @staticmethod
+    def scan_add_outputs_(layer, outputs, **options):
+        return []
+
+    @staticmethod
+    def scan_add_updates(layer, scan_outputs, scan_updates, n_step, options):
+        return OrderedDict()
+
+    @staticmethod
+    def scan_add_updates_(layer, scan_outputs, scan_updates, n_step, options):
+        return OrderedDict()
+
+
+class lrn(Inlayerops):
+    name = 'lrn'
+
+    def __init__(self, k=2, n=5, alpha=1e-4, beta=0.75, op_units=None):
+        Inlayerops.__init__(self, op_units)
+        self.dict = {'k': k, 'n': n, 'alpha': alpha, 'beta': beta}
+
+    @staticmethod
+    def op(layer, X, options):
+        half = options['n'] // 2
+        sq = T.sqr(X)
+        if X.ndim == 4:
+            b, ch, r, c = X.shape
+            tvar_padding = T.alloc.alloc(0., [b, ch + 2 * half, r, c], X.attr)
+            tvar_padding[:, half:half + ch, :, :] = sq
+            norm_factor = options['k']
+            for i in range(options['n']):
+                norm_factor += options['alpha'] * sq[:, i:i + ch, :, :]
+            norm_factor = norm_factor ** options['beta']
+        else:
+            b, ch, r, c, d = X.shape
+            tvar_padding = T.alloc.alloc(0., [b, ch + 2 * half, r, c, d], X.attr)
+            tvar_padding[:, half:half + ch, :, :, :] = sq
+            norm_factor = options['k']
+            for i in range(options['n']):
+                norm_factor += options['alpha'] * sq[:, i:i + ch, :, :, :]
+            norm_factor = norm_factor ** options['beta']
+        return X / norm_factor
+
+    @staticmethod
+    def op_(layer, X, options):
+        lrn.op(layer, X, options)
+
+
+class weightnorm(Inlayerops):
     name = 'weightnorm'
 
-    def __init__(self, units=None):
-        inlayerops.__init__(self, units)
+    def __init__(self, epsilon=1e-5, op_units=None):
+        Inlayerops.__init__(self, op_units)
+        self.options['eps'] = epsilon
 
     @staticmethod
-    def pop(layer, tvar, **kwargs):
-        prefix = kwargs['oname'] + '_' + weightnorm.name + '_'
+    def normalize(layer, X, options):
+        prefix = options['name'] + '_' + weightnorm.name + '_'
         gamma_name = prefix + 'gamma'
-        _eps = 1e-5
-        if 'slices' in kwargs:
-            slices = kwargs['slices']
-            raw_shape = tvar.get().shape
-            new_shape = []
-            for i in range(tvar.ndim - 1):
-                new_shape.append(tvar.shape[i])
-            new_shape.extend([slices, tvar.shape[-1] // slices])
-            unit_dim = raw_shape[-1] // slices
-            tvar = tvar.reshape(new_shape)
-            gamma = layer.allocate(param_init_functions.ones, gamma_name, normweight, slices, unit_dim)
-            tvar = tvar / T.sqrt((tvar.var(-1, keepdims=True) + _eps))
-            tvar = tvar * gamma
-            tvar = tvar.reshape(raw_shape)
+        eps = options['epsilon']
+        if 'unit_dim' in options:
+            unit_dim = options['unit_dim']
         else:
-            gamma = layer.allocate(param_init_functions.ones, gamma_name, weight, tvar.get().shape[-1])
-            tvar = tvar / T.sqrt((tvar.var(-1, keepdims=True) + _eps))
-            tvar = tvar * gamma
-        return tvar
+            unit_dim = X.size[-1]
+        if 'slices' in options:
+            slices = options['slices']
+            raw_shape = X.shape
+            new_shape = []
+            for i in range(X.ndim - 1):
+                new_shape.append(X.shape[i])
+            new_shape.extend([slices, X.shape[-1] // slices])
+            unit_dim = unit_dim // slices
+            X = X.reshape(new_shape)
+            gamma = Parameter(layer, gamma_name, Parameter.normscale, random=Parameter.ones, shape=unit_dim)
+            setattr(layer, gamma_name, gamma)
+            X = X / T.sqrt(X.var(-1, keepdims=True) + eps)
+            X = X * gamma
+            X = X.reshape(raw_shape)
+        else:
+            gamma = Parameter(layer, gamma_name, Parameter.normscale, random=Parameter.ones, shape=unit_dim)
+            setattr(layer, gamma_name, gamma)
+            X = X / T.sqrt((X.var(-1, keepdims=True) + eps))
+            X = X * gamma
+        return X
 
     @staticmethod
-    def op(layer, tvar, **kwargs):
-        return weightnorm.pop(layer, tvar, **kwargs)
+    def op(layer, X, options):
+        return weightnorm.normalize(layer, X, options)
 
     @staticmethod
-    def op_(layer, tvar, **kwargs):
-        return weightnorm.pop(layer, tvar, **kwargs)
+    def op_(layer, X, options):
+        return weightnorm.normalize(layer, X, options)
+
+    @staticmethod
+    def scan_op(layer, X, scan_X, options):
+        return weightnorm.normalize(layer, X, options)
+
+    @staticmethod
+    def scan_op_(layer, X, scan_X, options):
+        return weightnorm.normalize(layer, X, options)
+
+    @staticmethod
+    def scan_share_states(layer, sequence, iter_state, non_iter_state, non_sequence, options):
+        return OrderedDict(), OrderedDict(), [], OrderedDict()
+
+    @staticmethod
+    def scan_add_outputs(layer, outputs, options):
+        return []
+
+    @staticmethod
+    def scan_add_updates(layer, scan_outputs, scan_updates, n_step, options):
+        return OrderedDict()
+
+    @staticmethod
+    def scan_share_states_(layer, sequence, iter_state, non_iter_state, non_sequence, options):
+        return OrderedDict(), OrderedDict(), [], OrderedDict()
+
+    @staticmethod
+    def scan_add_outputs_(layer, outputs, options):
+        return []
+
+    @staticmethod
+    def scan_add_updates_(layer, scan_outputs, scan_updates, n_step, options):
+        return OrderedDict()
 
 
-class weight_decay(lossops):
+class weight_decay(Lossops):
     name = 'weight_decay'
 
-    def __init__(self, noise=0.0001, params=None):
-        lossops.__init__(self)
-        self.l2 = noise
+    def __init__(self, alpha=0.0001, params=None):
+        Lossops.__init__(self)
+        self.alpha = alpha
         self.params = params
 
-    def build(self, loss, **kwargs):
+    def build(self, loss):
         reg = 0
-        params = []
-        pdict = OrderedDict()
         if self.params is None:
-            pdict = self.layer.trainable_params
+            params = self.layer.params.values()
         else:
-            for pname in params:
-                for name, param in self.layer.trainable_params.items():
-                    if pname == name:
-                        pdict[name] = param
-
-        for name, param in pdict.items():
-            if self.layer.trainable_roles[name] == weight:
-                params.append(param)
+            params = self.params
         for param in params:
-            reg += (param ** 2).sum()
-        return loss + self.l2 * reg
+            if param.role is Parameter.weight:
+                reg += param().sqr().sum()
+        return loss + self.alpha * reg
 
 
-class regularization(lossops):
+class regularization(Lossops):
     name = 'regularization'
 
-    def __init__(self, noise=0.0001):
-        lossops.__init__(self)
-        self.l2 = noise
+    def __init__(self, alpha=0.0001):
+        Lossops.__init__(self)
+        self.alpha = alpha
 
-    def build(self, loss, **kwargs):
-        reg = 0.
-        params = []
-        for lname, node in self.model.layers.items():
-            for name, param in node.trainable_params.items():
-                if node.trainable_roles[name] == weight:
-                    params.append(param)
-        for param in params:
-            reg += (param ** 2).sum()
-        return loss + self.l2 * reg
+    def build(self, loss):
+        reg = 0
+        for layer in self.model.layers.values():
+            for param in layer.params.values():
+                if param.role is Parameter.weight:
+                    reg += param().sqr().sum()
+        return loss + self.alpha * reg
 
 
-'''
-class residual(inlayerops):
+class Residual(Betweenlayerops):
     name = 'residual'
 
-    def __init__(self, prelayer=None):
-        ops.__init__(self)
-        self.prelayer = prelayer
+    def __init__(self, others):
+        Betweenlayerops.__init__(self, others)
 
-    def build(self, layer, ops_option):
-        opsname = residual.name
-        if opsname not in ops_option:
-            ops_option[opsname]=OrderedDict()
-        self.layer = layer
-        if self.units is None:
-            ops_option[opsname]['default'] = {'prelayer': self.prelayer}
-            layer.ops.append(opsname)
-        else:
-            for unit in self.units:
-                ops_option[opsname][unit] = {'prelayer': self.prelayer}
-                layer.ops.append(unit + '_' + opsname)
-
-    @staticmethod
-    def op(layer, tvar, **kwargs):
-        return tvar + kwargs['pre_tvar']
-
-    @staticmethod
-    def op_(layer, tvar, **kwargs):
-        return residual.op(tvar, **kwargs)
-'''
+    def op(self):
+        self.layer.output = self.layer.output + self.others.output
+        self.layer.outputs['output'] = self.layer.output
+        self.layer.running_output = self.layer.running_output + self.others.running_output
+        self.layer.running_outputs['output'] = self.layer.running_output

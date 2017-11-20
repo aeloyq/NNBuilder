@@ -4,119 +4,98 @@ Created on  四月 26 21:11 2017
 
 @author: aeloyq
 """
-
-import numpy as np
-import roles
 from collections import OrderedDict
 from nnbuilder.kernel import *
 
+gated_activations = [T.glu, T.gtu, T.maxout]
 
-class param_init_functions:
-    '''
-    # Weights Init Functions
-    '''
+class LayerDict(object):
+    def __init__(self, layer, layers=None):
+        '''
 
-    @staticmethod
-    def numpy_asarray_floatx(data):
-        data2return = np.asarray(data, dtype=kernel.config.floatX)
-        return data2return
+        :param layer:
+        :param layers:
+        '''
+        self.layer = layer
+        self.layers = OrderedDict()
+        self.update(layers)
 
-    @staticmethod
-    def randn(shape):
-        param = 0.01 * kernel.random.randn(*tuple(shape))
-        return param_init_functions.numpy_asarray_floatx(param)
+    def __getitem__(self, idx):
+        if not (-len(self) <= idx < len(self)):
+            raise IndexError('index {} is out of range'.format(idx))
+        if idx < 0:
+            idx += len(self)
+        return self.layers[str(idx)]
 
-    @staticmethod
-    def rand(shape):
-        param = 0.01 * kernel.random.rand(*tuple(shape))
-        return param_init_functions.numpy_asarray_floatx(param)
+    def __setitem__(self, idx, layer):
+        return setattr(self, str(idx), layer)
 
-    @staticmethod
-    def uniform(shape):
-        param = kernel.random.uniform(low=-np.sqrt(6. / sum(shape)), high=np.sqrt(6. / sum(shape)), size=shape)
-        return param_init_functions.numpy_asarray_floatx(param)
+    def __len__(self):
+        return len(self.layers)
 
-    @staticmethod
-    def scaled_uniform(shape):
-        param = kernel.random.uniform(low=-np.sqrt(6. / sum(shape)), high=np.sqrt(6. / sum(shape)), size=shape) * 4
-        return param_init_functions.numpy_asarray_floatx(param)
+    def __iter__(self):
+        return iter(self.layers.values())
 
-    @staticmethod
-    def zeros(shape):
-        param = np.zeros(shape)
-        return param_init_functions.numpy_asarray_floatx(param)
+    def __iadd__(self, layers):
+        return self.update(layers)
 
-    @staticmethod
-    def ones(shape):
-        param = np.ones(shape)
-        return param_init_functions.numpy_asarray_floatx(param)
+    def __str__(self):
+        keys = [str(layer) for layer in self.layers.values()]
+        return keys
 
-    @staticmethod
-    def orthogonal(shape):
-        param = np.random.rand(shape[0], shape[0])
-        param = np.linalg.svd(param)[0]
-        for _ in range(shape[1] / shape[0] - 1):
-            param_ = np.random.rand(shape[0], shape[0])
-            param = np.concatenate((param, np.linalg.svd(param_)[0]), 1)
-        return param_init_functions.numpy_asarray_floatx(param)
+    def update(self, layers):
+        '''
 
-    @staticmethod
-    def convweight(shape, poolsize):
-        fan_in = np.prod(shape[1:])
-        fan_out = (shape[0] * np.prod(shape[2:]) // np.prod(poolsize))
-        W_bound = np.sqrt(6. / (fan_in + fan_out))
-        param = kernel.random.uniform(low=-W_bound, high=W_bound, size=shape)
-        return param_init_functions.numpy_asarray_floatx(param)
+        :param layer:
+        :return:
+        '''
+        self.layers.update(layers)
+        for name, layer in layers:
+            setattr(self.layer, name, layer)
+        return self
 
 
-class utils:
-    '''
-    Misc Utils
-    '''
-    gated_activation = [T.glu, T.gtu, T.maxout]
+class ParamDict(object):
+    def __init__(self, layer, params=None):
+        '''
 
-    @staticmethod
-    def slice(_x, n, dim):
-        if _x.ndim == 2:
-            return _x[:, n * dim:(n + 1) * dim]
-        elif _x.ndim == 3:
-            return _x[:, :, n * dim:(n + 1) * dim]
-        elif _x.ndim == 4:
-            return _x[:, :, :, n * dim:(n + 1) * dim]
+        :param param:
+        :param params:
+        '''
+        self.layer = layer
+        self.params = OrderedDict()
+        self.update(params)
 
-    @staticmethod
-    def compress(X, ndim):
-        shape = X.shape
-        compressed_shape = shape[0]
-        for i in range(1, X.ndim - ndim + 1):
-            compressed_shape = compressed_shape * shape[i]
-        remained_shape = []
-        for i in range(-ndim + 1, 0):
-            remained_shape.append(shape[i])
-        return X.reshape([compressed_shape] + remained_shape, [None] + [X.attr[-1]])
+    def __getitem__(self, idx):
+        if not (-len(self) <= idx < len(self)):
+            raise IndexError('index {} is out of range'.format(idx))
+        if idx < 0:
+            idx += len(self)
+        return self.params[str(idx)]
 
-    @staticmethod
-    def zeros_initiator(batch_size, unit_dim):
-        return T.zeros([batch_size, unit_dim], [roles.batch, roles.unit])
+    def __setitem__(self, idx, param):
+        return setattr(self, str(idx), param)
 
+    def __len__(self):
+        return len(self.params)
 
-class loss_functions:
-    '''
-    Cost Functions
-    '''
+    def __iter__(self):
+        return iter(self.params.values())
 
-    @staticmethod
-    def mse(y, y_true):
-        return T.mean_square(y, y_true)
+    def __iadd__(self, params):
+        return self.update(params)
 
-    @staticmethod
-    def rmse(y, y_true):
-        return T.root_mean_square(y, y_true)
+    def __str__(self):
+        keys = [str(param) for param in self.params.values()]
+        return keys
 
-    @staticmethod
-    def ce(y, y_true):
-        return T.binary_crossentropy(y, y_true)
+    def update(self, params):
+        '''
 
-    @staticmethod
-    def nlog(y, y_true):
-        return T.categorical_crossentropy(y, y_true)
+        :param param:
+        :return:
+        '''
+        self.params.update(params)
+        for name, param in params:
+            setattr(self.layer, name, param)
+        return self

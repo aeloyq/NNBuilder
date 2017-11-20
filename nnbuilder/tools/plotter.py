@@ -11,122 +11,108 @@ import bokeh.layouts as lyt
 import bokeh.models as models
 from bokeh.palettes import Spectral4
 
-'''
-def plot(self, costs, errors, params, roles):
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pylab as plt
-    x_axis = np.arange(len(costs)) + 1
 
-    plt.figure(1)
-    plt.cla()
-    plt.title(nnbuilder.config.name)
-    plt.ylabel('Loss')
-    plt.xlabel('Epochs')
-    plt.plot(x_axis, costs, label='Loss', color='orange')
-    plt.legend()
-    plt.savefig(self.path + 'process_cost.png')
+def monitor_progress(current_saving, campare_saving=(), path='./'):
+    def get_progress(saving_list):
+        train_x_list, train_losses_list, valid_x_list, valid_losses_list, valid_scores_list, \
+        test_x_list, test_losses_list, test_scores_list, names = [[], [], [], [], [], [], [], [], []]
+        for saving in saving_list:
+            names.append(saving['name'])
+            train_losses_list.append(saving['train_losses'])
+            train_x_list.append(range(1, len(saving['train_losses']) + 1))
+            if 'EarlyStop' in saving['extensions']:
+                valid_losses_list.append(saving['extensions']['EarlyStop']['valid_losses'])
+                valid_scores_list.append(saving['extensions']['EarlyStop']['valid_scores'])
+                valid_x_list.append(range(1,len(valid_losses_list[-1])+1))
+            else:
+                valid_losses_list.append(None)
+                valid_scores_list.append(None)
+                valid_x_list.append(None)
+            test_losses_list.append(saving['losses'])
+            test_scores_list.append(saving['scores'])
+            test_x_list.append(range(len(test_losses_list[-1])))
+        return train_x_list, train_losses_list, valid_x_list, valid_losses_list, valid_scores_list, test_x_list, test_losses_list, test_scores_list, names
 
-    plt.figure(2)
-    plt.cla()
-    plt.title(nnbuilder.config.name)
-    plt.ylabel('Error')
-    plt.xlabel('Epochs')
-    plt.plot(x_axis, errors, label='Error', color='blue')
-    plt.legend()
-    plt.savefig(self.path + 'process_error.png')
-
-    n_im = len(params)
-    a = np.int(np.sqrt(n_im))
-    b = a
-    if a * b < n_im: a += 1
-    if a * b < n_im: b += 1
-    plt.figure(3, (b * 4, a * 4))
-    plt.cla()
-
-    i = 0
-    for key, param in params.items():
-        i += 1
-        if roles[key] is weight:
-            plt.subplot(a, b, i)
-            value = param
-            plt.title(key + ' ' + str(value.shape))
-            img = np.asarray(value)
-            if img.ndim != 1:
-                plt.imshow(img, cmap='gray')
-        elif roles[key] is bias:
-            plt.subplot(a, b, i)
-            y = param
-            plt.title(key + ' ' + str(y.shape))
-            x_axis_bi = np.arange(y.shape[0])
-            plt.plot(x_axis_bi, y, color='black')
-    plt.savefig(self.path + 'paramsplot.png')
-
-    plt.cla()
-'''
-
-
-def monitor_progress(name, path, loss, error, campare_saving, compare_name, valid):
-    n = len(campare_saving)
-    length = len(loss)
-    x = list(range(length))
-    tools = "pan,wheel_zoom,reset,save"
-    data = dict(x=x, loss=loss, error=error)
-    for i in range(n):
-        save_loss = campare_saving[i]['losses']
-        save_error = campare_saving[i]['errors']
-        save_length = len(save_loss)
-        pad_length = max(length - save_length, 0)
-        data['loss' + str(i)] = save_loss[:length] + [np.nan] * pad_length
-        data['error' + str(i)] = save_error[:length] + [np.nan] * pad_length
-    source = models.ColumnDataSource(data=data)
-    plt.output_file(path, title='Training Progress')
-    p1 = plt.figure(plot_width=500, plot_height=400, y_axis_type="log", title='Loss-Epoch', tools=tools,
-                    x_axis_label='n of epoch', y_axis_label='loss', active_drag='pan', active_scroll="wheel_zoom")
-    for i, color in zip(range(n), Spectral4):
-        p1.line('x', 'loss' + str(i), line_width=2, source=source, color=color, alpha=0.8,
-                legend=compare_name[i], line_dash="dashed")
-    p1.line('x', 'loss', line_width=2, source=source, color='coral', legend=name)
-    p1.title.text_font_size = "25px"
-    p1.legend.click_policy = "hide"
-    p1.legend.location = "top_right"
-    p2 = plt.figure(plot_width=500, plot_height=400, y_axis_type="log", title='Error-Epoch', tools=tools,
-                    x_range=p1.x_range, x_axis_label='n of epoch', y_axis_label='error', active_drag='pan',
-                    active_scroll="wheel_zoom")
-    for i, color in zip(range(n), Spectral4):
-        p2.line('x', 'error' + str(i), line_width=2, source=source, color=color, alpha=0.8,
-                legend=compare_name[i], line_dash="dashed")
-    p2.line('x', 'error', line_width=2, source=source, color='coral', legend=name)
-    p2.title.text_font_size = "25px"
-    p2.legend.click_policy = "hide"
-    p2.legend.location = "top_right"
-    p = lyt.gridplot([[p1, p2]], toolbar_location="below", merge_tools=True)
-    if valid is not None:
-        tab1 = models.widgets.Panel(child=p, title="Test")
-        loss, error = valid[0], valid[1]
-        length = len(loss)
-        x = list(range(length))
-        data = dict(x=x, loss=loss, error=error)
+    def plot_train(title, n_compare, train_x_list, train_losses_list):
+        train_length = len(train_x_list[0])
+        data = dict(x=train_x_list[0], loss=train_losses_list[0])
+        for i in range(1, n_compare + 1):
+            campare_length = len(train_losses_list[i])
+            pad_length = max(train_length - campare_length, 0)
+            data['loss' + str(i)] = train_losses_list[i] + [np.nan] * pad_length
         source = models.ColumnDataSource(data=data)
-        v1 = plt.figure(plot_width=500, plot_height=400, y_axis_type="log", title='Loss-Epoch', tools=tools,
-                        x_axis_label='n of epoch', y_axis_label='loss', active_drag='pan', active_scroll="wheel_zoom")
-        v1.line('x', 'loss', line_width=2, source=source, color='coral', legend=name)
-        v1.title.text_font_size = "25px"
-        v1.legend.click_policy = "hide"
-        v1.legend.location = "top_right"
-        v2 = plt.figure(plot_width=500, plot_height=400, y_axis_type="log", title='Error-Epoch', tools=tools,
-                        x_range=v1.x_range, x_axis_label='n of epoch', y_axis_label='error', active_drag='pan',
-                        active_scroll="wheel_zoom")
-        v2.line('x', 'error', line_width=2, source=source, color='coral', legend=name)
-        v2.title.text_font_size = "25px"
-        v2.legend.click_policy = "hide"
-        v2.legend.location = "top_right"
-        v = lyt.gridplot([[v1, v2]], toolbar_location="below", merge_tools=True)
-        tab2 = models.widgets.Panel(child=v, title="Valid")
-        tabs = models.widgets.Tabs(tabs=[tab1, tab2], sizing_mode="stretch_both")
-        plt.save(tabs)
-    else:
-        plt.save(p)
+        train_p = plt.figure(plot_width=1000, plot_height=400, y_axis_type="log", title='Loss-Epoch', tools=tools,
+                             x_axis_label='n of epoch', y_axis_label='loss', active_drag='pan',
+                             active_scroll="wheel_zoom")
+        for i, color in zip(range(n_compare), Spectral4):
+            train_p.line('x', 'loss' + str(i), line_width=2, source=source, color=color, alpha=0.8,
+                         legend=names[i], line_dash="dashed")
+        train_p.line('x', 'loss', line_width=2, source=source, color='coral', legend=names[0])
+        train_p.title.text_font_size = "25px"
+        train_p.legend.click_policy = "hide"
+        train_p.legend.location = "top_right"
+        return models.widgets.Panel(child=train_p, title=title)
+
+    def plot_valid(title, n_compare, valid_x_list, valid_losses_list, valid_scores_list, x_label):
+        valid_length = len(valid_x_list[0])
+        data = dict(x=valid_x_list[0], loss=valid_losses_list[0])
+        for m in valid_scores_list[0]:
+            data[m] = valid_scores_list[0][m]
+        for i in range(n_compare):
+            if valid_x_list[i] is not None:
+                compare_length = len(valid_x_list[i])
+                pad_length = max(valid_length - compare_length, 0)
+                data['loss' + str(i)] = valid_losses_list[i] + [np.nan] * pad_length
+                for m in valid_scores_list[0]:
+                    if m in valid_scores_list[i]:
+                        data[m + str(i)] = valid_scores_list[i][m] + [np.nan] * pad_length
+        source = models.ColumnDataSource(data=data)
+        valid_p1 = plt.figure(plot_width=1000, plot_height=400, y_axis_type="log", title='Loss-Epoch', tools=tools,
+                              x_axis_label='n of epoch', y_axis_label='loss', active_drag='pan',
+                              active_scroll="wheel_zoom")
+        for i, color in zip(range(n_compare), Spectral4):
+            if valid_x_list[i] is not None:
+                valid_p1.line('x', 'loss' + str(i), line_width=2, source=source, color=color, alpha=0.8,
+                              legend=names[i], line_dash="dashed")
+        valid_p1.line('x', 'loss', line_width=2, source=source, color='coral', legend=names[0])
+        valid_p1.title.text_font_size = "25px"
+        valid_p1.legend.click_policy = "hide"
+        valid_p1.legend.location = "top_right"
+        gridplot = [[valid_p1]]
+        for m in valid_scores_list[0]:
+            valid_p2 = plt.figure(plot_width=1000, plot_height=400, title='{}-Epoch'.format(m), tools=tools,
+                                  x_range=valid_p1.x_range, x_axis_label='n of %s' % x_label, y_axis_label=m,
+                                  active_drag='pan',
+                                  active_scroll="wheel_zoom")
+            for i, color in zip(range(n_compare), Spectral4):
+                if m in valid_scores_list[i]:
+                    valid_p2.line('x', m + str(i), line_width=2, source=source, color=color, alpha=0.8,
+                                  legend=names[i], line_dash="dashed")
+            valid_p2.line('x', m, line_width=2, source=source, color='coral', legend=names[0])
+            valid_p2.title.text_font_size = "25px"
+            valid_p2.legend.click_policy = "hide"
+            valid_p2.legend.location = "top_right"
+            gridplot.append([valid_p2])
+        valid_p = lyt.gridplot(gridplot, toolbar_location="below", merge_tools=True)
+        return models.widgets.Panel(child=valid_p, title=title)
+
+    plt.output_file(path, title='Training Progress')
+    tools = "pan,wheel_zoom,reset,save"
+
+    train_x_list, train_losses_list, valid_x_list, valid_losses_list, valid_scores_list, test_x_list, test_losses_list, test_scores_list, names = get_progress(
+        [current_saving] + campare_saving)
+    n_compare = len(campare_saving)
+    tabs = []
+    # train #
+    tabs.append(plot_train('Train', n_compare, train_x_list, train_losses_list))
+    # valid #
+    if valid_x_list[0] is not None:
+        tabs.append(plot_valid('Valid', n_compare, valid_x_list, valid_losses_list, valid_scores_list, 'valid'))
+    # test #
+    tabs.append(plot_valid('Test', n_compare, test_x_list, test_losses_list, test_scores_list, 'epoch'))
+
+    page = models.widgets.Tabs(tabs=tabs, sizing_mode="stretch_both")
+    plt.save(page)
 
 
 def _compare_savefiles(x, y):
@@ -144,7 +130,6 @@ def _load_data(file, part):
 
 def _combine_repo(repo, compare_repo, part):
     compare_saving = []
-    compare_name = []
 
     if compare_repo is None or compare_repo != []:
         compare_saving = [repo]
@@ -155,7 +140,6 @@ def _combine_repo(repo, compare_repo, part):
             savefile = './{}/save/final/final.npz'.format(r)
             if os.path.isfile(savefile):
                 compare_saving.append(_load_data(savefile, part))
-                compare_name.append(r)
             else:
                 path = './{}/save'.format(r)
                 savelist = [path + name for name in os.listdir(path) if name.endswith('.npz')]
@@ -166,21 +150,20 @@ def _combine_repo(repo, compare_repo, part):
         savelist = [compare_repo + name for name in os.listdir(compare_repo) if name.endswith('.npz')]
         for filename in savelist:
             compare_saving.append(_load_data(compare_repo + '/' + filename, part))
-            compare_name.append(filename)
-    return compare_saving[0], compare_saving[1:], compare_name[1:]
+    return compare_saving
 
 
 def progress(repo, compare_repo=None):
-    repo_saving, compare_saving, compare_name = _combine_repo(repo, compare_repo, 'mainloop')
-    monitor_progress(repo, 'progress.html', repo_saving['losses'], repo_saving['errors'],
-                     compare_saving, compare_name, None)
+    saves = _combine_repo(repo, compare_repo, 'mainloop')
+    monitor_progress(saves[0], saves[1:], 'progress.html')
 
 
 def weight(repo, compare_repo=None):
     repo_saving, compare_saving, compare_name = _combine_repo(repo, compare_repo, 'trainable_params')
+
     def show(attr, old, new):
-        layername=new
-        g=[[]]
+        layername = new
+        g = [[]]
         for i, (wtname, wt) in enumerate(repo_saving[layername].items()):
             if wt.ndim == 4:
                 wt.transpose(0, 2, 1, 3)
@@ -197,5 +180,5 @@ def weight(repo, compare_repo=None):
 
     plt.output_file('./weightplot.html', title='WeightPlot')
     select = models.widgets.Select(title="Layer:", value=repo_saving.keys()[0], options=repo_saving.keys())
-    select.on_change("value",show)
+    select.on_change("value", show)
     plt.save(lyt.widgetbox(select))

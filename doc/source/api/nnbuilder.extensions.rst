@@ -1,10 +1,10 @@
-extensions
+nnbuilder\.extensions package
 =============================
 
 Submodules
 ----------
 
-basic
+nnbuilder\.extensions\.basic module
 -----------------------------------
 
 .. automodule:: nnbuilder.extensions.basic
@@ -12,15 +12,15 @@ basic
     :undoc-members:
     :show-inheritance:
 
-debugmode
----------------------------------------
+nnbuilder\.extensions\.debug module
+-----------------------------------
 
-.. automodule:: nnbuilder.extensions.debugmode
+.. automodule:: nnbuilder.extensions.debug
     :members:
     :undoc-members:
     :show-inheritance:
 
-earlystop
+nnbuilder\.extensions\.earlystop module
 ---------------------------------------
 
 .. automodule:: nnbuilder.extensions.earlystop
@@ -28,15 +28,7 @@ earlystop
     :undoc-members:
     :show-inheritance:
 
-extension
----------------------------------------
-
-.. automodule:: nnbuilder.extensions.extension
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-monitor
+nnbuilder\.extensions\.monitor module
 -------------------------------------
 
 .. automodule:: nnbuilder.extensions.monitor
@@ -44,7 +36,7 @@ monitor
     :undoc-members:
     :show-inheritance:
 
-sample
+nnbuilder\.extensions\.sample module
 ------------------------------------
 
 .. automodule:: nnbuilder.extensions.sample
@@ -52,7 +44,7 @@ sample
     :undoc-members:
     :show-inheritance:
 
-saveload
+nnbuilder\.extensions\.saveload module
 --------------------------------------
 
 .. automodule:: nnbuilder.extensions.saveload
@@ -60,10 +52,18 @@ saveload
     :undoc-members:
     :show-inheritance:
 
-shuffledata
+nnbuilder\.extensions\.shuffledata module
 -----------------------------------------
 
 .. automodule:: nnbuilder.extensions.shuffledata
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+nnbuilder\.extensions\.tensorboard module
+-----------------------------------------
+
+.. automodule:: nnbuilder.extensions.tensorboard
     :members:
     :undoc-members:
     :show-inheritance:

@@ -1,10 +1,10 @@
-tools
+nnbuilder\.tools package
 ========================
 
 Submodules
 ----------
 
-datadiver
+nnbuilder\.tools\.datadiver module
 ----------------------------------
 
 .. automodule:: nnbuilder.tools.datadiver
@@ -12,7 +12,7 @@ datadiver
     :undoc-members:
     :show-inheritance:
 
-loaddatas
+nnbuilder\.tools\.loaddatas module
 ----------------------------------
 
 .. automodule:: nnbuilder.tools.loaddatas
@@ -20,7 +20,7 @@ loaddatas
     :undoc-members:
     :show-inheritance:
 
-plotter
+nnbuilder\.tools\.plotter module
 --------------------------------
 
 .. automodule:: nnbuilder.tools.plotter
@@ -28,7 +28,7 @@ plotter
     :undoc-members:
     :show-inheritance:
 
-printer
+nnbuilder\.tools\.printer module
 --------------------------------
 
 .. automodule:: nnbuilder.tools.printer
@@ -36,7 +36,7 @@ printer
     :undoc-members:
     :show-inheritance:
 
-samples
+nnbuilder\.tools\.samples module
 --------------------------------
 
 .. automodule:: nnbuilder.tools.samples

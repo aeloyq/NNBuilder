@@ -18,6 +18,11 @@ def Load_stream(path, n, endwith='.npy'):
     return vtdata, stream
 
 
+def load_data(data):
+    train_x, valid_x, test_x, train_y, valid_y, test_y = data
+    return [train_x, train_y], [valid_x, valid_y], [test_x, test_y]
+
+
 def Load_npz(path, name=None):
     if name == None:
         savelist = [name for name in os.listdir(path) if name.endswith('.npz')]
@@ -61,6 +66,7 @@ def transfer_image(imagesize, train_X, valid_X, test_X):
     test_X = np.reshape(test_X, [n_test] + imagesize)
     return train_X, valid_X, test_X
 
+
 def Download_mnist(data_path):
     if not os.path.isfile(data_path):
         from six.moves import urllib
@@ -69,6 +75,7 @@ def Download_mnist(data_path):
         )
         print('Downloading data from %s' % origin)
         urllib.request.urlretrieve(origin, data_path)
+
 
 def Download_imdb(data_path):
     if not os.path.isfile(data_path):
@@ -88,7 +95,7 @@ def Load_mnist(data_path):
         except:
             train_set, valid_set, test_set = pickle.load(f)
 
-        return [train_set[0], valid_set[0], test_set[0], train_set[1], valid_set[1], test_set[1]]
+        return load_data([train_set[0], valid_set[0], test_set[0], train_set[1], valid_set[1], test_set[1]])
 
 
 def Load_mnist_image(data_path):
@@ -105,7 +112,7 @@ def Load_mnist_image(data_path):
         test_X = test_set[0]
         test_Y = test_set[1]
         train_X, valid_X, test_X = transfer_image([1, 28, 28], train_X, valid_X, test_X)
-        return [train_X, valid_X, test_X, train_Y, valid_Y, test_Y]
+        return load_data([train_X, valid_X, test_X, train_Y, valid_Y, test_Y])
 
 
 ''' load xor '''
@@ -120,7 +127,7 @@ def Load_xor():
         trainsets[1].append(each_output)
     validsets = [[[0, 0], [1, 0], [0, 1], [1, 1]], [0, 1, 1, 0]]
     testsets = [[[0, 0], [1, 0], [0, 1], [1, 1]], [0, 1, 1, 0]]
-    return trainsets[0], validsets[0], testsets[0], trainsets[1], validsets[1], testsets[1]
+    return load_data([trainsets[0], validsets[0], testsets[0], trainsets[1], validsets[1], testsets[1]])
 
 
 ''' load add fun data '''
@@ -158,7 +165,7 @@ def Load_add():
         each_output = binary(each_output)
         testsets[0].append(inp)
         testsets[1].append(each_output)
-    return [trainsets[0], validsets[0], testsets[0], trainsets[1], validsets[1], testsets[1]]
+    return load_data([trainsets[0], validsets[0], testsets[0], trainsets[1], validsets[1], testsets[1]])
 
 
 ''' load add fun data '''
@@ -231,7 +238,7 @@ def Load_imdb(data_path, n_words=10000, valid_portion=0.05, maxlen=None, sort_by
         test = ([test[0][n] for n in idx], [test[1][n] for n in idx])
     test_set_x, test_set_y = test
 
-    return [train_set_x, valid_set_x, test_set_x, train_set_y, valid_set_y, test_set_y]
+    return load_data([train_set_x, valid_set_x, test_set_x, train_set_y, valid_set_y, test_set_y])
 
 
 def Load_mt(data_path, maxlen=None, sort_by_len=True, sort_by_asc=True):
@@ -278,4 +285,4 @@ def Load_mt(data_path, maxlen=None, sort_by_len=True, sort_by_asc=True):
     print('Test sentence pairs loaded in total: %s' % (len(test_set)))
     print('Max length in trainsets: %s' % max([len(i) for i in train_set]))
     print('Mean length in trainsets: %s' % np.mean([len(i) for i in train_set]))
-    return train_set, valid_set, test_set, train_sety, valid_sety, test_sety
+    return load_data([train_set, valid_set, test_set, train_sety, valid_sety, test_sety])

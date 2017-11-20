@@ -4,19 +4,36 @@ Created on  Feb 25 1:45 PM 2017
 
 @author: aeloyq
 """
+import numpy as np
+from nnbuilder.kernel import *
+from collections import OrderedDict
 
-import sys
 
-sys.path.append('..')
-
-
-class base(object):
-    def __init__(self, kwargs):
-        self.kwargs = kwargs
-        self.set_logattr()
+class ExtensionBase(object):
+    def build(self, MainLoop, model, data, extensions, config, logger, train_history):
+        self.MainLoop = MainLoop
+        self.model = model
+        self.data = data
+        self.extensions = extensions
+        self.config = config
+        self.logger = logger
+        self.train_history = train_history
+        self.init()
 
     def init(self):
-        self.logger = self.kwargs['logger']
+        pass
+
+    def get_verbose(self):
+        return self.config.verbose
+
+    def is_log_detail(self):
+        return self.config.is_log_detail()
+
+    def is_log_inline(self):
+        return self.config.is_log_inline()
+
+    def is_log_silent(self):
+        return self.config.is_log_silent()
 
     def before_train(self):
         pass
@@ -51,6 +68,3 @@ class base(object):
     def set(self, **kwargs):
         for key, val in kwargs.items():
             self.__setattr__(key, val)
-
-    def set_logattr(self):
-        self.logattr = []

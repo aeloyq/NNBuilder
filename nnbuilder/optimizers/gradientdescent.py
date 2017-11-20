@@ -19,19 +19,20 @@ class Sgd(object):
         self.clip = False
         self.clip_norm = 1.
 
-    def init(self, wrt, loss):
+    def build(self, wrt, loss):
         self.params = wrt
         self.loss = loss
-        if not isinstance(self.learning_rate,kernel.shared):
-            self.learning_rate = kernel.shared(self.numpy_floatX(self.learning_rate), name='Learning_Rate',attr=[None])
+        if not isinstance(self.learning_rate, kernel.shared):
+            self.learning_rate = kernel.shared(self.numpy_floatX(self.learning_rate), name='Learning_Rate', attr=[None])
         self.gparams = OrderedDict()
         self.updates2params = OrderedDict()
         self.updates = OrderedDict()
+        return self.get_updates()
 
     def get_grad(self):
         self.iter_dict(lambda x: kernel.grad(self.loss, x), self.params, self.gparams)
         if self.clip:
-            self.iter_dict(lambda x: self.grad_clip(x), self.gparams, self.gparams)
+            self.grad_clip(self.gparams)
 
     def get_updates(self):
         self.get_grad()
@@ -39,11 +40,20 @@ class Sgd(object):
         self.iter_updates()
         return self.updates
 
-    def grad_clip(self, grad):
-        return T.clip(grad, -self.clip_norm, self.clip_norm)
+    def grad_clip(self, grads):
+        g2 = 0.
+        for g in grads.values():
+            g2 += (g ** 2).sum()
+        for n, g in grads.items():
+            grads[n] = T.switch(g2 > (self.clip_norm ** 2), g / T.sqrt(g2) * self.clip_norm, g)
 
     def numpy_floatX(self, data):
         return np.asarray(data, dtype=kernel.config.floatX)
+
+    def map(self, dict_list, target_dict, fn):
+        for name in dict_list[0]:
+            elem = [dict[name] for dict in dict_list]
+            target_dict[name] = fn(*elem)
 
     def iter_dict(self, fn, dict1, dict2):
         for name, elem in dict1.items():
@@ -105,13 +115,13 @@ class Momentum(Sgd):
         self.learning_rate = 0.01
         self.momentum_factor = 0.9
 
-    def init(self, wt_packs, loss):
-        super(Momentum, self).init(wt_packs, loss)
+    def build(self, wt_packs, loss):
+        super(Momentum, self).build(wt_packs, loss)
         self.mf = kernel.shared(self.numpy_floatX(self.momentum_factor)
-                                , name='momentum_factor',attr=[None])
+                                , name='momentum_factor', attr=[None])
         self.pu = OrderedDict()
         self.iter_dict(lambda x: kernel.shared(x.get() * self.numpy_floatX(0.),
-                                               name='momentum_pre_update_%s' % x.name,attr=x.attr), self.params,
+                                               name='momentum_pre_update_%s' % x.name, attr=x.attr), self.params,
                        self.pu)
         self.updates_pu = OrderedDict()
 
@@ -141,17 +151,17 @@ class Nag(Sgd):
         self.learning_rate = 0.01
         self.beta = 0.9
 
-    def init(self, wt_packs, loss):
-        super(Nag, self).init(wt_packs, loss)
+    def build(self, wt_packs, loss):
+        super(Nag, self).build(wt_packs, loss)
         self.beta = kernel.shared(self.numpy_floatX(self.beta)
-                                  , name='momentum_factor',attr=[None])
+                                  , name='momentum_factor', attr=[None])
         self.pg = OrderedDict()
         self.iter_dict(lambda x: kernel.shared(x.get() * self.numpy_floatX(0.),
-                                               name='momentum_pre_grad_%s' % x.name,attr=x.attr), self.params,
+                                               name='momentum_pre_grad_%s' % x.name, attr=x.attr), self.params,
                        self.pg)
         self.pu = OrderedDict()
         self.iter_dict(lambda x: kernel.shared(x.get() * self.numpy_floatX(0.),
-                                               name='momentum_pre_update_%s' % x.name,attr=x.attr), self.params,
+                                               name='momentum_pre_update_%s' % x.name, attr=x.attr), self.params,
                        self.pu)
         self.updates_pg = OrderedDict()
         self.updates_pu = OrderedDict()
@@ -186,13 +196,13 @@ class Adagrad(Sgd):
         self.learning_rate = 0.01
         self.epsilon = 1e-8
 
-    def init(self, wt_packs, loss):
-        super(Adagrad, self).init(wt_packs, loss)
+    def build(self, wt_packs, loss):
+        super(Adagrad, self).build(wt_packs, loss)
         self.epsilon = kernel.shared(self.numpy_floatX(self.epsilon)
-                                     , name='epsilon',attr=[None])
+                                     , name='epsilon', attr=[None])
         self.au = OrderedDict()
         self.iter_dict(lambda x: kernel.shared(x.get() * self.numpy_floatX(0.),
-                                               name='adagrad_accumulated_updates_%s' % x.name,attr=x.attr),
+                                               name='adagrad_accumulated_updates_%s' % x.name, attr=x.attr),
                        self.params,
                        self.au)
         self.updates_au = OrderedDict()
@@ -225,16 +235,16 @@ class Rmsprop(Sgd):
         self.rou = 0.5
         self.epsilon = 1e-8
 
-    def init(self, wt_packs, loss):
-        super(Rmsprop, self).init(wt_packs, loss)
+    def build(self, wt_packs, loss):
+        super(Rmsprop, self).build(wt_packs, loss)
         self.rou = kernel.shared(self.numpy_floatX(self.rou)
-                                 , name='rou',attr=[None])
+                                 , name='rou', attr=[None])
         self.epsilon = kernel.shared(self.numpy_floatX(self.epsilon)
-                                     , name='epsilon',attr=[None])
+                                     , name='epsilon', attr=[None])
         self.pEg2 = OrderedDict()
         self.updates_Eg2 = OrderedDict()
         self.iter_dict(lambda x: kernel.shared(x.get() * self.numpy_floatX(0.),
-                                               name='rmsprop_pre_grad2_%s' % x.name,attr=x.attr), self.params,
+                                               name='rmsprop_pre_grad2_%s' % x.name, attr=x.attr), self.params,
                        self.pEg2)
 
     def get_updates(self):
@@ -265,22 +275,22 @@ class Adadelta(Sgd):
         self.rou = 0.95
         self.epsilon = 1e-6
 
-    def init(self, wt_packs, loss):
-        super(Adadelta, self).init(wt_packs, loss)
+    def build(self, wt_packs, loss):
+        super(Adadelta, self).build(wt_packs, loss)
         self.rou = kernel.shared(self.numpy_floatX(self.rou)
-                                 , name='rou',attr=[None])
+                                 , name='rou', attr=[None])
         self.epsilon = kernel.shared(self.numpy_floatX(self.epsilon)
-                                     , name='epsilon',attr=[None])
+                                     , name='epsilon', attr=[None])
         self.pEg2 = OrderedDict()
         self.pEu2 = OrderedDict()
         self.train_updates = OrderedDict()
         self.updates_Eg2 = OrderedDict()
         self.updates_Eu2 = OrderedDict()
         self.iter_dict(lambda x: kernel.shared(x.get() * self.numpy_floatX(0.),
-                                               name='adadelta_pre_grad2_%s' % x.name,attr=x.attr), self.params,
+                                               name='adadelta_pre_grad2_%s' % x.name, attr=x.attr), self.params,
                        self.pEg2)
         self.iter_dict(lambda x: kernel.shared(x.get() * self.numpy_floatX(0.),
-                                               name='adadelta_pre_update2_%s' % x.name,attr=x.attr), self.params,
+                                               name='adadelta_pre_update2_%s' % x.name, attr=x.attr), self.params,
                        self.pEu2)
         self.updates = OrderedDict()
 
@@ -320,25 +330,25 @@ class Radam(Sgd):
         self.beta_2 = 0.999
         self.epsilon = 1e-8
 
-    def init(self, wrt, loss):
-        super(Radam, self).init(wrt, loss)
+    def build(self, wrt, loss):
+        super(Radam, self).build(wrt, loss)
         self.beta_1_ = kernel.shared(self.numpy_floatX(self.beta_1)
-                                     , name='beta_1',attr=[None])
+                                     , name='beta_1', attr=[None])
         self.beta_2_ = kernel.shared(self.numpy_floatX(self.beta_2)
-                                     , name='beta_2',attr=[None])
+                                     , name='beta_2', attr=[None])
         self.epsilon_ = kernel.shared(self.numpy_floatX(self.epsilon)
-                                      , name='epsilon',attr=[None])
+                                      , name='epsilon', attr=[None])
         self.t_ = kernel.shared(self.numpy_floatX(1)
-                                , name='t',attr=[None])
+                                , name='t', attr=[None])
         self.pm = OrderedDict()
         self.pv = OrderedDict()
         self.updates_m = OrderedDict()
         self.updates_v = OrderedDict()
         self.iter_dict(lambda x: kernel.shared(x.get() * self.numpy_floatX(0.),
-                                               name='adam_pre_m_%s' % x.name,attr=x.attr), self.params,
+                                               name='adam_pre_m_%s' % x.name, attr=x.attr), self.params,
                        self.pm)
         self.iter_dict(lambda x: kernel.shared(x.get() * self.numpy_floatX(0.),
-                                               name='adam_pre_v_%s' % x.name,attr=x.attr),
+                                               name='adam_pre_v_%s' % x.name, attr=x.attr),
                        self.params,
                        self.pv)
         self.updates = OrderedDict()
@@ -384,8 +394,8 @@ class Adam(Radam):
     def __init__(self):
         super(Adam, self).__init__()
 
-    def init(self, wrt, loss):
-        super(Adam, self).init(wrt, loss)
+    def build(self, wrt, loss):
+        super(Adam, self).build(wrt, loss)
 
     def get_updates(self):
         self.get_grad()
@@ -415,9 +425,9 @@ class Nadam(Radam):
         super(Nadam, self).__init__()
         self.beta_1 = 0.99
 
-    def init(self, wrt, loss):
-        super(Nadam, self).init(wrt, loss)
-        self.a_beta_1_ = kernel.shared(self.numpy_floatX(1), name='a_beta_1_',attr=[None])
+    def build(self, wrt, loss):
+        super(Nadam, self).build(wrt, loss)
+        self.a_beta_1_ = kernel.shared(self.numpy_floatX(1), name='a_beta_1_', attr=[None])
 
     def get_updates(self):
         self.get_grad()
