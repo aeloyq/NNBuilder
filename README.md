@@ -1,5 +1,6 @@
 NNBuilder
 ===========
+[![Build Status](https://www.travis-ci.org/aeloyq/NNBuilder.svg?branch=master)](https://www.travis-ci.org/aeloyq/NNBuilder)
 A Multi-Backend Framework For Building And Training Neural Networks
 ## Description
 * A Neural Network Framework
